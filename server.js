@@ -5,6 +5,9 @@ const port = 3000;
 
 const app = express();
 
+// Disable X-Powered-By header to prevent server framework disclosure
+app.disable('x-powered-by');
+
 app.get('/', (req, res) => {
   res.set('Content-Type', 'text/plain');
   res.send('Hello, World!\n');
