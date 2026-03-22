@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * Centralized Error Handling Middleware
  *
@@ -24,6 +26,12 @@
  *   { status: "error", statusCode: <number>, message: <string> }
  *   In non-production environments, an additional `stack` field is included
  *   to aid debugging.
+ *
+ * Security:
+ *   For 5xx server errors in production, the raw error message is masked with
+ *   a generic "Internal Server Error" string to prevent information disclosure
+ *   of internal details such as file paths, module names, or connection strings
+ *   (CWE-209: Information Exposure Through Error Message).
  *
  * @module src/middleware/errorHandler
  */
@@ -57,10 +65,20 @@ const errorHandler = (err, req, res, next) => {
   // Build the standardized JSON error response object.
   // The format is consistent across the entire application:
   //   { status: "error", statusCode: <number>, message: <string> }
+  // For 5xx server errors in production, the raw error message is replaced
+  // with a generic string to prevent potential information disclosure of
+  // internal details (file paths, module names, connection strings).
+  // Client errors (4xx) retain the specific message for API consumer feedback.
+  const isServerError = statusCode >= 500;
+  const isProduction = process.env.NODE_ENV === 'production';
+  const message = (isServerError && isProduction)
+    ? 'Internal Server Error'
+    : (err.message || 'Internal Server Error');
+
   const response = {
     status: 'error',
     statusCode: statusCode,
-    message: err.message || 'Internal Server Error',
+    message: message,
   };
 
   // Conditionally include the error stack trace for non-production environments.

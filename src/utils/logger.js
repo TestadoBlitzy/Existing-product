@@ -55,12 +55,14 @@ const logger = winston.createLogger({
   // Transport array: two file transports for persistent storage and one
   // console transport for real-time developer feedback
   transports: [
-    // Combined log file — captures all log entries at 'info' level and above
-    // (error, warn, info). Written in JSON format inherited from base format.
+    // Combined log file — captures all log entries at 'http' level and above
+    // (error, warn, info, http). Written in JSON format inherited from base
+    // format. The 'http' level (3) ensures Morgan HTTP request access logs are
+    // persisted alongside application logs for production log aggregation.
     // File rotation: 5MB max per file, retains up to 5 rotated files.
     new winston.transports.File({
       filename: 'logs/combined.log',
-      level: 'info',
+      level: 'http',
       maxsize: 5242880, // 5MB
       maxFiles: 5
     }),

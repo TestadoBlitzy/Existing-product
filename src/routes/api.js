@@ -12,6 +12,7 @@
  */
 
 const express = require('express');
+const config = require('../config');
 
 // Create a modular, mountable route handler
 const router = express.Router();
@@ -54,7 +55,7 @@ router.get('/info', (req, res) => {
     status: 'success',
     data: {
       version: require('../../package.json').version,
-      environment: process.env.NODE_ENV || 'development',
+      environment: config.env,
       nodeVersion: process.version
     }
   });

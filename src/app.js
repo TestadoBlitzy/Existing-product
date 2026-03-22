@@ -114,7 +114,7 @@ app.use(morgan('combined', {
 //    - legacyHeaders: false   — Disables deprecated X-RateLimit-* headers
 const limiter = rateLimit({
   windowMs: config.rateLimit.windowMs,
-  max: config.rateLimit.max,
+  limit: config.rateLimit.max,
   standardHeaders: true,
   legacyHeaders: false
 });
