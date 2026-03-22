@@ -21,6 +21,8 @@ app = Flask(__name__)
 # ---------------------------------------------------------------------------
 HOST = '127.0.0.1'
 PORT = 3000
+METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS']
+
 
 # ---------------------------------------------------------------------------
 # Catch-all route — replicates the Node.js universal request handler
@@ -30,8 +32,8 @@ PORT = 3000
 # in Flask: the first decorator handles the root path '/', and the second
 # handles every other path via Flask's path: converter.
 # ---------------------------------------------------------------------------
-@app.route('/', defaults={'path': ''}, methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'])
-@app.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'])
+@app.route('/', defaults={'path': ''}, methods=METHODS)
+@app.route('/<path:path>', methods=METHODS)
 def catch_all(path):
     """Return a plain-text 'Hello, World!' response for every request.
 
