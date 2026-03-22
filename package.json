@@ -5,11 +5,15 @@
     "main": "server.js",
     "scripts": {
         "start": "node server.js",
-        "test": "echo \"Error: no test specified\" && exit 1"
+        "test": "jest --watchAll=false"
     },
     "author": "hxu",
     "license": "MIT",
     "dependencies": {
         "express": "^5.2.1"
+    },
+    "devDependencies": {
+        "jest": "30.3.0",
+        "supertest": "7.2.2"
     }
 }
