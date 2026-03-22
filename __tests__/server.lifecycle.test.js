@@ -68,13 +68,6 @@ describe('Server lifecycle', () => {
         done();
       });
     });
-
-    it('should have the expected startup message containing host and port', () => {
-      const expectedMessage = 'Server running at http://127.0.0.1:3000/';
-      expect(expectedMessage).toBe('Server running at http://127.0.0.1:3000/');
-      expect(expectedMessage).toContain('127.0.0.1');
-      expect(expectedMessage).toContain('3000');
-    });
   });
 
   describe('Server shutdown', () => {

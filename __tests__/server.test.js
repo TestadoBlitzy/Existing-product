@@ -4,19 +4,6 @@ const request = require('supertest');
 const app = require('../server');
 
 // ---------------------------------------------------------------------------
-// Express app object verification
-// ---------------------------------------------------------------------------
-describe('Express app', () => {
-  it('should be defined', () => {
-    expect(app).toBeDefined();
-  });
-
-  it('should be a function', () => {
-    expect(typeof app).toBe('function');
-  });
-});
-
-// ---------------------------------------------------------------------------
 // GET / route — happy path
 // ---------------------------------------------------------------------------
 describe('GET /', () => {
@@ -157,14 +144,16 @@ describe('Edge cases', () => {
   });
 
   it('should match /Evening case-insensitively and return 200', async () => {
-    // Express 5.x routes are case-insensitive by default
+    // Express 5.x defaults to case-insensitive routing (caseSensitive: false).
+    // /Evening matches the GET /evening route and returns the same response.
     const res = await request(app).get('/Evening');
     expect(res.status).toBe(200);
     expect(res.text).toBe('Good evening');
   });
 
   it('should match /EVENING case-insensitively and return 200', async () => {
-    // Express 5.x routes are case-insensitive by default
+    // Express 5.x defaults to case-insensitive routing (caseSensitive: false).
+    // /EVENING matches the GET /evening route and returns the same response.
     const res = await request(app).get('/EVENING');
     expect(res.status).toBe(200);
     expect(res.text).toBe('Good evening');
@@ -191,11 +180,11 @@ describe('Edge cases', () => {
     expect(res.text).toBe('Good evening');
   });
 
-  it('should handle double slash GET //', async () => {
+  it('should handle double slash GET // normalized to /', async () => {
+    // Express 5.x normalizes // to / and matches the root route handler
     const res = await request(app).get('//');
-    // Double slashes may be normalized by Express — verify behavior
-    // If normalized to /, should return 200; otherwise 404
-    expect([200, 404]).toContain(res.status);
+    expect(res.status).toBe(200);
+    expect(res.text).toBe('Hello, World!\n');
   });
 });
 
