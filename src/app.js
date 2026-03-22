@@ -112,11 +112,22 @@ app.use(morgan('combined', {
 //    - standardHeaders: true  — Returns rate limit info in RateLimit-* headers
 //                                (IETF draft-6 standard)
 //    - legacyHeaders: false   — Disables deprecated X-RateLimit-* headers
+//    - handler: custom handler — Returns a structured JSON error response
+//      matching the application's standardized error format used by
+//      errorHandler.js and notFound.js, ensuring API consumers receive
+//      consistent JSON responses for ALL error codes (400, 404, 429, 500).
 const limiter = rateLimit({
   windowMs: config.rateLimit.windowMs,
   limit: config.rateLimit.max,
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  handler: (req, res) => {
+    res.status(429).json({
+      status: 'error',
+      statusCode: 429,
+      message: 'Too many requests, please try again later.'
+    });
+  }
 });
 app.use(limiter);
 
