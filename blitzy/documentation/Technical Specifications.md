@@ -1,0 +1,335 @@
+# Technical Specification
+
+# 0. Agent Action Plan
+
+## 0.1 Intent Clarification
+
+
+### 0.1.1 Core Feature Objective
+
+Based on the prompt, the Blitzy platform understands that the new feature requirement is to:
+
+- **Integrate Express.js as the HTTP framework**: Replace the existing bare Node.js `http` module server implementation in `server.js` with an Express.js-powered application, introducing Express as the project's first external dependency.
+- **Preserve the existing "Hello World" endpoint**: The current server responds with `"Hello, World!"` to all requests. After the migration to Express, a dedicated route must continue to serve this exact response at a defined path, maintaining backward-compatible behavior.
+- **Add a new "Good evening" endpoint**: Create an additional Express route that returns the response `"Good evening"` — a new, distinct endpoint served alongside the original greeting.
+- **Maintain the tutorial-level simplicity**: The project is an intentionally minimal Node.js tutorial/test harness. The changes must preserve this lightweight character while introducing Express.js patterns appropriately.
+
+Implicit requirements detected:
+
+- The `package.json` must be updated to include Express.js as a production dependency, and `package-lock.json` will be regenerated accordingly.
+- The `main` field in `package.json` currently points to the non-existent `index.js` — this should be corrected to reflect the actual entry point (`server.js`).
+- A `start` script should be added to `package.json` so the server can be launched via `npm start`.
+- The `README.md` should be updated to document the new Express-based setup and the available endpoints.
+- The server should continue to bind on port `3000` and hostname `127.0.0.1` to maintain parity with the current configuration.
+
+### 0.1.2 Special Instructions and Constraints
+
+- **User Rule — "POST Must Return 201 Created"**: The user has explicitly specified an implementation rule stating that POST requests must return HTTP status code `201 Created`. This rule must be respected in the new "Good evening" endpoint and any future endpoint additions.
+- **Preserve tutorial character**: The project is described as a tutorial of a Node.js server. All changes must remain approachable, readable, and consistent with introductory-level code.
+- **No design system or UI components**: This is a pure backend/API project with no frontend or UI layer. Design system alignment is not applicable.
+- **No Figma attachments**: No design assets were provided. UI-related protocols are not applicable.
+- **No user-provided environment setup instructions**: The environment has no special configuration or secrets required.
+
+### 0.1.3 Technical Interpretation
+
+These feature requirements translate to the following technical implementation strategy:
+
+- To **integrate Express.js**, we will install the `express` npm package (version `5.2.1`, the latest stable release verified on npm) and refactor `server.js` to use Express's application factory (`express()`) instead of the raw `http.createServer()` pattern.
+- To **preserve the "Hello World" endpoint**, we will register a `GET /` route in Express that responds with `"Hello, World!"` using `res.send()`, maintaining the same response body and `200 OK` status code as the current implementation.
+- To **add the "Good evening" endpoint**, we will register a new `GET /evening` route in Express that responds with `"Good evening"` using `res.send()` with a `200 OK` status. Per the user's rule, if this endpoint also handles POST requests, it must return `201 Created`.
+- To **update project metadata**, we will modify `package.json` to add the `express` dependency, correct the `main` field from `index.js` to `server.js`, and add a `start` script.
+- To **update documentation**, we will modify `README.md` to describe the Express.js integration and the two available endpoints.
+
+
+## 0.2 Repository Scope Discovery
+
+
+### 0.2.1 Comprehensive File Analysis
+
+The repository is a minimal, flat-structured Node.js project with exactly four files at the root level. Every file in the repository is affected by this feature addition.
+
+**Existing Files Requiring Modification:**
+
+| File Path | Current Purpose | Required Changes |
+|-----------|----------------|------------------|
+| `server.js` | Bare Node.js HTTP server using `http.createServer()` returning "Hello, World!" for all requests | Refactor to use Express.js: replace `http` module import with `express`, define `GET /` and `GET /evening` routes, add POST handler for `/evening` returning 201, retain port 3000 binding |
+| `package.json` | npm manifest with zero dependencies, `main` pointing to non-existent `index.js`, no `start` script | Add `express` to `dependencies`, fix `main` field to `server.js`, add `"start": "node server.js"` script, update `description` |
+| `package-lock.json` | Lockfile with no external dependency entries | Will be auto-regenerated by `npm install` after adding Express.js dependency |
+| `README.md` | Minimal two-line readme with project title and purpose | Update to document Express.js usage, list available endpoints (`GET /` and `GET /evening`), and provide run instructions |
+
+**Integration Point Discovery:**
+
+- **API endpoints connecting to the feature**: The current server has a single universal handler with no routing. Express introduces path-based routing, requiring creation of explicit `GET /` and `GET /evening` routes.
+- **No database models/migrations**: The project has no persistence layer — no changes needed.
+- **No service classes**: The project has no service layer — Express route handlers will contain inline logic.
+- **No middleware/interceptors**: No existing middleware to impact — Express middleware pipeline is introduced fresh.
+- **No controllers/handlers pattern**: The current monolithic callback in `http.createServer()` is replaced by Express route handlers.
+
+### 0.2.2 Web Search Research Conducted
+
+- **Express.js latest stable version**: Verified via npm registry — `express@5.2.1` is the latest stable release. Express 5.x requires Node.js >= 18, which is satisfied by the project's Node.js v20.20.1 runtime.
+- **Express 5 routing patterns**: Express 5 supports `app.get()`, `app.post()`, and other HTTP method handlers with automatic promise rejection handling, eliminating the need for manual `try/catch` in async handlers.
+- **Express 5 breaking changes from v4**: New path-to-regexp v8.x (no sub-expression regex), removed deprecated API methods from v3/v4, `app.router` reintroduced as a reference to the base router.
+- **Security considerations**: Express 5 introduced ReDoS mitigation by removing regex sub-expression support in route patterns. For this simple project with static routes, no additional security configuration is needed.
+
+### 0.2.3 New File Requirements
+
+No new source files need to be created for this feature. The project's tutorial-level simplicity means all changes fit within the existing file structure:
+
+- **No new source files**: All Express route definitions will reside in the existing `server.js` — consistent with the project's single-file architecture.
+- **No new test files**: The project currently has no test infrastructure (`"test": "echo \"Error: no test specified\" && exit 1"`). Adding a test framework is out of scope for this feature, though the test script placeholder remains.
+- **No new configuration files**: Express configuration (port, hostname) will be defined inline in `server.js`, consistent with the current hardcoded approach.
+- **Auto-generated files**: `package-lock.json` will be regenerated automatically by npm during dependency installation — this is not a manually created file.
+
+
+## 0.3 Dependency Inventory
+
+
+### 0.3.1 Private and Public Packages
+
+The project currently has zero external dependencies. This feature introduces the project's first and only npm package.
+
+| Registry | Package Name | Version | Purpose | Status |
+|----------|-------------|---------|---------|--------|
+| npm | `express` | `5.2.1` | HTTP framework providing routing, middleware pipeline, and request/response utilities for building the "Hello World" and "Good evening" endpoints | To be added |
+
+**Version Justification:**
+- `express@5.2.1` is the latest stable release on the npm registry as of the current date.
+- Express 5.x requires Node.js >= 18. The project runs Node.js v20.20.1, which fully satisfies this requirement.
+- No version was explicitly specified by the user; the latest stable version is selected per best practice for a greenfield dependency addition.
+
+**Runtime Dependencies:**
+| Component | Version | Source |
+|-----------|---------|--------|
+| Node.js | v20.20.1 | Pre-installed in environment |
+| npm | v11.1.0 | Bundled with Node.js installation |
+
+### 0.3.2 Dependency Updates
+
+**Import Updates:**
+
+The sole source file `server.js` requires an import transformation:
+
+- **Current import**: `const http = require('http');`
+- **New import**: `const express = require('express');`
+- **Scope**: Only `server.js` — no other files import modules in this project.
+
+**External Reference Updates:**
+
+| File | Change Description |
+|------|-------------------|
+| `package.json` | Add `"dependencies": { "express": "^5.2.1" }` section; update `"main"` from `"index.js"` to `"server.js"`; add `"start": "node server.js"` to `scripts` |
+| `package-lock.json` | Auto-regenerated by `npm install` — will now contain the full Express dependency tree |
+| `README.md` | Update to reference Express.js as the server framework and document `npm install` and `npm start` commands |
+
+**No build file changes required**: The project has no `Dockerfile`, CI/CD workflows, `setup.py`, `pyproject.toml`, or build configuration files that reference dependencies.
+
+
+## 0.4 Integration Analysis
+
+
+### 0.4.1 Existing Code Touchpoints
+
+**Direct Modifications Required:**
+
+- **`server.js` (complete rewrite):** The entire file must be refactored from the raw `http` module pattern to Express.js. The current implementation uses `http.createServer()` with a single anonymous callback that handles all requests identically. This will be replaced with:
+  - Express application instantiation via `const app = express();`
+  - Route registration for `GET /` returning `"Hello, World!"`
+  - Route registration for `GET /evening` returning `"Good evening"`
+  - Route registration for `POST /evening` returning `"Good evening"` with status `201`
+  - Server startup via `app.listen(port, hostname, callback)` replacing `server.listen()`
+
+- **`package.json` (metadata and dependency update):** Three targeted changes within the existing manifest structure:
+  - Add the `dependencies` object with the `express` entry
+  - Correct the `main` field value from `"index.js"` to `"server.js"`
+  - Add a `start` script to the existing `scripts` block
+
+- **`README.md` (documentation refresh):** Replace the minimal two-line content with documentation that reflects the Express-based server, available endpoints, and run instructions.
+
+**Dependency Injections:**
+
+- No dependency injection container or service registration exists in this project. Express.js itself acts as the application container, and routes are registered directly on the `app` object within `server.js`.
+
+**Database/Schema Updates:**
+
+- Not applicable. The project has no database, schema files, or migrations.
+
+### 0.4.2 Migration Impact Assessment
+
+The migration from bare `http` to Express involves the following behavioral changes:
+
+| Aspect | Before (http module) | After (Express.js) |
+|--------|---------------------|-------------------|
+| Request routing | All requests → same handler | Path-based routing (`/`, `/evening`) |
+| Response for `GET /` | `"Hello, World!\n"` | `"Hello, World!"` |
+| Response for `GET /evening` | `"Hello, World!\n"` (same as all) | `"Good evening"` |
+| Response for `POST /evening` | `"Hello, World!\n"` (same as all) | `"Good evening"` with status `201` |
+| Unmatched routes | `"Hello, World!\n"` | Express default 404 handler |
+| Server binding | `127.0.0.1:3000` | `127.0.0.1:3000` (preserved) |
+| Content-Type header | Manually set to `text/plain` | Automatically set by Express `res.send()` |
+| Module system | CommonJS (`require('http')`) | CommonJS (`require('express')`) |
+
+**Breaking behavior change**: Requests to paths other than `/` and `/evening` will now receive a `404 Not Found` response instead of the universal `"Hello, World!"`. This is an expected consequence of introducing proper routing and is consistent with the user's intent to have distinct endpoints.
+
+
+## 0.5 Technical Implementation
+
+
+### 0.5.1 File-by-File Execution Plan
+
+**Group 1 — Core Feature Files:**
+
+- **MODIFY: `server.js`** — Refactor from bare `http` module to Express.js application. Replace the `http.createServer()` universal handler with Express route definitions for `GET /` (returns `"Hello, World!"`), `GET /evening` (returns `"Good evening"`), and `POST /evening` (returns `"Good evening"` with status `201 Created`). Retain `127.0.0.1:3000` binding via `app.listen()`.
+
+**Group 2 — Configuration and Metadata:**
+
+- **MODIFY: `package.json`** — Add `express` as a production dependency (`"express": "^5.2.1"`), correct the `main` field from `"index.js"` to `"server.js"`, and add `"start": "node server.js"` to the `scripts` block.
+- **AUTO-GENERATED: `package-lock.json`** — Regenerated by `npm install` after the `package.json` update. No manual edits required.
+
+**Group 3 — Documentation:**
+
+- **MODIFY: `README.md`** — Update to describe the Express.js-based server, list both endpoints with expected responses and HTTP methods, and include setup/run instructions (`npm install`, `npm start`).
+
+### 0.5.2 Implementation Approach per File
+
+**`server.js` — Express Migration:**
+
+The existing 14-line file is replaced with an Express application following the standard Express 5 pattern:
+
+```js
+const express = require('express');
+const app = express();
+```
+
+Route handlers are registered directly on the `app` object. The `GET /` route preserves the original greeting. The `GET /evening` and `POST /evening` routes deliver the new feature. The server binds via `app.listen(3000, '127.0.0.1', callback)`.
+
+**`package.json` — Dependency Declaration:**
+
+The `dependencies` section is added to the existing manifest:
+
+```json
+"dependencies": { "express": "^5.2.1" }
+```
+
+The `main` and `scripts` fields are updated in place without altering other metadata (`name`, `version`, `author`, `license`).
+
+**`README.md` — Documentation Refresh:**
+
+The readme is updated to include:
+- Project description reflecting Express.js integration
+- Available endpoints table: `GET /` → `"Hello, World!"`, `GET /evening` → `"Good evening"`, `POST /evening` → `"Good evening"` (201)
+- Setup instructions: `npm install` then `npm start`
+
+### 0.5.3 User Interface Design
+
+Not applicable. This project is a backend-only Node.js server with no user interface, frontend assets, or visual components. All interactions are via HTTP API endpoints.
+
+
+## 0.6 Scope Boundaries
+
+
+### 0.6.1 Exhaustively In Scope
+
+**Source Files:**
+- `server.js` — Full refactor from `http` module to Express.js application with route definitions
+
+**Configuration and Metadata:**
+- `package.json` — Add `express` dependency, fix `main` field, add `start` script
+- `package-lock.json` — Auto-regenerated by npm during dependency installation
+
+**Documentation:**
+- `README.md` — Updated to reflect Express.js usage, endpoint documentation, and run instructions
+
+**Endpoints to Implement:**
+- `GET /` — Returns `"Hello, World!"` with status `200 OK`
+- `GET /evening` — Returns `"Good evening"` with status `200 OK`
+- `POST /evening` — Returns `"Good evening"` with status `201 Created`
+
+**Runtime Configuration:**
+- Server hostname: `127.0.0.1` (preserved from current implementation)
+- Server port: `3000` (preserved from current implementation)
+- Module system: CommonJS `require()` syntax (preserved)
+
+### 0.6.2 Explicitly Out of Scope
+
+- **Test framework addition**: The project currently has no test infrastructure. Adding a test runner (e.g., Jest, Mocha) or writing test files is not part of this feature request.
+- **TypeScript migration**: The project uses plain JavaScript with CommonJS. No TypeScript conversion is planned.
+- **ES Modules migration**: The project will continue using `require()` syntax. No migration to `import/export` is included.
+- **Middleware additions**: No request parsing middleware (e.g., `express.json()`, `express.urlencoded()`), logging middleware, or error-handling middleware beyond Express defaults.
+- **Environment variable configuration**: Port and hostname remain hardcoded. No `.env` file or `dotenv` integration.
+- **Docker/CI/CD**: No Dockerfile, docker-compose, or CI/CD workflow files exist or will be created.
+- **Database or persistence layer**: No database, ORM, or file-based storage.
+- **Authentication or authorization**: No auth mechanisms of any kind.
+- **Additional endpoints**: Only `GET /`, `GET /evening`, and `POST /evening` are in scope. No other routes will be added.
+- **Performance optimization**: No clustering, load balancing, or caching.
+- **Frontend or static file serving**: No HTML, CSS, or client-side JavaScript assets.
+- **Refactoring unrelated code**: No changes to project structure beyond what is required for Express integration.
+
+
+## 0.7 Rules for Feature Addition
+
+
+### 0.7.1 User-Specified Rules
+
+The following rule was explicitly provided by the user and must be enforced across all implementation:
+
+| Rule Name | Rule Content | Application |
+|-----------|-------------|-------------|
+| `rule- add feature-new` | **POST Must Return 201 Created** | Any `POST` route handler must set the HTTP response status code to `201` instead of the default `200`. This applies to `POST /evening` and any future POST endpoints. |
+
+**Implementation directive:** In the Express route handler for `POST /evening`, the response must explicitly use `res.status(201).send('Good evening')` to comply with this rule. The default Express behavior for `res.send()` returns `200 OK`, so the status must be set explicitly.
+
+### 0.7.2 Conventions to Preserve
+
+- **Tutorial simplicity**: All code must remain beginner-friendly, with clear variable names and minimal abstraction.
+- **CommonJS module system**: Continue using `require()` syntax consistent with the existing codebase convention documented in `server.js`.
+- **Hardcoded configuration**: Port (`3000`) and hostname (`127.0.0.1`) remain hardcoded inline, consistent with the project's existing approach.
+- **Single-file architecture**: All server logic stays in `server.js`. No module extraction or file splitting.
+- **MIT license**: The project license remains unchanged.
+
+
+## 0.8 References
+
+
+### 0.8.1 Repository Files and Folders Searched
+
+All files in the repository were retrieved and analyzed to derive the conclusions in this Agent Action Plan:
+
+| File Path | Type | Relevance |
+|-----------|------|-----------|
+| `server.js` | Source file | Primary file to modify — contains the current HTTP server implementation (14 lines, `http.createServer()` pattern) |
+| `package.json` | Configuration | npm manifest — currently has zero dependencies, `main` points to non-existent `index.js`, no `start` script |
+| `package-lock.json` | Lockfile | npm lockfile (v3) — currently records only root package metadata with no external dependencies |
+| `README.md` | Documentation | Two-line readme — title "hao-backprop-test" and description "test project for backprop integration" |
+
+**Folder structure:** The repository is entirely flat with all four files at the root level. No subdirectories exist.
+
+### 0.8.2 Technical Specification Sections Consulted
+
+| Section | Key Insight Gathered |
+|---------|---------------------|
+| 1.1 Executive Summary | Confirmed project is a minimal test harness for Backprop integration |
+| 1.2 System Overview | Documented zero-dependency design, single HTTP endpoint, localhost:3000 binding |
+| 1.3 Scope | Identified current in-scope/out-of-scope boundaries; noted "Advanced HTTP Handling: Routing, middleware" as previously out of scope |
+| 2.1 Feature Catalog | Mapped existing features F-001 (HTTP Server), F-002 (Universal Request Handler), F-003 (Test Harness) |
+| 3.2 Programming Languages | Confirmed CommonJS module system, no TypeScript, no ES6 modules |
+| 3.3 Frameworks & Libraries | Confirmed zero external frameworks by design |
+| 3.4 Open Source Dependencies | Confirmed zero npm dependencies, lockfileVersion 3 |
+| 5.1 High-Level Architecture | Documented single-file monolithic architecture with synchronous processing |
+| 5.2 Component Details | Detailed the three logical components within `server.js` |
+| 6.1 Core Services Architecture | Confirmed monolithic pattern, no service decomposition needed |
+
+### 0.8.3 External Research Conducted
+
+| Search Topic | Source | Finding |
+|-------------|--------|---------|
+| Express.js latest stable version | npm registry (`npm view express version`) | `express@5.2.1` confirmed as latest stable |
+| Express 5 release status | expressjs.com, GitHub releases, npmjs.com | Express 5.1.0 became the default on npm (March 2025); 5.2.1 is the current latest |
+| Express 5 Node.js requirements | Express release notes, community articles | Express 5 requires Node.js >= 18; project's Node.js v20.20.1 is fully compatible |
+| Express 5 breaking changes | Express migration guide, InfoQ, dev.to | New path-to-regexp v8.x, removed deprecated v3/v4 APIs, automatic promise rejection handling |
+
+### 0.8.4 Attachments
+
+No attachments were provided for this project. No Figma URLs, design files, or supplementary documents were supplied.
+
+
