@@ -1,24 +1,24 @@
 # hao-backprop-test
 
-A minimal Node.js tutorial server powered by [Express.js](https://expressjs.com/). This project demonstrates basic HTTP routing with Express, serving simple text responses across multiple endpoints.
+A minimal Python tutorial server powered by [Flask](https://flask.palletsprojects.com/). This project demonstrates basic HTTP routing with Flask, serving simple text responses across multiple endpoints.
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) v18 or higher
-- npm (included with Node.js)
+- [Python](https://www.python.org/) 3.10 or higher
+- pip (included with Python)
 
 ## Setup
 
 1. Install dependencies:
 
    ```bash
-   npm install
+   pip install -r requirements.txt
    ```
 
 2. Start the server:
 
    ```bash
-   npm start
+   python server.py
    ```
 
    The server will start listening at **http://127.0.0.1:3000/**.
