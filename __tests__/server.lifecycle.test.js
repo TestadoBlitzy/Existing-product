@@ -107,6 +107,25 @@ describe('Server lifecycle', () => {
         });
       });
     });
+
+    it('should pass EADDRINUSE error as first argument to app.listen callback (Express 5.x)', (done) => {
+      server = app.listen(0, '127.0.0.1', () => {
+        const usedPort = server.address().port;
+        // Express 5.x forwards listen errors (e.g. EADDRINUSE) to the callback
+        // as the first argument — this validates the server.js fix
+        const server2 = app.listen(usedPort, '127.0.0.1', (err) => {
+          expect(err).toBeDefined();
+          // Verify err is an Error-like object with a string message
+          // (avoid toBeInstanceOf(Error) due to cross-realm prototype mismatch
+          // when Node.js system errors pass through the Express 5.x once() wrapper)
+          expect(typeof err.message).toBe('string');
+          expect(err.code).toBe('EADDRINUSE');
+          server2.close(() => {
+            done();
+          });
+        });
+      });
+    });
   });
 
   describe('App export', () => {
