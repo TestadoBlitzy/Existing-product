@@ -19,4 +19,7 @@ def evening_post():
 
 
 if __name__ == "__main__":
+    from werkzeug.serving import WSGIRequestHandler
+
+    WSGIRequestHandler.version_string = lambda self: ""
     app.run(host="127.0.0.1", port=3000)
