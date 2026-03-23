@@ -115,10 +115,10 @@ describe('Server lifecycle', () => {
         // as the first argument — this validates the server.js fix
         const server2 = app.listen(usedPort, '127.0.0.1', (err) => {
           expect(err).toBeDefined();
-          // Verify err is an Error-like object with a string message
-          // (avoid toBeInstanceOf(Error) due to cross-realm prototype mismatch
-          // when Node.js system errors pass through the Express 5.x once() wrapper)
-          expect(typeof err.message).toBe('string');
+          // Cross-realm safe Error check: Jest's node VM context isolates the
+          // Error constructor, making toBeInstanceOf(Error) unreliable for system
+          // errors originating from Node.js core modules (net, fs, etc.)
+          expect(Object.prototype.toString.call(err)).toBe('[object Error]');
           expect(err.code).toBe('EADDRINUSE');
           server2.close(() => {
             done();
