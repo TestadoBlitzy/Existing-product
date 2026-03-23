@@ -1,4 +1,4 @@
-# Blitzy Project Guide — Express.js Integration for hao-backprop-test
+# Blitzy Project Guide — hao-backprop-test: Node.js/Express → Python/Flask Migration
 
 ---
 
@@ -6,58 +6,52 @@
 
 ### 1.1 Project Overview
 
-This project migrates a minimal Node.js tutorial HTTP server from the bare `http` module to Express.js 5.2.1, the industry-standard Node.js web framework. The migration preserves the original `GET /` "Hello, World!" endpoint while introducing a new `GET /evening` and `POST /evening` ("Good evening") endpoint pair. The `POST /evening` route enforces a user-specified rule returning HTTP 201 Created. The target audience is tutorial learners and integration testers. All four repository files (`server.js`, `package.json`, `package-lock.json`, `README.md`) were updated to deliver a complete, runtime-verified Express.js application binding to `127.0.0.1:3000`.
+This project migrates the `hao-backprop-test` hello_world application from Node.js/Express.js 5.2.1 to Python 3.10+/Flask 3.x. The application serves as an integration test harness for Backprop tooling, providing three HTTP endpoints (`GET /`, `GET /evening`, `POST /evening`) with deterministic response bodies and status codes. The migration replaces the entire Node.js runtime stack (Express, npm, CommonJS modules) with Python equivalents (Flask, pip, standard imports) while preserving exact behavioral parity across all endpoint contracts. The target audience is the Backprop integration testing infrastructure.
 
 ### 1.2 Completion Status
 
 ```mermaid
-pie title Project Completion — 71.4% Complete
-    "Completed (5h)" : 5
-    "Remaining (2h)" : 2
+pie title Completion Status
+    "Completed (6.0h)" : 6.0
+    "Remaining (1.5h)" : 1.5
 ```
 
 | Metric | Value |
 |--------|-------|
-| **Total Project Hours** | **7** |
-| **Completed Hours (AI)** | **5** |
-| **Remaining Hours** | **2** |
-| **Completion Percentage** | **71.4%** |
+| **Total Project Hours** | 7.5 |
+| **Completed Hours (AI)** | 6.0 |
+| **Remaining Hours** | 1.5 |
+| **Completion Percentage** | **80.0%** |
 
-> **Calculation:** 5 completed hours / (5 completed + 2 remaining) = 5 / 7 = **71.4% complete**
-
-All 12 AAP-scoped deliverables are fully implemented and validated. The remaining 2 hours represent standard path-to-production hardening activities (environment configuration, security headers, process management, graceful shutdown) that are not part of the AAP feature scope but are recommended before production deployment.
+**Calculation:** 6.0 completed hours / 7.5 total hours = 80.0% complete
 
 ### 1.3 Key Accomplishments
 
-- [x] Migrated `server.js` from bare `http.createServer()` to Express.js 5.2.1 application
-- [x] Preserved `GET /` endpoint returning `"Hello, World!"` with HTTP 200
-- [x] Added `GET /evening` endpoint returning `"Good evening"` with HTTP 200
-- [x] Added `POST /evening` endpoint returning `"Good evening"` with HTTP 201 Created (user rule enforced)
-- [x] Added `express@^5.2.1` as production dependency in `package.json`
-- [x] Corrected `main` field from `index.js` to `server.js`
-- [x] Added `"start": "node server.js"` script enabling `npm start`
-- [x] Regenerated `package-lock.json` with full Express dependency tree (66 packages, 0 vulnerabilities)
-- [x] Rewrote `README.md` with endpoint reference table, prerequisites, and setup instructions
-- [x] Verified all endpoints at runtime with `curl` — all return correct status codes and response bodies
-- [x] Maintained CommonJS `require()` syntax and tutorial-level simplicity throughout
+- [x] Created `server.py` — Flask 3.x application with 3 route handlers preserving exact endpoint contracts (GET / → 200, GET /evening → 200, POST /evening → 201)
+- [x] Created `requirements.txt` with `Flask>=3.0` replacing npm dependency management
+- [x] Updated `README.md` with Python 3.10+/pip/Flask prerequisites, setup steps, and preserved endpoint documentation
+- [x] Removed all Node.js artifacts: `server.js`, `package.json`, `package-lock.json` (66 npm packages eliminated)
+- [x] Validated all 4 behavioral contracts via runtime curl testing (4/4 PASS)
+- [x] Achieved zero compilation errors (`py_compile`, AST parse) and zero lint violations
+- [x] Applied security fix: suppressed Flask/Werkzeug server version header disclosure
+- [x] Verified Flask 3.1.3 installation with all 6 transitive dependencies
 
 ### 1.4 Critical Unresolved Issues
 
 | Issue | Impact | Owner | ETA |
 |-------|--------|-------|-----|
-| No automated test suite | Cannot run regression tests; `npm test` exits with error (by design per AAP scope) | Human Developer | 2–4 hours if elected |
-| `X-Powered-By: Express` header exposed | Minor security information disclosure; reveals server framework to clients | Human Developer | 0.5 hours |
+| No production WSGI server configured | Flask development server not suitable for production load | Human Developer | 1.0h |
+| Virtual environment setup not documented in README | Developers may install Flask globally instead of in isolated venv | Human Developer | 0.5h |
 
 ### 1.5 Access Issues
 
-No access issues identified. The project requires no external service credentials, API keys, or special repository permissions. All dependencies resolve from the public npm registry.
+No access issues identified. All required tools (Python 3.12, pip, Flask 3.1.3) are available and functioning. No external service credentials, API keys, or special repository permissions are needed for this minimal application.
 
 ### 1.6 Recommended Next Steps
 
-1. **[Medium]** Configure environment variables for `PORT` and `HOST` to support deployment across environments
-2. **[Medium]** Add `helmet` or manual header configuration to disable `X-Powered-By` and set security response headers
-3. **[Low]** Set up a process manager (PM2 or systemd) for production-grade server lifecycle management
-4. **[Low]** Implement graceful shutdown handling (`SIGTERM`/`SIGINT` listeners) for container or cloud deployments
+1. **[Medium]** Configure a production WSGI server (e.g., Gunicorn) for deployment beyond development use
+2. **[Low]** Add virtual environment setup instructions (`python -m venv venv`) to README.md
+3. **[Low]** Merge this PR and verify Backprop integration test harness operates correctly against the Flask server
 
 ---
 
@@ -67,22 +61,22 @@ No access issues identified. The project requires no external service credential
 
 | Component | Hours | Description |
 |-----------|-------|-------------|
-| Express.js migration (`server.js`) | 2 | Refactored from bare `http` module to Express 5.2.1 app; implemented `GET /`, `GET /evening`, `POST /evening` (201) route handlers; preserved hostname/port binding |
-| Package configuration (`package.json`) | 0.5 | Added `express@^5.2.1` dependency, corrected `main` field to `server.js`, added `start` script |
-| Dependency installation (`package-lock.json`) | 0.5 | Ran `npm install`, regenerated lockfile with full Express dependency tree (66 packages, 0 vulnerabilities) |
-| Documentation (`README.md`) | 1 | Comprehensive rewrite with project description, prerequisites, setup instructions, endpoint reference table with methods/paths/status codes, and license |
-| Validation and runtime testing | 1 | Syntax validation (`node -c`), Express module loading verification, all 3 endpoints tested with `curl` confirming correct status codes and response bodies, 404 default handler verified |
-| **Total** | **5** | |
+| Flask Application (`server.py`) | 2.0 | Created Flask app with 3 route handlers (`GET /`, `GET /evening`, `POST /evening`) preserving exact response bodies and status codes. Includes `Flask(__name__)` instantiation, `@app.route()` decorators, tuple returns, and `__main__` guard with `app.run(host="127.0.0.1", port=3000)`. Security fix: suppressed Werkzeug version header. |
+| Dependency Manifest (`requirements.txt`) | 0.5 | Created pip requirements file with `Flask>=3.0` replacing npm `package.json` dependency on Express ^5.2.1. |
+| Documentation Update (`README.md`) | 1.0 | Rewrote README for Python/Flask: updated prerequisites (Python 3.10+, pip), setup steps (`pip install -r requirements.txt` → `python server.py`), preserved endpoint table and MIT license. |
+| Node.js Artifact Removal | 0.5 | Deleted `server.js` (Express app), `package.json` (npm manifest), `package-lock.json` (66 npm packages) — all replaced by Python equivalents. |
+| Dependency & Environment Validation | 0.5 | Verified Flask 3.1.3 installation with all transitive dependencies (Werkzeug 3.1.6, Jinja2 3.1.6, MarkupSafe 3.0.3, itsdangerous 2.2.0, click 8.3.1, blinker 1.9.0). Confirmed `pip install -r requirements.txt` succeeds cleanly. |
+| Runtime Behavioral Validation | 1.0 | Tested all 4 endpoint contracts via curl: `GET /` → "Hello, World!" (200), `GET /evening` → "Good evening" (200), `POST /evening` → "Good evening" (201), `GET /unknown` → Flask 404. All 4/4 PASS. |
+| Compilation & Code Quality Checks | 0.5 | Verified `py_compile`, AST parse, and pyflakes lint — zero errors, zero violations across all source files. |
+| **Total** | **6.0** | |
 
 ### 2.2 Remaining Work Detail
 
 | Category | Hours | Priority |
 |----------|-------|----------|
-| Environment variable configuration (PORT/HOST) | 0.5 | Medium |
-| Security hardening (response headers, X-Powered-By) | 0.5 | Medium |
-| Production process management (PM2/systemd setup) | 0.5 | Low |
-| Graceful shutdown handling (SIGTERM/SIGINT) | 0.5 | Low |
-| **Total** | **2** | |
+| Production WSGI Server Configuration (e.g., Gunicorn) | 1.0 | Medium |
+| Virtual Environment Setup Documentation in README | 0.5 | Low |
+| **Total** | **1.5** | |
 
 ---
 
@@ -90,16 +84,12 @@ No access issues identified. The project requires no external service credential
 
 | Test Category | Framework | Total Tests | Passed | Failed | Coverage % | Notes |
 |---------------|-----------|-------------|--------|--------|------------|-------|
-| Syntax Validation | Node.js (`node -c`) | 1 | 1 | 0 | 100% | `server.js` syntax check passed |
-| Module Loading | Node.js (`node -e`) | 1 | 1 | 0 | 100% | `require('express')` loads successfully |
-| Runtime Endpoint — GET / | curl | 1 | 1 | 0 | 100% | HTTP 200, body: `Hello, World!` |
-| Runtime Endpoint — GET /evening | curl | 1 | 1 | 0 | 100% | HTTP 200, body: `Good evening` |
-| Runtime Endpoint — POST /evening | curl | 1 | 1 | 0 | 100% | HTTP 201 Created, body: `Good evening` |
-| Runtime Endpoint — GET /unknown | curl | 1 | 1 | 0 | 100% | HTTP 404 Not Found (Express default) |
-| Dependency Audit | npm | 1 | 1 | 0 | 100% | 0 vulnerabilities in 66 packages |
-| **Total** | | **7** | **7** | **0** | **100%** | All Blitzy autonomous validations passed |
+| Runtime Behavioral (curl) | Blitzy Autonomous Validation | 4 | 4 | 0 | 100% | All 4 endpoint contracts verified: GET / (200), GET /evening (200), POST /evening (201), GET /unknown (404) |
+| Compilation | py_compile + AST | 1 | 1 | 0 | 100% | `python -m py_compile server.py` — zero errors; AST parse — OK |
+| Static Analysis | pyflakes | 1 | 1 | 0 | 100% | Zero lint violations in server.py |
+| Dependency Installation | pip | 1 | 1 | 0 | 100% | `pip install -r requirements.txt` succeeds cleanly; Flask 3.1.3 + 6 transitive deps |
 
-> **Note:** The project has no formal test framework by design (AAP §0.6.2 — test framework addition is explicitly out of scope). `npm test` outputs `"Error: no test specified"` and exits with code 1, which is the expected behavior per the placeholder test script.
+> **Note:** No automated unit/integration test framework exists in this repository. This is explicitly out of scope per the AAP — the application is a Backprop test harness with runtime behavioral validation serving as the primary verification method.
 
 ---
 
@@ -107,46 +97,48 @@ No access issues identified. The project requires no external service credential
 
 ### Runtime Health
 
-- ✅ **Server startup**: `npm start` launches Express server at `http://127.0.0.1:3000/` with console confirmation message
-- ✅ **GET /**: Returns HTTP 200 with body `Hello, World!` — original endpoint preserved
-- ✅ **GET /evening**: Returns HTTP 200 with body `Good evening` — new endpoint operational
-- ✅ **POST /evening**: Returns HTTP 201 Created with body `Good evening` — user rule enforced
-- ✅ **404 handling**: Unmatched routes (e.g., `GET /unknown`) return HTTP 404 via Express default handler
-- ✅ **Response headers**: `Content-Type: text/html; charset=utf-8` set automatically by Express `res.send()`
-- ✅ **Dependencies**: 66 packages installed with 0 vulnerabilities
+- ✅ **Flask server startup**: `python server.py` starts successfully, binds to `http://127.0.0.1:3000`
+- ✅ **GET /**: Returns `Hello, World!` with HTTP 200 — exact body match
+- ✅ **GET /evening**: Returns `Good evening` with HTTP 200 — exact body match
+- ✅ **POST /evening**: Returns `Good evening` with HTTP 201 Created — exact body and status match
+- ✅ **GET /unknown**: Returns Flask default 404 Not Found page — correct fallback behavior
+- ✅ **Server version header**: Suppressed (Werkzeug `version_string` overridden) — no server fingerprinting
 
 ### API Integration Outcomes
 
-- ✅ Express 5.2.1 fully operational with Node.js v20.19.5
-- ✅ CommonJS `require()` module loading works correctly
-- ✅ `app.listen()` binds to `127.0.0.1:3000` as configured
+- ✅ All 4 endpoint contracts verified via curl during autonomous validation
+- ✅ Content-Type header: `text/html; charset=utf-8` (Flask default, matching Express behavior)
+- ✅ Host binding: `127.0.0.1:3000` preserved from original Node.js implementation
 
 ### UI Verification
 
-Not applicable — this is a backend-only API project with no user interface or frontend assets.
+Not applicable — this is a backend-only API application with no frontend UI.
 
 ---
 
 ## 5. Compliance & Quality Review
 
 | AAP Requirement | Status | Evidence |
-|----------------|--------|----------|
-| Integrate Express.js as HTTP framework | ✅ Pass | `server.js` line 1: `const express = require('express')` |
-| Preserve GET / "Hello, World!" endpoint | ✅ Pass | Runtime: `curl http://127.0.0.1:3000/` → 200, `Hello, World!` |
-| Add GET /evening "Good evening" endpoint | ✅ Pass | Runtime: `curl http://127.0.0.1:3000/evening` → 200, `Good evening` |
-| POST /evening returns 201 Created (user rule) | ✅ Pass | Runtime: `curl -X POST http://127.0.0.1:3000/evening` → 201, `Good evening` |
-| Add express dependency to package.json | ✅ Pass | `package.json` line 13: `"express": "^5.2.1"` |
-| Fix main field to server.js | ✅ Pass | `package.json` line 5: `"main": "server.js"` |
-| Add start script to package.json | ✅ Pass | `package.json` line 7: `"start": "node server.js"` |
-| Regenerate package-lock.json | ✅ Pass | 827-line lockfile with complete Express dependency tree |
-| Update README.md with Express docs | ✅ Pass | 38-line README with endpoint table, setup instructions |
-| Server binds to 127.0.0.1:3000 | ✅ Pass | Runtime: server confirmed at `http://127.0.0.1:3000/` |
-| CommonJS module system preserved | ✅ Pass | `server.js` uses `require('express')`, not ES module `import` |
-| Tutorial-level simplicity maintained | ✅ Pass | Single-file architecture, 22 lines, clear variable names |
+|-----------------|--------|----------|
+| Replace Express.js with Flask ≥ 3.0 | ✅ Pass | `server.py` uses `from flask import Flask`; Flask 3.1.3 installed |
+| Preserve GET / → "Hello, World!" (200) | ✅ Pass | curl verification: exact body and status match |
+| Preserve GET /evening → "Good evening" (200) | ✅ Pass | curl verification: exact body and status match |
+| Preserve POST /evening → "Good evening" (201) | ✅ Pass | curl verification: exact body and status match |
+| Flask default 404 for unknown routes | ✅ Pass | curl /unknown returns 404 with Flask default HTML |
+| Replace package.json with requirements.txt | ✅ Pass | `requirements.txt` created with `Flask>=3.0`; `package.json` deleted |
+| Remove package-lock.json | ✅ Pass | `package-lock.json` deleted (66 npm packages removed) |
+| Remove server.js | ✅ Pass | `server.js` deleted; replaced by `server.py` |
+| Update README.md for Python/Flask | ✅ Pass | README updated: Python 3.10+ prerequisites, pip/Flask setup, endpoint table preserved |
+| Single-file architecture | ✅ Pass | All logic in `server.py`; no blueprints, no multi-file decomposition |
+| Bind to 127.0.0.1:3000 | ✅ Pass | `app.run(host="127.0.0.1", port=3000)` in server.py |
+| No middleware/logging/error handlers | ✅ Pass | No additional middleware; only Flask built-in defaults |
+| No CI/CD or workflow changes | ✅ Pass | No workflow files created or modified |
+| No database/auth/external APIs | ✅ Pass | Zero external service dependencies |
+| Zero compilation errors | ✅ Pass | py_compile, AST parse — zero errors |
+| Zero lint violations | ✅ Pass | pyflakes — zero violations |
 
-### Autonomous Validation Fixes Applied
-
-No fixes were required. All prior agent implementations were correct and complete. The Final Validator confirmed zero issues across all 5 validation gates (Dependencies, Compilation, Tests, Runtime, File Validation).
+**Autonomous Fixes Applied:**
+- Suppressed Werkzeug server version header disclosure (security hardening) — commit `311dc5f`
 
 ---
 
@@ -154,13 +146,12 @@ No fixes were required. All prior agent implementations were correct and complet
 
 | Risk | Category | Severity | Probability | Mitigation | Status |
 |------|----------|----------|-------------|------------|--------|
-| `X-Powered-By: Express` header exposes framework | Security | Low | High | Disable via `app.disable('x-powered-by')` or use `helmet` middleware | Open |
-| No automated test suite for regression | Technical | Medium | High | Add Jest or Mocha with supertest for endpoint testing | Open |
-| Hardcoded port/hostname blocks multi-environment deployment | Operational | Low | Medium | Introduce `process.env.PORT` and `process.env.HOST` with fallback defaults | Open |
-| No graceful shutdown on SIGTERM/SIGINT | Operational | Low | Medium | Add signal handlers to close server connections before exit | Open |
-| Express 5.x is relatively new (stable since March 2025) | Technical | Low | Low | Monitor Express release notes; pin dependency version if issues arise | Accepted |
-| No request rate limiting | Security | Low | Low | Add `express-rate-limit` middleware if exposed to public traffic | Open |
-| No request logging/monitoring | Operational | Low | Medium | Add `morgan` or custom logging middleware for production observability | Open |
+| Flask development server used in production | Technical | Medium | Medium | Configure Gunicorn or uWSGI for production deployment | Open |
+| No automated test suite | Technical | Low | Low | AAP explicitly excludes testing; runtime curl validation serves as primary verification | Accepted |
+| No virtual environment isolation documented | Operational | Low | Medium | Add venv setup instructions to README | Open |
+| Backprop tooling integration untested post-migration | Integration | Low | Low | Manually verify Backprop tests run against Flask server after merge | Open |
+| No HTTPS/TLS configuration | Security | Low | Low | Appropriate for localhost test harness; add TLS if exposed externally | Accepted |
+| Flask version deprecation warnings | Technical | Low | Low | `__version__` attribute deprecated in Flask 3.2; use `importlib.metadata` if needed | Accepted |
 
 ---
 
@@ -168,27 +159,19 @@ No fixes were required. All prior agent implementations were correct and complet
 
 ```mermaid
 pie title Project Hours Breakdown
-    "Completed Work" : 5
-    "Remaining Work" : 2
+    "Completed Work" : 6.0
+    "Remaining Work" : 1.5
 ```
+
+**Completed: 6.0 hours (80.0%) | Remaining: 1.5 hours (20.0%)**
 
 ### Remaining Hours by Category
 
-| Category | Hours | Priority |
-|----------|-------|----------|
-| Environment variable configuration | 0.5 | Medium |
-| Security hardening | 0.5 | Medium |
-| Production process management | 0.5 | Low |
-| Graceful shutdown handling | 0.5 | Low |
-| **Total Remaining** | **2** | |
-
-### Priority Distribution
-
-| Priority | Hours | Percentage |
-|----------|-------|------------|
-| Medium | 1 | 50% |
-| Low | 1 | 50% |
-| **Total** | **2** | **100%** |
+| Category | Hours |
+|----------|-------|
+| Production WSGI Server Configuration | 1.0 |
+| Virtual Environment Documentation | 0.5 |
+| **Total Remaining** | **1.5** |
 
 ---
 
@@ -196,27 +179,35 @@ pie title Project Hours Breakdown
 
 ### Achievements
 
-The project has achieved **71.4% completion** (5 hours completed out of 7 total hours). All 12 deliverables defined in the Agent Action Plan have been fully implemented, validated, and committed. The Express.js 5.2.1 migration is complete with three operational endpoints, correct HTTP status codes (including the user-mandated 201 Created for POST), updated package configuration, and comprehensive documentation.
+The Node.js/Express.js → Python/Flask migration is **80.0% complete** with all AAP-scoped deliverables fully implemented, validated, and committed. The Blitzy autonomous agents successfully:
+
+- Created a 25-line Flask application (`server.py`) preserving exact behavioral parity across all 4 endpoint contracts
+- Replaced the entire Node.js dependency stack (66 npm packages) with a single Flask dependency
+- Updated documentation to reflect the new Python/Flask technology stack
+- Achieved zero compilation errors and zero lint violations
+- Verified all endpoints via runtime curl testing (4/4 PASS)
 
 ### Remaining Gaps
 
-The remaining 2 hours represent path-to-production hardening activities that fall outside the AAP's feature scope but are recommended for production deployments:
+The remaining 1.5 hours (20.0%) consist of path-to-production polish items:
 
-- **Environment configuration** (0.5h): Port and hostname are hardcoded; environment variable support enables multi-environment deployment
-- **Security hardening** (0.5h): The `X-Powered-By: Express` response header should be disabled; basic security headers should be added
-- **Process management** (0.5h): A production process manager (PM2) ensures automatic restart on crash
-- **Graceful shutdown** (0.5h): Signal handlers prevent abrupt connection termination during deployments
-
-### Critical Path to Production
-
-1. Install and configure security headers (disabling `X-Powered-By` is the most impactful quick win)
-2. Add environment variable support for `PORT` and `HOST` with sensible defaults
-3. Set up process management for the deployment target
-4. Optionally add an automated test suite for regression protection
+1. **Production WSGI server** (1.0h): Flask's built-in development server is adequate for the Backprop test harness use case but should be replaced with Gunicorn or uWSGI if the application is deployed in a production-like environment.
+2. **Virtual environment documentation** (0.5h): Adding `python -m venv venv` instructions to the README would improve developer onboarding experience.
 
 ### Production Readiness Assessment
 
-The application is **functionally complete** and ready for development/staging use. All specified endpoints work correctly. For production deployment, the 4 recommended hardening tasks (2 hours total) should be completed. No blocking issues exist — all remaining work is preventive hardening.
+The application is **production-ready for its intended use case** as a Backprop integration test harness. All behavioral contracts are preserved, the codebase compiles cleanly, and the Flask server starts and responds correctly. For deployment beyond local development, a production WSGI server should be configured.
+
+### Success Metrics
+
+| Metric | Target | Actual | Status |
+|--------|--------|--------|--------|
+| Endpoint contract parity | 4/4 | 4/4 | ✅ Met |
+| Compilation errors | 0 | 0 | ✅ Met |
+| Lint violations | 0 | 0 | ✅ Met |
+| Node.js artifacts removed | 3 files | 3 files | ✅ Met |
+| Python artifacts created | 2 files | 2 files | ✅ Met |
+| README updated | Yes | Yes | ✅ Met |
 
 ---
 
@@ -224,92 +215,90 @@ The application is **functionally complete** and ready for development/staging u
 
 ### System Prerequisites
 
-| Software | Required Version | Verification Command |
-|----------|-----------------|---------------------|
-| Node.js | v18.0.0 or higher (tested with v20.19.5) | `node -v` |
-| npm | v8.0.0 or higher (tested with v10.8.2) | `npm -v` |
+| Component | Required Version | Verification Command |
+|-----------|-----------------|---------------------|
+| Python | 3.10 or higher | `python --version` |
+| pip | Latest (bundled with Python) | `pip --version` |
 
 ### Environment Setup
 
-No environment variables, configuration files, or external services are required. The server uses hardcoded values:
+1. **Clone the repository:**
+   ```bash
+   git clone <repository-url>
+   cd hao-backprop-test
+   ```
 
-- **Hostname**: `127.0.0.1`
-- **Port**: `3000`
+2. **(Recommended) Create a virtual environment:**
+   ```bash
+   python -m venv venv
+   ```
+
+3. **Activate the virtual environment:**
+   ```bash
+   # Linux/macOS:
+   source venv/bin/activate
+
+   # Windows:
+   venv\Scripts\activate
+   ```
 
 ### Dependency Installation
 
 ```bash
-# Navigate to the project root directory
-cd /path/to/hao-backprop-test
-
-# Install all dependencies (Express.js 5.2.1 and its dependency tree)
-npm install
+pip install -r requirements.txt
 ```
 
-**Expected output**: `added 66 packages` with `0 vulnerabilities`.
+**Expected output:**
+```
+Successfully installed Flask-3.1.3 Werkzeug-3.1.6 Jinja2-3.1.6 MarkupSafe-3.0.3 itsdangerous-2.2.0 click-8.3.1 blinker-1.9.0
+```
+
+**Verify installation:**
+```bash
+pip list | grep Flask
+```
 
 ### Application Startup
 
 ```bash
-# Start the server using npm
-npm start
-
-# Alternative: start directly with Node.js
-node server.js
+python server.py
 ```
 
-**Expected output**:
+**Expected console output:**
 ```
-Server running at http://127.0.0.1:3000/
+ * Serving Flask app 'server'
+ * Debug mode: off
+ * Running on http://127.0.0.1:3000
 ```
+
+The server binds to `127.0.0.1:3000` (localhost only).
 
 ### Verification Steps
 
-Once the server is running, verify each endpoint:
+Run these curl commands in a separate terminal to verify all endpoints:
 
 ```bash
-# Test GET / — should return "Hello, World!" with HTTP 200
-curl -i http://127.0.0.1:3000/
+# Test GET / — expect "Hello, World!" with HTTP 200
+curl -s -w "\nHTTP_CODE:%{http_code}\n" http://127.0.0.1:3000/
 
-# Test GET /evening — should return "Good evening" with HTTP 200
-curl -i http://127.0.0.1:3000/evening
+# Test GET /evening — expect "Good evening" with HTTP 200
+curl -s -w "\nHTTP_CODE:%{http_code}\n" http://127.0.0.1:3000/evening
 
-# Test POST /evening — should return "Good evening" with HTTP 201
-curl -i -X POST http://127.0.0.1:3000/evening
+# Test POST /evening — expect "Good evening" with HTTP 201
+curl -s -X POST -w "\nHTTP_CODE:%{http_code}\n" http://127.0.0.1:3000/evening
 
-# Test unknown route — should return HTTP 404
-curl -i http://127.0.0.1:3000/unknown
-```
-
-### Example Usage
-
-**GET / — Hello World greeting:**
-```
-$ curl http://127.0.0.1:3000/
-Hello, World!
-```
-
-**GET /evening — Good evening greeting:**
-```
-$ curl http://127.0.0.1:3000/evening
-Good evening
-```
-
-**POST /evening — Good evening with 201 Created:**
-```
-$ curl -X POST http://127.0.0.1:3000/evening -w "\nHTTP Status: %{http_code}\n"
-Good evening
-HTTP Status: 201
+# Test unknown route — expect Flask default 404
+curl -s -w "\nHTTP_CODE:%{http_code}\n" http://127.0.0.1:3000/unknown
 ```
 
 ### Troubleshooting
 
 | Issue | Cause | Resolution |
 |-------|-------|------------|
-| `Error: Cannot find module 'express'` | Dependencies not installed | Run `npm install` in the project root |
-| `EADDRINUSE: address already in use :::3000` | Port 3000 already occupied | Kill the existing process: `lsof -i :3000` then `kill <PID>`, or change the port in `server.js` |
-| `npm start` not recognized | Missing start script | Verify `package.json` contains `"start": "node server.js"` in the `scripts` block |
-| `npm test` exits with error | Expected behavior | The project has no test framework; the placeholder script is intentional |
+| `ModuleNotFoundError: No module named 'flask'` | Flask not installed | Run `pip install -r requirements.txt` |
+| `Address already in use` on port 3000 | Another process on port 3000 | Kill the process: `lsof -i :3000` then `kill <PID>` |
+| `python: command not found` | Python not in PATH | Use `python3` instead, or add Python to PATH |
+| Server starts but curl times out | Binding to wrong interface | Verify `server.py` uses `host="127.0.0.1"` |
 
 ---
 
@@ -319,70 +308,53 @@ HTTP Status: 201
 
 | Command | Purpose |
 |---------|---------|
-| `npm install` | Install Express.js and all dependencies |
-| `npm start` | Start the server (runs `node server.js`) |
-| `node server.js` | Start the server directly |
-| `npm test` | Runs placeholder test script (exits with error — by design) |
-| `node -c server.js` | Syntax-check server.js without executing |
-| `npm ls express` | Verify Express.js version in dependency tree |
+| `pip install -r requirements.txt` | Install Flask and dependencies |
+| `python server.py` | Start the Flask development server |
+| `python -m py_compile server.py` | Verify Python compilation |
+| `curl http://127.0.0.1:3000/` | Test root endpoint |
+| `curl http://127.0.0.1:3000/evening` | Test evening GET endpoint |
+| `curl -X POST http://127.0.0.1:3000/evening` | Test evening POST endpoint |
 
 ### B. Port Reference
 
-| Service | Port | Host | Protocol |
+| Service | Host | Port | Protocol |
 |---------|------|------|----------|
-| Express HTTP Server | 3000 | 127.0.0.1 | HTTP |
+| Flask Development Server | 127.0.0.1 | 3000 | HTTP |
 
 ### C. Key File Locations
 
-| File | Purpose | Lines |
-|------|---------|-------|
-| `server.js` | Express.js application with route handlers | 22 |
-| `package.json` | npm manifest with dependencies and scripts | 15 |
-| `package-lock.json` | Dependency lockfile (auto-generated) | 827 |
-| `README.md` | Project documentation with endpoint reference | 38 |
+| File | Purpose |
+|------|---------|
+| `server.py` | Flask application — all route handlers and server configuration |
+| `requirements.txt` | Python dependency manifest — `Flask>=3.0` |
+| `README.md` | Project documentation — prerequisites, setup, endpoint reference |
+| `blitzy/documentation/Project Guide.md` | Historical Blitzy project guide (prior delivery) |
+| `blitzy/documentation/Technical Specifications.md` | Historical Blitzy technical specifications (prior delivery) |
 
 ### D. Technology Versions
 
-| Technology | Version | Role |
-|------------|---------|------|
-| Node.js | v20.19.5 | JavaScript runtime |
-| npm | v10.8.2 | Package manager |
-| Express.js | 5.2.1 | HTTP web framework |
+| Technology | Version | Notes |
+|------------|---------|-------|
+| Python | 3.12.10 | Runtime (requires 3.10+) |
+| Flask | 3.1.3 | Web framework |
+| Werkzeug | 3.1.6 | WSGI utility (Flask dependency) |
+| Jinja2 | 3.1.6 | Template engine (Flask dependency, unused) |
+| MarkupSafe | 3.0.3 | HTML escaping (Jinja2 dependency) |
+| itsdangerous | 2.2.0 | Data signing (Flask dependency) |
+| click | 8.3.1 | CLI framework (Flask dependency) |
+| blinker | 1.9.0 | Signal support (Flask dependency) |
 
 ### E. Environment Variable Reference
 
-No environment variables are currently used. The following are recommended for production:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | `3000` | Server listening port (currently hardcoded) |
-| `HOST` | `127.0.0.1` | Server binding hostname (currently hardcoded) |
-
-### F. Developer Tools Guide
-
-```bash
-# Check server.js syntax
-node -c server.js
-
-# Verify Express module loads
-node -e "require('express')"
-
-# Check installed Express version
-npm ls express
-
-# Audit dependencies for vulnerabilities
-npm audit
-
-# View dependency tree
-npm ls --all
-```
+No environment variables are used in this project. Host (`127.0.0.1`) and port (`3000`) are hardcoded in `server.py` per AAP requirements. This is intentional for the Backprop test harness use case.
 
 ### G. Glossary
 
 | Term | Definition |
 |------|------------|
-| **Express.js** | Minimal and flexible Node.js web application framework providing HTTP utility methods and middleware |
-| **CommonJS** | Module system using `require()` and `module.exports` — the traditional Node.js module format |
-| **Route handler** | A function that processes HTTP requests matching a specific path and method |
-| **201 Created** | HTTP status code indicating a request has been fulfilled and a new resource has been created |
-| **package-lock.json** | Auto-generated file that locks dependency versions for deterministic installs |
+| AAP | Agent Action Plan — the primary directive containing all project requirements |
+| Backprop | The integration testing platform this application serves as a test harness for |
+| Flask | A lightweight Python WSGI web application framework |
+| Express.js | A Node.js web application framework (replaced by Flask in this migration) |
+| WSGI | Web Server Gateway Interface — the Python standard for web server/application communication |
+| Gunicorn | A production-grade Python WSGI HTTP server (recommended for production deployment) |
