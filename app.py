@@ -9,7 +9,7 @@ produces identical behavior to the original Node.js http.createServer() server:
       Body: Hello, World!\n
 """
 
-from flask import Flask, Response
+from flask import Flask, Response, jsonify
 
 # ---------------------------------------------------------------------------
 # Application instance
@@ -22,6 +22,19 @@ app = Flask(__name__)
 HOST = '127.0.0.1'
 PORT = 3000
 METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS']
+
+
+# ---------------------------------------------------------------------------
+# Health check endpoint — programmatic service availability verification
+# ---------------------------------------------------------------------------
+@app.route('/health', methods=['GET'])
+def health():
+    """Return a JSON health status response for monitoring and pipeline checks.
+
+    Returns:
+        A JSON response with status 200 and body {"status": "ok"}.
+    """
+    return jsonify(status='ok')
 
 
 # ---------------------------------------------------------------------------
