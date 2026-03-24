@@ -19,6 +19,7 @@
 const express = require('express');
 const healthRouter = require('./health');
 const apiRouter = require('./api');
+const { validateInput, z } = require('../middleware/validateInput');
 
 /**
  * Express Router instance that aggregates all application sub-routers
@@ -28,6 +29,7 @@ const apiRouter = require('./api');
  */
 const router = express.Router();
 
+// SECURITY: Input validation — reject unexpected request body and query parameters on root endpoint to prevent injection attacks
 /**
  * GET / — Root welcome route
  *
@@ -39,7 +41,7 @@ const router = express.Router();
  * @param {import('express').Request}  req - Express request object
  * @param {import('express').Response} res - Express response object
  */
-router.get('/', (req, res) => {
+router.get('/', validateInput({ body: z.object({}).strict().optional(), query: z.object({}).strict() }), (req, res) => {
   res.json({
     status: 'success',
     message: 'Hello, World! Welcome to the Express server.'
