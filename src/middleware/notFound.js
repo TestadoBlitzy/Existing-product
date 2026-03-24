@@ -25,6 +25,7 @@
  */
 
 const logger = require('../utils/logger');
+const { sanitizeLogInput, sanitizeUrl } = require('../utils/sanitizer');
 
 /**
  * Express middleware that handles requests to undefined routes.
@@ -39,12 +40,14 @@ const logger = require('../utils/logger');
  * @param {import('express').NextFunction} next - Express next function (unused — cycle terminates here)
  */
 const notFound = (req, res, next) => {
-  logger.warn(`404 - Not Found - ${req.originalUrl}`);
+  // SECURITY: Log injection prevention — sanitize user-controlled input before logging
+  logger.warn(`404 - Not Found - ${sanitizeLogInput(req.originalUrl)}`);
 
+  // SECURITY: Information leakage prevention — sanitize URL in response body to prevent reflected content injection
   res.status(404).json({
     status: 'error',
     statusCode: 404,
-    message: `Not Found - ${req.originalUrl}`
+    message: `Not Found - ${sanitizeUrl(req.originalUrl)}`
   });
 };
 
