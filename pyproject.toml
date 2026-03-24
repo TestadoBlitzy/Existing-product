@@ -1,0 +1,9 @@
+[project]
+name = "hello_world"
+version = "1.0.0"
+description = "Hello world in Python"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
