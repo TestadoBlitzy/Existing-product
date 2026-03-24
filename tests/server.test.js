@@ -30,6 +30,7 @@ describe('Server', () => {
       done();
     } else {
       server.on('listening', done);
+      server.on('error', (err) => done(err));
     }
   });
 
@@ -127,7 +128,7 @@ describe('Server', () => {
   // Response Contract Enforcement
   // ---------------------------------------------------------------------------
 
-  test('should return response body with exact trailing newline', async () => {
+  test('should return response body with exact trailing newline for GET /', async () => {
     const res = await request(server).get('/');
     expect(res.text).toBe('Hello, World!\n');
     expect(res.text).toHaveLength(14);
@@ -144,7 +145,7 @@ describe('Server', () => {
   // Server Startup Console Message Verification
   // ---------------------------------------------------------------------------
 
-  test('should log the correct startup message on server start', () => {
+  test('should log the correct startup message when server starts', () => {
     expect(consoleSpy).toHaveBeenCalledWith(
       'Server running at http://127.0.0.1:3000/'
     );
@@ -154,7 +155,7 @@ describe('Server', () => {
   // Server Lifecycle — Address Binding Verification
   // ---------------------------------------------------------------------------
 
-  test('should be listening on the correct host and port', () => {
+  test('should be listening on the correct host and port after startup', () => {
     const address = server.address();
     expect(address.address).toBe('127.0.0.1');
     expect(address.port).toBe(3000);
