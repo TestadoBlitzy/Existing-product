@@ -13,9 +13,12 @@
 
 const express = require('express');
 const config = require('../config');
+const { validateInput, z } = require('../middleware/validateInput');
 
 // Create a modular, mountable route handler
 const router = express.Router();
+
+// SECURITY: Input validation — reject unexpected request body and query parameters on GET endpoints to prevent injection attacks
 
 /**
  * GET /api
@@ -27,7 +30,7 @@ const router = express.Router();
  *     "message": "Welcome to the API"
  *   }
  */
-router.get('/', (req, res) => {
+router.get('/', validateInput({ body: z.object({}).strict().optional(), query: z.object({}).strict() }), (req, res) => {
   res.json({
     status: 'success',
     message: 'Welcome to the API'
@@ -50,7 +53,7 @@ router.get('/', (req, res) => {
  *     }
  *   }
  */
-router.get('/info', (req, res) => {
+router.get('/info', validateInput({ body: z.object({}).strict().optional(), query: z.object({}).strict() }), (req, res) => {
   res.json({
     status: 'success',
     data: {
