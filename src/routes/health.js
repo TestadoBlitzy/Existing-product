@@ -48,4 +48,16 @@ router.get('/', validateInput({ body: z.object({}).strict().optional(), query: z
   });
 });
 
+// SECURITY: Reject non-GET methods on /health with 405 Method Not Allowed.
+// Without this, POST/PUT/DELETE/PATCH requests bypass route-level validation
+// middleware and fall through to the 404 handler with a misleading status code.
+// Returns the required Allow header per RFC 9110 §15.5.6 and consistent JSON.
+router.all('/', (req, res) => {
+  res.status(405).set('Allow', 'GET, HEAD').json({
+    status: 'error',
+    statusCode: 405,
+    message: 'Method Not Allowed'
+  });
+});
+
 module.exports = router;

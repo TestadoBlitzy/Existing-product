@@ -48,6 +48,19 @@ router.get('/', validateInput({ body: z.object({}).strict().optional(), query: z
   });
 });
 
+// SECURITY: Reject non-GET methods on the root route with 405 Method Not Allowed.
+// Express router.get() only matches GET/HEAD requests; other HTTP methods bypass
+// the route middleware chain entirely (including validateInput) and would fall
+// through to the 404 handler. This catch-all ensures unsupported methods receive
+// a semantically correct 405 response per RFC 9110 §15.5.6.
+router.all('/', (req, res) => {
+  res.status(405).set('Allow', 'GET, HEAD').json({
+    status: 'error',
+    statusCode: 405,
+    message: 'Method Not Allowed'
+  });
+});
+
 /**
  * Mount the health check router at /health.
  * Delegates all /health/* requests to the health router module which

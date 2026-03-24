@@ -37,6 +37,21 @@ router.get('/', validateInput({ body: z.object({}).strict().optional(), query: z
   });
 });
 
+// SECURITY: Reject non-GET methods on /api with 405 Method Not Allowed.
+// Express router.get() only matches GET/HEAD requests; other HTTP methods
+// (POST, PUT, DELETE, PATCH) bypass the route middleware chain entirely
+// (including validateInput) and would otherwise fall through to the 404
+// handler with a misleading status code. This catch-all ensures unsupported
+// methods receive a semantically correct 405 response per RFC 9110 §15.5.6
+// with the required Allow header and a consistent JSON error format.
+router.all('/', (req, res) => {
+  res.status(405).set('Allow', 'GET, HEAD').json({
+    status: 'error',
+    statusCode: 405,
+    message: 'Method Not Allowed'
+  });
+});
+
 /**
  * GET /api/info
  * Returns server metadata including application version, current environment,
@@ -61,6 +76,17 @@ router.get('/info', validateInput({ body: z.object({}).strict().optional(), quer
       environment: config.env,
       nodeVersion: process.version
     }
+  });
+});
+
+// SECURITY: Reject non-GET methods on /api/info with 405 Method Not Allowed.
+// Same rationale as the /api catch-all above — prevents unsupported methods
+// from falling through to the 404 handler and returns the correct HTTP status.
+router.all('/info', (req, res) => {
+  res.status(405).set('Allow', 'GET, HEAD').json({
+    status: 'error',
+    statusCode: 405,
+    message: 'Method Not Allowed'
   });
 });
 
