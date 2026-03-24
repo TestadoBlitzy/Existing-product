@@ -126,7 +126,11 @@ class TestServerStartup:
             assert proc.poll() is None, "Server process exited unexpectedly"
         finally:
             proc.terminate()
-            proc.wait(timeout=5)
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
 
     def test_should_bind_to_localhost(self):
         """Replaces: it('should bind to 127.0.0.1')
@@ -159,7 +163,11 @@ class TestServerStartup:
                 assert result == 0, f"Could not connect to 127.0.0.1:{port}"
         finally:
             proc.terminate()
-            proc.wait(timeout=5)
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
 
     def test_should_have_valid_address_with_host_and_port(self):
         """Replaces: it('should return a valid address with host and port')
@@ -201,7 +209,11 @@ class TestServerStartup:
                 assert peer[1] > 0
         finally:
             proc.terminate()
-            proc.wait(timeout=5)
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
 
     def test_should_emit_expected_startup_log_message(self):
         """Replaces: it('should emit the expected startup log message format')
@@ -242,7 +254,11 @@ class TestServerStartup:
             )
         finally:
             proc.terminate()
-            proc.wait(timeout=5)
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
 
 
 class TestServerShutdown:
