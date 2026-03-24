@@ -27,6 +27,8 @@ const config = {
   host: process.env.HOST || '0.0.0.0',
   logLevel: process.env.LOG_LEVEL || 'debug',
   corsOrigin: process.env.CORS_ORIGIN || '*',
+  // SECURITY: Configurable body parser size limit to prevent payload-based DoS attacks
+  bodyLimit: process.env.BODY_LIMIT || '10kb',
   rateLimit: Object.freeze({
     windowMs: parseIntSafe(process.env.RATE_LIMIT_WINDOW_MS, 900000),
     max: parseIntSafe(process.env.RATE_LIMIT_MAX, 100),
