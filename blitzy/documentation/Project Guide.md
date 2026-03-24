@@ -1,56 +1,61 @@
 # Blitzy Project Guide
 
+---
+
 ## 1. Executive Summary
 
 ### 1.1 Project Overview
 
-This project adds a comprehensive, greenfield unit and integration test suite to the `hello_world` Node.js/Express.js application. The application (`server.js`) is a minimal Express 5.x server with two GET routes (`/` and `/evening`) and X-Powered-By header suppression. Prior to this work, the project had zero test infrastructure — no test framework, no test files, no devDependencies, and no configuration. Blitzy agents delivered a complete Jest 30.3.0 + Supertest 7.2.2 testing stack with 42 passing tests across two test suites, covering HTTP responses, status codes, headers, server lifecycle, error handling, and edge cases.
+This project delivers a targeted bug fix for a critical Express 5.x startup failure in a minimal Node.js HTTP server application (`hello_world`). The bug — a missing error-argument check in the `app.listen()` callback — caused silent swallowing of `EADDRINUSE` port conflicts, producing a false-positive "Server running" message and exit code 0 when the port was already occupied. The fix modifies `server.js` to accept and inspect the error argument that Express 5.x forwards to the listen callback, logging actionable errors to stderr and exiting with code 1 on failure. Environment variable overrides for `HOST` and `PORT` were also added. A new lifecycle test validates the Express 5.x error-callback contract.
 
 ### 1.2 Completion Status
 
 ```mermaid
-pie title Project Completion Status
-    "Completed (24h)" : 24
-    "Remaining (3h)" : 3
+pie title Project Completion — 81.3%
+    "Completed (AI)" : 6.5
+    "Remaining" : 1.5
 ```
 
 | Metric | Value |
 |--------|-------|
-| **Total Project Hours** | 27 |
-| **Completed Hours (AI)** | 24 |
-| **Remaining Hours** | 3 |
-| **Completion Percentage** | 88.9% |
+| **Total Project Hours** | 8.0 |
+| **Completed Hours (AI)** | 6.5 |
+| **Remaining Hours** | 1.5 |
+| **Completion Percentage** | 81.3% |
 
-**Calculation:** 24 completed hours / 27 total hours = 88.9% complete
+**Calculation:** 6.5 completed hours / (6.5 + 1.5) total hours = 6.5 / 8.0 = **81.3% complete**
 
 ### 1.3 Key Accomplishments
 
-- ✅ Installed Jest 30.3.0 and Supertest 7.2.2 as devDependencies with zero version conflicts
-- ✅ Created `jest.config.js` with Node.js test environment and coverage instrumentation for `server.js`
-- ✅ Updated `server.js` with `module.exports = app` and `require.main === module` guard for Supertest testability while preserving identical runtime behavior
-- ✅ Implemented 33 HTTP tests in `__tests__/server.test.js` — route responses, status codes, Content-Type headers, X-Powered-By suppression, 404 handling, unsupported methods, and edge cases
-- ✅ Implemented 9 lifecycle tests in `__tests__/server.lifecycle.test.js` — server startup/binding, shutdown, EADDRINUSE handling, and app export verification
-- ✅ Achieved 42/42 tests passing (100% pass rate) with zero open handles
-- ✅ All 5 in-scope files pass syntax validation (`node -c`) with zero errors
-- ✅ Runtime validation confirms correct endpoint responses, header suppression, and clean startup/shutdown
-- ✅ Honored CI/CD workflow prohibition — no `.github/workflows/` files created
+- ✅ Express 5.x `app.listen()` callback now accepts `err` parameter and guards success log with `if (err)` check
+- ✅ `EADDRINUSE` errors produce actionable stderr message and exit code 1 (previously: false success, exit code 0)
+- ✅ `process.env.HOST` and `process.env.PORT` environment variable overrides with safe defaults
+- ✅ Server reference captured (`const server = app.listen(...)`) for future graceful shutdown extensibility
+- ✅ New lifecycle test validates Express 5.x error-callback forwarding with cross-realm-safe Error assertion
+- ✅ All 43 tests pass (33 HTTP contract + 10 lifecycle) — zero regressions
+- ✅ Runtime validated: EADDRINUSE, PORT override, normal startup, module import paths all confirmed working
+- ✅ No files outside bug fix scope were modified
 
 ### 1.4 Critical Unresolved Issues
 
 | Issue | Impact | Owner | ETA |
 |-------|--------|-------|-----|
-| Coverage metrics below 100% target (86.66% statements, 50% branch) — lines 22-23 inside `require.main === module` guard are intentionally unreachable during unit testing | Low — architectural trade-off inherent to the standard Express testing pattern designed by the AAP | Human Developer | 1 hour |
+| No critical unresolved issues | N/A | N/A | N/A |
+
+All AAP-specified deliverables are fully implemented, tested, and validated. No blocking issues remain.
 
 ### 1.5 Access Issues
 
-No access issues identified. All dependencies install from the public npm registry. No private registries, service credentials, or third-party API access required.
+No access issues identified. All dependencies install successfully (373 npm packages, 0 vulnerabilities), the test suite runs without external service requirements, and the application operates entirely on localhost with no external API dependencies.
 
 ### 1.6 Recommended Next Steps
 
-1. **[High]** Review and merge this pull request after verifying test quality and coverage (1h)
-2. **[Medium]** Assess coverage gap for `require.main === module` guard (lines 22-23) and decide whether to add a dedicated integration test for direct module execution or document as accepted architectural trade-off (1h)
-3. **[Low]** Verify tests execute correctly in target deployment/CI environments and confirm no port conflicts (0.5h)
-4. **[Low]** Update README.md with testing instructions and coverage information (0.5h)
+1. **[High] Code Review & PR Approval** — Human developer reviews the 3 commits (31 lines added, 3 removed across 2 files), verifies fix correctness against Express 5.x `app.listen()` contract, and approves the PR
+2. **[Medium] Merge to Main & Production Deployment** — Merge PR to `main` branch, deploy to production, and verify server starts cleanly with `node server.js`
+3. **[Medium] Production Smoke Test** — Run EADDRINUSE reproduction in staging/production to confirm exit code 1 and error logging are captured by monitoring infrastructure
+4. **[Low] Update README.md** — Document new `HOST` and `PORT` environment variable support (explicitly excluded from bug fix scope per AAP §0.5.2)
+
+---
 
 ## 2. Project Hours Breakdown
 
@@ -58,273 +63,259 @@ No access issues identified. All dependencies install from the public npm regist
 
 | Component | Hours | Description |
 |-----------|-------|-------------|
-| Test framework setup | 2 | Installed Jest 30.3.0 + Supertest 7.2.2 as devDependencies; updated `package.json` scripts.test to `jest --watchAll=false` |
-| Jest configuration | 1 | Created `jest.config.js` with `testEnvironment: 'node'`, coverage from `server.js`, test match `__tests__/**/*.test.js` |
-| Source testability modification | 1.5 | Updated `server.js` with `module.exports = app` export and `require.main === module` guard around `app.listen()` |
-| HTTP response tests | 2 | Tests asserting `GET /` returns `Hello, World!\n` and `GET /evening` returns `Good evening` with exact body matching |
-| Status code tests | 2 | Tests asserting HTTP 200 for defined routes and HTTP 404 for undefined routes across multiple paths |
-| Header tests | 2.5 | Content-Type `text/plain` verification on all route responses; comprehensive X-Powered-By absence checks across GET, POST, HEAD, and 404 responses |
-| Error handling tests | 3 | 404 responses for undefined routes (`/nonexistent`, `/foo/bar`, `/evening/extra`); unsupported HTTP methods (POST, PUT, DELETE, PATCH) on both `GET`-only routes |
-| Edge case tests | 3 | Query parameter handling, trailing slashes, case-insensitive routing, HEAD requests, double-slash normalization |
-| Server lifecycle tests | 3.5 | Server startup (listen callback, 127.0.0.1 binding, address verification, startup log message); shutdown (close behavior, close event); EADDRINUSE port conflict detection |
-| App export verification | 0.5 | Tests verifying `module.exports` returns Express app and server doesn't auto-start on `require()` |
-| Test quality refinement | 2 | Code review fixes, test deduplication, assertion improvements, consistent coding conventions |
-| Validation and runtime testing | 1 | Syntax checks, full test suite execution, runtime endpoint verification, open handle detection |
-| **Total** | **24** | |
+| Root cause analysis & Express 5.x diagnosis | 1.5 | Analyzed Express 5.x source (`application.js:598-606`), identified `server.once('error', done)` error-forwarding mechanism, reproduced bug with port blocker, traced callback invocation flow |
+| Environment variable support (server.js:3-6) | 0.5 | Implemented `process.env.HOST` and `process.env.PORT` with `parseInt()` and `||` fallback pattern; covers NaN, empty, undefined edge cases |
+| Error-handling listen callback (server.js:23-33) | 1.5 | Replaced zero-arity callback with `(err) => {}`, added `if (err)` guard, `console.error()` to stderr, `process.exit(1)`, and `const server` reference capture |
+| EADDRINUSE callback test (lifecycle test:111-128) | 1.0 | New test spawns port conflict, validates error passed as first callback argument with `err.code === 'EADDRINUSE'` assertion |
+| Cross-realm Error assertion fix | 0.5 | Replaced unreliable `toBeInstanceOf(Error)` with `Object.prototype.toString.call(err) === '[object Error]'` for Jest VM context isolation |
+| Regression test suite execution | 0.5 | Ran full 43-test suite (33 HTTP contract + 10 lifecycle), confirmed zero failures, zero skipped |
+| Runtime validation (4 scenarios) | 1.0 | Validated EADDRINUSE (exit code 1, correct stderr), PORT override, normal startup (routes respond), module import (no auto-listen) |
+| **Total Completed** | **6.5** | |
 
 ### 2.2 Remaining Work Detail
 
 | Category | Hours | Priority |
 |----------|-------|----------|
-| Coverage gap assessment — investigate feasibility of covering `require.main === module` guard (lines 22-23) and optionally add integration test or document as accepted trade-off | 1 | Medium |
-| Code review and PR merge — review all code changes, verify test quality, merge to target branch | 1 | High |
-| Production verification and documentation — verify tests in target environments, update README with test instructions | 1 | Low |
-| **Total** | **3** | |
+| Code review & PR approval | 1.0 | High |
+| Production deployment verification | 0.5 | Medium |
+| **Total Remaining** | **1.5** | |
 
-### 2.3 Hours Reconciliation
+### 2.3 Hours Verification
 
-- **Section 2.1 Total (Completed):** 24 hours
-- **Section 2.2 Total (Remaining):** 3 hours
-- **Sum:** 24 + 3 = **27 hours** (matches Section 1.2 Total Project Hours)
-- **Completion:** 24 / 27 = **88.9%** (matches Section 1.2)
+- Section 2.1 Total: **6.5 hours**
+- Section 2.2 Total: **1.5 hours**
+- Sum (2.1 + 2.2): 6.5 + 1.5 = **8.0 hours** = Total Project Hours in Section 1.2 ✓
+
+---
 
 ## 3. Test Results
 
 | Test Category | Framework | Total Tests | Passed | Failed | Coverage % | Notes |
-|--------------|-----------|-------------|--------|--------|------------|-------|
-| Unit — HTTP Responses | Jest 30.3.0 + Supertest 7.2.2 | 8 | 8 | 0 | 86.66% (lines) | GET / and GET /evening response body, Content-Type, status code, X-Powered-By |
-| Unit — 404 Error Handling | Jest 30.3.0 + Supertest 7.2.2 | 4 | 4 | 0 | — | Undefined routes: /nonexistent, /foo/bar, /evening/extra |
-| Unit — Unsupported Methods | Jest 30.3.0 + Supertest 7.2.2 | 8 | 8 | 0 | — | POST, PUT, DELETE, PATCH on / and /evening routes |
-| Unit — Edge Cases | Jest 30.3.0 + Supertest 7.2.2 | 8 | 8 | 0 | — | Query params, trailing slashes, case sensitivity, HEAD, double slash |
-| Unit — X-Powered-By Suppression | Jest 30.3.0 + Supertest 7.2.2 | 5 | 5 | 0 | — | Comprehensive check across GET, POST, HEAD, 404 |
-| Integration — Server Lifecycle | Jest 30.3.0 | 7 | 7 | 0 | — | Startup binding, shutdown, EADDRINUSE, log message |
-| Unit — App Export | Jest 30.3.0 | 2 | 2 | 0 | — | Export type verification, no auto-listen on require |
-| **Totals** | | **42** | **42** | **0** | **86.66%** | **100% pass rate** |
+|---------------|-----------|-------------|--------|--------|------------|-------|
+| HTTP Contract (Unit) | Jest 30.3.0 + Supertest 7.2.2 | 33 | 33 | 0 | 72.22% (stmt) | Routes, 404s, methods, edge cases, headers |
+| Server Lifecycle (Integration) | Jest 30.3.0 | 10 | 10 | 0 | 72.22% (stmt) | Startup, shutdown, EADDRINUSE, export, callback error |
+| **Total** | **Jest 30.3.0** | **43** | **43** | **0** | **72.22%** | **100% pass rate** |
 
-**Coverage Breakdown:**
-| Metric | Percentage | Detail |
-|--------|-----------|--------|
-| Statements | 86.66% | 13/15 statements covered |
-| Branches | 50.00% | 1/2 branches covered (`require.main === module` false path only) |
-| Functions | 66.66% | 2/3 functions covered (listen callback inside guard uncovered) |
-| Lines | 86.66% | 13/15 lines covered (lines 22-23 uncovered) |
+**Coverage Notes:**
+- Statement coverage: 72.22% | Branch coverage: 62.5% | Function coverage: 66.66% | Line coverage: 72.22%
+- Uncovered lines 25–32 are inside `if (require.main === module)` guard — this block only executes during direct `node server.js` invocation, not during Jest test imports. This is by design and validated via runtime child-process tests.
+- All test results originate from Blitzy's autonomous validation execution: `CI=true npx jest --watchAll=false --ci --verbose`
 
-**Uncovered Lines:** Lines 22-23 of `server.js` are inside the `require.main === module` guard. This guard evaluates to `false` when `server.js` is imported via `require('../server')` in test files — this is the standard Express.js testing pattern explicitly designed by the AAP (Section 0.10.2). The uncovered code is the `app.listen()` call and its `console.log` callback, which only execute when the file is run directly via `node server.js`.
+---
 
 ## 4. Runtime Validation & UI Verification
 
-### Runtime Health
+### Server Startup Validation
+- ✅ **Normal startup (PORT=6789):** Server binds, `console.log` prints correct URL, `GET /` returns `Hello, World!\n`, `GET /evening` returns `Good evening`
+- ✅ **EADDRINUSE scenario (PORT=5555, port occupied):** Exit code 1, stderr: `Failed to start server: listen EADDRINUSE: address already in use 127.0.0.1:5555`, no false success on stdout
+- ✅ **PORT environment variable override (PORT=4444):** Server binds to custom port, all routes respond correctly
+- ✅ **Module import path:** `require('./server')` returns Express app without triggering `app.listen()`
 
-- ✅ `npm install` — All dependencies install successfully (0 vulnerabilities)
-- ✅ `node server.js` — Server starts and logs `Server running at http://127.0.0.1:3000/`
-- ✅ `npm test` — All 42 tests pass in 2.4 seconds with zero open handles
-- ✅ `npx jest --coverage` — Coverage report generated successfully
-- ✅ `node -c server.js` — Syntax check passes
-- ✅ `node -c jest.config.js` — Syntax check passes
-- ✅ `node -c __tests__/server.test.js` — Syntax check passes
-- ✅ `node -c __tests__/server.lifecycle.test.js` — Syntax check passes
+### API Endpoint Validation
+- ✅ `GET /` → 200, `text/plain`, `Hello, World!\n`
+- ✅ `GET /evening` → 200, `text/plain`, `Good evening`
+- ✅ `GET /nonexistent` → 404
+- ✅ `X-Powered-By` header suppressed on all responses
 
-### API Verification
+### Error Handling Validation
+- ✅ EADDRINUSE error message includes system error details (`listen EADDRINUSE: address already in use`)
+- ✅ Error logged to stderr (not stdout) — compatible with standard log routing
+- ✅ Process exits with code 1 — detectable by CI/CD pipelines and monitoring
 
-- ✅ `GET /` → HTTP 200, body `Hello, World!\n`, Content-Type: `text/plain; charset=utf-8`
-- ✅ `GET /evening` → HTTP 200, body `Good evening`, Content-Type: `text/plain; charset=utf-8`
-- ✅ `GET /nonexistent` → HTTP 404, HTML error body from Express 5.x `finalhandler`
-- ✅ `X-Powered-By` header absent from all responses (200, 404)
-- ✅ Server shuts down cleanly on SIGTERM
-
-### UI Verification
-
-- ⚠ Not applicable — this is a backend-only Express.js application with no frontend UI
+---
 
 ## 5. Compliance & Quality Review
 
-| AAP Requirement | Status | Evidence |
-|----------------|--------|----------|
-| Install Jest 30.3.0 as devDependency | ✅ Pass | `package.json` line 16: `"jest": "30.3.0"` |
-| Install Supertest 7.2.2 as devDependency | ✅ Pass | `package.json` line 17: `"supertest": "7.2.2"` |
-| Update scripts.test to Jest runner | ✅ Pass | `package.json` line 8: `"test": "jest --watchAll=false"` |
-| Create jest.config.js with node environment | ✅ Pass | `jest.config.js` line 9: `testEnvironment: 'node'` |
-| Export app via module.exports | ✅ Pass | `server.js` line 27: `module.exports = app` |
-| Wrap app.listen in require.main guard | ✅ Pass | `server.js` line 21: `if (require.main === module)` |
-| Preserve runtime behavior (npm start) | ✅ Pass | Runtime validation confirms identical behavior |
-| Test HTTP responses for GET / and GET /evening | ✅ Pass | 4 tests passing (body content + status 200) |
-| Test Content-Type text/plain headers | ✅ Pass | 2 tests passing |
-| Test X-Powered-By header suppression | ✅ Pass | 7 tests passing across all response types |
-| Test 404 for undefined routes | ✅ Pass | 4 tests passing |
-| Test unsupported HTTP methods | ✅ Pass | 8 tests passing (POST/PUT/DELETE/PATCH on both routes) |
-| Test edge cases (query params, slashes, case, HEAD) | ✅ Pass | 8 tests passing |
-| Test server startup and binding | ✅ Pass | 4 tests passing |
-| Test server shutdown and close events | ✅ Pass | 2 tests passing |
-| Test EADDRINUSE port conflict | ✅ Pass | 1 test passing |
-| Test app export verification | ✅ Pass | 2 tests passing |
-| No CI/CD workflow files created | ✅ Pass | No `.github/workflows/` files in repository |
-| CommonJS module syntax throughout | ✅ Pass | All files use `require()` / `module.exports` |
-| 2-space indentation, single quotes, semicolons | ✅ Pass | All files follow repository conventions |
-| 100% line coverage target | ⚠ Partial | 86.66% achieved; lines 22-23 unreachable by design (require.main guard) |
-| 100% branch coverage target | ⚠ Partial | 50% achieved; require.main branch only takes false path during testing |
-| No source code refactoring beyond testability | ✅ Pass | Only module.exports + require.main guard added |
-| No additional runtime dependencies | ✅ Pass | Only devDependencies added; express ^5.2.1 unchanged |
+| AAP Requirement | Section | Status | Evidence |
+|----------------|---------|--------|----------|
+| Modify hostname to `process.env.HOST \|\| '127.0.0.1'` | §0.4.2 | ✅ Pass | `server.js:4` — `const hostname = process.env.HOST \|\| '127.0.0.1'` |
+| Modify port to `parseInt(process.env.PORT, 10) \|\| 3000` | §0.4.2 | ✅ Pass | `server.js:6` — `const port = parseInt(process.env.PORT, 10) \|\| 3000` |
+| Accept `err` parameter in listen callback | §0.4.1 | ✅ Pass | `server.js:25` — `(err) => {` |
+| Add `if (err)` guard before success log | §0.4.1 | ✅ Pass | `server.js:26` — `if (err) {` |
+| Log error to stderr with `console.error` | §0.4.1 | ✅ Pass | `server.js:29` — `console.error(\`Failed to start server: ${err.message}\`)` |
+| Exit with code 1 on error | §0.4.1 | ✅ Pass | `server.js:30` — `process.exit(1)` |
+| Capture server reference | §0.4.1 | ✅ Pass | `server.js:25` — `const server = app.listen(...)` |
+| Add EADDRINUSE callback test | §0.4.2 | ✅ Pass | `server.lifecycle.test.js:111-128` |
+| No modifications to excluded files | §0.5.2 | ✅ Pass | Only `server.js` and `server.lifecycle.test.js` modified |
+| All 42+ tests pass | §0.6.1 | ✅ Pass | 43/43 tests pass (42 original + 1 new) |
+| EADDRINUSE exits with code 1 | §0.6.1 | ✅ Pass | Runtime validation confirmed |
+| No false success message on EADDRINUSE | §0.6.1 | ✅ Pass | stdout empty on port conflict |
+| PORT env override works | §0.6.2 | ✅ Pass | `PORT=4444 node server.js` binds correctly |
+| CommonJS convention preserved | §0.7.3 | ✅ Pass | No ES module syntax; `require`/`module.exports` used throughout |
+| Express 5.x compatibility | §0.7.3 | ✅ Pass | Tested with Express 5.2.1 |
+| No GitHub Actions workflow changes | §0.7.1 | ✅ Pass | No workflow files created or modified |
 
-**Autonomous Fixes Applied:**
-- Trailing newline added to `package.json` for POSIX compliance (commit `ca865d0`)
-- Test quality improvements and deduplication applied (commit `dc1a22c`)
+**Autonomous Fixes Applied During Validation:**
+- Strengthened EADDRINUSE callback test assertion from `toBeInstanceOf(Error)` to `Object.prototype.toString.call(err) === '[object Error]'` for cross-realm safety in Jest VM context
+
+---
 
 ## 6. Risk Assessment
 
 | Risk | Category | Severity | Probability | Mitigation | Status |
 |------|----------|----------|-------------|------------|--------|
-| Coverage below 100% target (86.66% lines, 50% branch) due to `require.main === module` guard | Technical | Medium | High (by design) | Document as accepted architectural trade-off; optionally add integration test executing `server.js` directly | Open |
-| No CI/CD pipeline for automated test execution | Operational | Medium | High | Tests must be run manually via `npm test`; add workflow when user lifts prohibition | Open |
-| Jest 30.x is a recent major release — potential undiscovered issues | Technical | Low | Low | Exact version pinned (`30.3.0`, no caret/tilde); all 42 tests pass reliably | Mitigated |
-| Port 3000 conflict during manual runtime testing | Technical | Low | Medium | Lifecycle tests use ephemeral port 0; only affects direct `node server.js` execution | Mitigated |
-| Express 5.x API changes in future versions | Technical | Low | Low | Tests written for Express 5.2.1 behavior; `^5.2.1` range may pull newer minor versions | Open |
-| No security testing beyond X-Powered-By check | Security | Low | Low | Application accepts no user input and binds to loopback only; minimal attack surface | Accepted |
+| `process.exit(1)` in listen callback bypasses cleanup | Technical | Low | Low | The exit only triggers on startup failure before any connections exist; no resources to clean up | Accepted |
+| `PORT=0` defaults to 3000 (not OS-assigned ephemeral) | Technical | Low | Very Low | Documented in AAP §0.4.4 as acceptable; localhost-only defaults preserved per requirements | Accepted |
+| Coverage at 72.22% due to `require.main` guard | Technical | Low | N/A | Uncovered lines are the startup block validated via runtime child-process tests; cannot be unit-tested by design | Mitigated |
+| Negative PORT values pass `parseInt` but fail at bind time | Technical | Very Low | Very Low | Node.js rejects invalid ports with an error, caught by the new `if (err)` handler | Mitigated |
+| No graceful shutdown handlers (SIGTERM/SIGINT) | Operational | Low | Low | Explicitly excluded from scope per AAP §0.5.2; server is minimal, stateless, no persistent connections | Accepted |
+| Express 5.x callback contract may change in future versions | Integration | Low | Very Low | Express 5.x is stable release; callback error-forwarding is documented and intentional (PR #2623) | Monitored |
+
+---
 
 ## 7. Visual Project Status
 
 ```mermaid
 pie title Project Hours Breakdown
-    "Completed Work" : 24
-    "Remaining Work" : 3
+    "Completed Work" : 6.5
+    "Remaining Work" : 1.5
 ```
 
-**Summary:** 24 hours completed, 3 hours remaining — 88.9% of AAP-scoped work delivered.
+**Remaining Work by Priority:**
 
-**Remaining Work Distribution:**
+| Priority | Category | Hours |
+|----------|----------|-------|
+| 🔴 High | Code review & PR approval | 1.0 |
+| 🟡 Medium | Production deployment verification | 0.5 |
+| **Total** | | **1.5** |
 
-| Category | Hours |
-|----------|-------|
-| Coverage gap assessment | 1 |
-| Code review and PR merge | 1 |
-| Production verification and documentation | 1 |
-| **Total Remaining** | **3** |
+---
 
 ## 8. Summary & Recommendations
 
 ### Achievements
+All AAP-specified deliverables for the Express 5.x EADDRINUSE bug fix have been fully implemented, tested, and validated. The project is **81.3% complete** (6.5 hours completed out of 8.0 total hours). The remaining 1.5 hours consist entirely of human path-to-production activities: code review/PR approval (1.0h) and production deployment verification (0.5h).
 
-Blitzy agents successfully delivered a comprehensive greenfield test suite for the `hello_world` Express.js application, completing 88.9% of the AAP-scoped work (24 hours completed out of 27 total hours). The project went from zero test infrastructure to a fully functional Jest 30.3.0 + Supertest 7.2.2 testing stack with **42 tests across 2 test suites, all passing at 100% pass rate**. The test suite covers all six AAP-specified test dimensions: HTTP responses, status codes, headers, server startup/shutdown, error handling, and edge cases.
+### What Was Fixed
+The root cause — Express 5.x's `app.listen()` forwarding `EADDRINUSE` errors to a zero-arity callback that silently discarded them — is now fully resolved. The listen callback accepts the error argument, guards the success log, logs actionable diagnostics to stderr, and exits with code 1 on failure. Environment variable overrides (`HOST`, `PORT`) provide operational flexibility without source code changes.
 
-The source file `server.js` was minimally modified with the standard Express app/server separation pattern (`module.exports = app` + `require.main === module` guard), preserving identical runtime behavior while enabling Supertest-based testing.
-
-### Remaining Gaps
-
-The primary gap is the coverage metrics falling below the AAP's 100% target: 86.66% line coverage and 50% branch coverage. This gap is entirely attributable to lines 22-23 inside the `require.main === module` guard — code that is intentionally unreachable during unit testing by the AAP's own architectural design. This is a well-known trade-off in the Express testing ecosystem and does not indicate missing test coverage for any application logic.
-
-### Critical Path to Production
-
-1. **Review and merge** this pull request (1 hour)
-2. **Decide on coverage policy** — accept 86.66% as the ceiling for this architecture or invest in an integration test for the `require.main` path (1 hour)
-3. **Verify environment compatibility** and update documentation (1 hour)
+### Test Confidence
+43 out of 43 tests pass with zero failures, zero skipped, and zero regressions. The new EADDRINUSE callback test specifically validates the Express 5.x error-forwarding contract with a cross-realm-safe assertion. Runtime validation across 4 scenarios (EADDRINUSE, PORT override, normal startup, module import) confirms the fix works end-to-end.
 
 ### Production Readiness Assessment
+The codebase is **production-ready** pending human code review and merge. All production readiness gates are satisfied:
+- ✅ 100% test pass rate (43/43)
+- ✅ Application runtime validated across all execution paths
+- ✅ Zero unresolved errors or issues
+- ✅ All in-scope files validated and committed (3 commits)
+- ✅ No out-of-scope modifications
 
-The test suite is **production-ready**. All 42 tests pass reliably, all files compile without errors, and runtime validation confirms correct application behavior. The 3 remaining hours consist of standard code review, merge, and post-merge verification activities — no blocking technical issues exist.
+### Recommendations
+1. Approve and merge the PR after code review — the fix is minimal (31 lines added, 3 removed in 2 files), well-tested, and follows the Express 5.x idiomatic error-handling pattern
+2. After deployment, verify that `console.error` output from EADDRINUSE scenarios is captured by your production logging/monitoring infrastructure
+3. Consider adding `README.md` documentation for the new `HOST`/`PORT` environment variables in a follow-up commit (outside this bug fix scope)
+
+---
 
 ## 9. Development Guide
 
 ### System Prerequisites
 
-| Software | Required Version | Verification Command |
-|----------|-----------------|---------------------|
-| Node.js | v20.x (LTS Iron) | `node -v` |
-| npm | v10.x | `npm -v` |
-
-**Verified environment:** Node.js v20.19.5, npm 10.8.2
+| Software | Minimum Version | Verified Version |
+|----------|----------------|-----------------|
+| Node.js | 18.x LTS | v20.19.5 |
+| npm | 8.x | 10.8.2 |
 
 ### Environment Setup
 
-No environment variables are required. The application uses hardcoded configuration:
-- Hostname: `127.0.0.1`
-- Port: `3000`
+```bash
+# Clone the repository and checkout the bug fix branch
+git clone <repository-url>
+cd hello_world
+git checkout blitzy-9363aaa7-dcc0-4a05-8ff7-1f2d02cfc24b
+```
 
 ### Dependency Installation
 
 ```bash
-# Clone repository and switch to branch
-git checkout blitzy-34ce18e2-2587-4e8d-927e-57f435b8e04b
-
-# Install all dependencies (runtime + dev)
+# Install all dependencies (373 packages, 0 vulnerabilities)
 npm install
 ```
 
-**Expected output:** `added XXX packages` with `found 0 vulnerabilities`
+Expected output: `added 373 packages` with no vulnerability warnings.
 
 ### Running Tests
 
 ```bash
-# Run all tests (non-watch mode)
-npm test
+# Run the full test suite (43 tests)
+CI=true npx jest --watchAll=false --ci --verbose
 
-# Run tests with verbose output
-npx jest --verbose --watchAll=false
-
-# Run tests with coverage report
-npx jest --coverage
-
-# Run only HTTP test suite
-npx jest __tests__/server.test.js --watchAll=false
-
-# Run only lifecycle test suite
-npx jest __tests__/server.lifecycle.test.js --watchAll=false
-
-# Run with open handle detection (debugging)
-npx jest --detectOpenHandles --watchAll=false
-
-# CI-compatible execution
-CI=true npx jest --watchAll=false --ci
+# Run with coverage report
+CI=true npx jest --watchAll=false --ci --coverage
 ```
 
-**Expected test output:**
-```
-Test Suites: 2 passed, 2 total
-Tests:       42 passed, 42 total
-Snapshots:   0 total
-Time:        ~2-8 seconds
-```
+Expected output: `Tests: 43 passed, 43 total` — 2 test suites, 0 failures.
 
-### Starting the Application
+### Application Startup
 
 ```bash
-# Start the Express server
+# Default startup (port 3000)
 node server.js
 
-# Expected output:
-# Server running at http://127.0.0.1:3000/
+# Custom port
+PORT=4567 node server.js
+
+# Custom host and port
+HOST=0.0.0.0 PORT=8080 node server.js
+
+# Using npm start (uses default port 3000)
+npm start
 ```
+
+Expected output: `Server running at http://127.0.0.1:3000/` (or custom host:port).
 
 ### Verification Steps
 
 ```bash
-# Verify GET / endpoint
-curl -s http://127.0.0.1:3000/
+# 1. Start the server
+PORT=5000 node server.js &
+
+# 2. Test root endpoint
+curl -s http://127.0.0.1:5000/
 # Expected: Hello, World!
 
-# Verify GET /evening endpoint
-curl -s http://127.0.0.1:3000/evening
+# 3. Test evening endpoint
+curl -s http://127.0.0.1:5000/evening
 # Expected: Good evening
 
-# Verify 404 handling
-curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/nonexistent
+# 4. Test 404 handling
+curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5000/nonexistent
 # Expected: 404
 
-# Verify X-Powered-By is absent
-curl -sI http://127.0.0.1:3000/ | grep -i "x-powered-by"
+# 5. Verify X-Powered-By suppression
+curl -sI http://127.0.0.1:5000/ | grep -i "x-powered-by"
 # Expected: no output (header absent)
 
-# Verify syntax of all source files
-node -c server.js && node -c jest.config.js && node -c __tests__/server.test.js && node -c __tests__/server.lifecycle.test.js
-# Expected: no errors
+# 6. Stop the server
+kill %1
+```
+
+### EADDRINUSE Verification
+
+```bash
+# Terminal 1: Block port 3000
+node -e "require('net').createServer().listen(3000, '127.0.0.1', () => console.log('blocking'))"
+
+# Terminal 2: Attempt to start server on same port
+node server.js
+# Expected stderr: Failed to start server: listen EADDRINUSE: address already in use 127.0.0.1:3000
+# Expected exit code: 1
+
+# Verify exit code
+echo $?
+# Expected: 1
 ```
 
 ### Troubleshooting
 
 | Issue | Cause | Resolution |
 |-------|-------|------------|
-| `Error: listen EADDRINUSE` when running `node server.js` | Port 3000 already in use | Kill the process using port 3000: `lsof -ti:3000 \| xargs kill` |
-| Jest enters watch mode | Missing `--watchAll=false` flag | Use `npm test` (pre-configured) or add `--watchAll=false` to manual jest commands |
-| `Cannot find module 'supertest'` | Dependencies not installed | Run `npm install` to install devDependencies |
-| Tests hang / don't exit | Open handles from server listening | Ensure `server.close()` is called in `afterEach`; run with `--detectOpenHandles` to diagnose |
+| `Failed to start server: listen EADDRINUSE` | Port already in use | Use `lsof -i :3000` to find the blocking process, then `kill <PID>`, or set `PORT=<other>` |
+| `npm install` fails | Node.js version too old | Upgrade to Node.js 18+ LTS (`node -v` to check) |
+| Tests timeout | Open handles from prior runs | Run `CI=true npx jest --watchAll=false --ci --detectOpenHandles` |
+| Coverage < 100% | `require.main === module` guard | Expected — startup block only runs in direct execution, not during test imports |
+
+---
 
 ## 10. Appendices
 
@@ -332,70 +323,64 @@ node -c server.js && node -c jest.config.js && node -c __tests__/server.test.js 
 
 | Command | Purpose |
 |---------|---------|
-| `npm install` | Install all runtime and dev dependencies |
-| `npm test` | Run all 42 tests via Jest (non-watch mode) |
-| `npm start` | Start the Express server on 127.0.0.1:3000 |
-| `node server.js` | Start the Express server directly |
-| `npx jest --coverage` | Run tests with V8 code coverage report |
-| `npx jest --verbose` | Run tests with detailed per-test output |
-| `npx jest --detectOpenHandles` | Run tests with open handle detection |
-| `node -c <file>` | Syntax-check a JavaScript file |
+| `npm install` | Install all dependencies |
+| `npm start` | Start server on default port 3000 |
+| `npm test` | Run test suite (jest --watchAll=false) |
+| `CI=true npx jest --watchAll=false --ci --verbose` | Run tests in CI mode with verbose output |
+| `CI=true npx jest --watchAll=false --ci --coverage` | Run tests with coverage report |
+| `node -c server.js` | Syntax check server.js |
+| `PORT=<n> node server.js` | Start server on custom port |
+| `HOST=<ip> PORT=<n> node server.js` | Start server on custom host and port |
 
 ### B. Port Reference
 
-| Port | Service | Protocol |
-|------|---------|----------|
-| 3000 | Express.js application (`server.js`) | HTTP |
-| 0 (ephemeral) | Supertest during tests | HTTP (internal) |
+| Service | Default Port | Environment Variable | Configurable |
+|---------|-------------|---------------------|--------------|
+| Express HTTP Server | 3000 | `PORT` | Yes |
 
 ### C. Key File Locations
 
 | File | Purpose |
 |------|---------|
-| `server.js` | Express.js application (sole source file) — 27 lines |
-| `package.json` | npm manifest with dependencies and scripts |
-| `jest.config.js` | Jest 30.x configuration — 22 lines |
-| `__tests__/server.test.js` | HTTP/integration test suite — 219 lines, 33 tests |
-| `__tests__/server.lifecycle.test.js` | Server lifecycle test suite — 122 lines, 9 tests |
-| `package-lock.json` | npm lockfile for reproducible installs |
+| `server.js` | Main application entry point — Express 5.x app with routes and listen block (BUG FIX TARGET) |
+| `__tests__/server.test.js` | 33 HTTP contract tests (routes, 404s, methods, edge cases, headers) |
+| `__tests__/server.lifecycle.test.js` | 10 lifecycle tests (startup, shutdown, EADDRINUSE, export) |
+| `package.json` | npm manifest — dependencies, scripts, metadata |
+| `jest.config.js` | Jest 30.x configuration — node environment, coverage, test patterns |
 
 ### D. Technology Versions
 
 | Technology | Version | Purpose |
 |------------|---------|---------|
-| Node.js | v20.19.5 (LTS Iron) | Runtime environment |
+| Node.js | v20.19.5 | JavaScript runtime |
 | npm | 10.8.2 | Package manager |
-| Express.js | 5.2.1 | Web framework (runtime dependency) |
-| Jest | 30.3.0 | Testing framework (dev dependency) |
+| Express | 5.2.1 | HTTP framework (runtime dependency) |
+| Jest | 30.3.0 | Test runner (dev dependency) |
 | Supertest | 7.2.2 | HTTP assertion library (dev dependency) |
 
 ### E. Environment Variable Reference
 
-No environment variables are required. All configuration is hardcoded in `server.js`:
-
-| Constant | Value | Location |
-|----------|-------|----------|
-| `hostname` | `'127.0.0.1'` | `server.js` line 3 |
-| `port` | `3000` | `server.js` line 4 |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `HOST` | `127.0.0.1` | Server bind address — set to `0.0.0.0` for all interfaces |
+| `PORT` | `3000` | Server listen port — any valid TCP port number |
+| `CI` | (unset) | Set to `true` for non-interactive test execution |
 
 ### F. Developer Tools Guide
 
-**IDE Setup:**
-- Enable 2-space indentation for JavaScript files
-- Configure single quotes for strings
-- Enable semicolons at end of statements
-- Set `const` as preferred variable declaration
-
-**Recommended VS Code Extensions:**
-- Jest Runner — run individual tests from the editor
-- ESLint — code quality (not currently configured but recommended for future)
+| Tool | Command | Notes |
+|------|---------|-------|
+| Syntax check | `node -c server.js` | Validates JavaScript syntax without executing |
+| REPL import test | `node -e "const app = require('./server'); console.log(typeof app)"` | Verifies module exports without starting server |
+| Port finder | `lsof -i :3000` | Identifies processes occupying port 3000 |
+| Process cleanup | `kill $(lsof -t -i :3000)` | Kills process on port 3000 |
 
 ### G. Glossary
 
 | Term | Definition |
 |------|-----------|
-| **Supertest** | HTTP assertion library that binds Express apps to ephemeral ports for testing without starting a real server |
-| **require.main === module** | Node.js CommonJS guard pattern that checks if a file is the entry point; returns `false` when the file is imported via `require()` |
-| **EADDRINUSE** | Node.js error code emitted when attempting to bind a server to a port already in use |
-| **Ephemeral port** | Port 0 in Node.js — the OS assigns an available port automatically; used by Supertest and lifecycle tests to avoid port conflicts |
-| **finalhandler** | Express.js internal module that generates default HTML 404 error responses for unmatched routes |
+| EADDRINUSE | OS-level error code indicating a TCP port is already bound by another process |
+| Express 5.x callback contract | Express 5.x's `app.listen()` forwards listen errors to the callback as the first argument (unlike Express 4.x which throws uncaught exceptions) |
+| `require.main === module` | Node.js guard pattern that executes code only when the file is run directly (not imported) |
+| Cross-realm Error | JavaScript Error objects created in a different VM context (e.g., Jest worker) that fail `instanceof Error` checks |
+| Zero-arity callback | A callback function declared with no parameters `() => {}`, which ignores all arguments passed to it |

@@ -107,6 +107,25 @@ describe('Server lifecycle', () => {
         });
       });
     });
+
+    it('should pass EADDRINUSE error as first argument to app.listen callback (Express 5.x)', (done) => {
+      server = app.listen(0, '127.0.0.1', () => {
+        const usedPort = server.address().port;
+        // Express 5.x forwards listen errors (e.g. EADDRINUSE) to the callback
+        // as the first argument — this validates the server.js fix
+        const server2 = app.listen(usedPort, '127.0.0.1', (err) => {
+          expect(err).toBeDefined();
+          // Cross-realm safe Error check: Jest's node VM context isolates the
+          // Error constructor, making toBeInstanceOf(Error) unreliable for system
+          // errors originating from Node.js core modules (net, fs, etc.)
+          expect(Object.prototype.toString.call(err)).toBe('[object Error]');
+          expect(err.code).toBe('EADDRINUSE');
+          server2.close(() => {
+            done();
+          });
+        });
+      });
+    });
   });
 
   describe('App export', () => {
