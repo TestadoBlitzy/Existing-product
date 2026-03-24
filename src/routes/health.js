@@ -14,8 +14,11 @@
 'use strict';
 
 const express = require('express');
+const { validateInput, z } = require('../middleware/validateInput');
 
 const router = express.Router();
+
+// SECURITY: Input validation — reject unexpected request body and query parameters to prevent injection attacks
 
 /**
  * GET / — Health check endpoint
@@ -35,7 +38,7 @@ const router = express.Router();
  * @param {import('express').Request}  req - Express request object
  * @param {import('express').Response} res - Express response object
  */
-router.get('/', (req, res) => {
+router.get('/', validateInput({ body: z.object({}).strict().optional(), query: z.object({}).strict() }), (req, res) => {
   res.json({
     status: 'ok',
     uptime: process.uptime(),
