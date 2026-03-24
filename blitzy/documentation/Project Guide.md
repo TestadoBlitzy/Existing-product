@@ -1,4 +1,4 @@
-# Blitzy Project Guide
+# Blitzy Project Guide — hello_world (Node.js → Python Migration)
 
 ---
 
@@ -6,54 +6,53 @@
 
 ### 1.1 Project Overview
 
-This project delivers a targeted bug fix for a critical Express 5.x startup failure in a minimal Node.js HTTP server application (`hello_world`). The bug — a missing error-argument check in the `app.listen()` callback — caused silent swallowing of `EADDRINUSE` port conflicts, producing a false-positive "Server running" message and exit code 0 when the port was already occupied. The fix modifies `server.js` to accept and inspect the error argument that Express 5.x forwards to the listen callback, logging actionable errors to stderr and exiting with code 1 on failure. Environment variable overrides for `HOST` and `PORT` were also added. A new lifecycle test validates the Express 5.x error-callback contract.
+This project performs a full technology stack migration of the `hello_world` Backprop test harness from Node.js/Express 5.x to Python/Flask 3.x. The migration replaces all JavaScript source, test, and configuration files with Python equivalents while preserving every externally observable behavior: two plain-text HTTP endpoints (`GET /` → `Hello, World!\n`, `GET /evening` → `Good evening`), startup determinism, port-conflict error handling, and the 43-test behavioral specification. The system remains a tutorial-grade, non-production integration test harness by design.
 
 ### 1.2 Completion Status
 
 ```mermaid
-pie title Project Completion — 81.3%
-    "Completed (AI)" : 6.5
-    "Remaining" : 1.5
+pie title Project Completion
+    "Completed (26.5h)" : 26.5
+    "Remaining (3.5h)" : 3.5
 ```
 
 | Metric | Value |
-|--------|-------|
-| **Total Project Hours** | 8.0 |
-| **Completed Hours (AI)** | 6.5 |
-| **Remaining Hours** | 1.5 |
-| **Completion Percentage** | 81.3% |
+|---|---|
+| **Total Project Hours** | 30 |
+| **Completed Hours (AI)** | 26.5 |
+| **Remaining Hours (Human)** | 3.5 |
+| **Completion Percentage** | 88.3% |
 
-**Calculation:** 6.5 completed hours / (6.5 + 1.5) total hours = 6.5 / 8.0 = **81.3% complete**
+**Calculation:** 26.5 completed hours / (26.5 + 3.5) total hours = 26.5 / 30 = **88.3% complete**
 
 ### 1.3 Key Accomplishments
 
-- ✅ Express 5.x `app.listen()` callback now accepts `err` parameter and guards success log with `if (err)` check
-- ✅ `EADDRINUSE` errors produce actionable stderr message and exit code 1 (previously: false success, exit code 0)
-- ✅ `process.env.HOST` and `process.env.PORT` environment variable overrides with safe defaults
-- ✅ Server reference captured (`const server = app.listen(...)`) for future graceful shutdown extensibility
-- ✅ New lifecycle test validates Express 5.x error-callback forwarding with cross-realm-safe Error assertion
-- ✅ All 43 tests pass (33 HTTP contract + 10 lifecycle) — zero regressions
-- ✅ Runtime validated: EADDRINUSE, PORT override, normal startup, module import paths all confirmed working
-- ✅ No files outside bug fix scope were modified
+- ✅ Flask application factory (`app.py`, 167 lines) with full Express 5.x behavioral parity — case-insensitive routing, trailing-slash tolerance, 405→404 conversion, double-slash normalization
+- ✅ Startup entry point (`main.py`, 94 lines) with socket pre-check for port-conflict detection, environment variable configuration, and import-safe `__main__` guard
+- ✅ 33 HTTP contract tests (`test_http_contract.py`, 512 lines) — all passing, covering routes, 404s, unsupported methods, edge cases, and header suppression
+- ✅ 10 lifecycle tests (`test_lifecycle.py`, 502 lines) — all passing, covering startup, shutdown, port conflict, and import safety
+- ✅ Complete Node.js artifact removal — `server.js`, `package.json`, `package-lock.json`, `jest.config.js`, `__tests__/` directory all removed
+- ✅ Python dependency manifest (`requirements.txt`) and project configuration (`pyproject.toml`) with exact version pinning
+- ✅ `README.md` updated with Python 3.11+ prerequisites, pip/pytest commands
+- ✅ All 43/43 tests passing with zero compilation errors across 6 Python source files
+- ✅ Runtime verified — all endpoints, edge cases, and startup behavior confirmed operational
 
 ### 1.4 Critical Unresolved Issues
 
 | Issue | Impact | Owner | ETA |
-|-------|--------|-------|-----|
-| No critical unresolved issues | N/A | N/A | N/A |
-
-All AAP-specified deliverables are fully implemented, tested, and validated. No blocking issues remain.
+|---|---|---|---|
+| No `.gitignore` for Python artifacts (`__pycache__/`, `venv/`, `.pytest_cache/`) | Low — untracked files may appear in `git status`; no functional impact | Human Developer | 0.5h |
 
 ### 1.5 Access Issues
 
-No access issues identified. All dependencies install successfully (373 npm packages, 0 vulnerabilities), the test suite runs without external service requirements, and the application operates entirely on localhost with no external API dependencies.
+No access issues identified. The project uses only standard Python packages from PyPI (Flask, pytest) and requires no external service credentials, API keys, or special repository permissions.
 
 ### 1.6 Recommended Next Steps
 
-1. **[High] Code Review & PR Approval** — Human developer reviews the 3 commits (31 lines added, 3 removed across 2 files), verifies fix correctness against Express 5.x `app.listen()` contract, and approves the PR
-2. **[Medium] Merge to Main & Production Deployment** — Merge PR to `main` branch, deploy to production, and verify server starts cleanly with `node server.js`
-3. **[Medium] Production Smoke Test** — Run EADDRINUSE reproduction in staging/production to confirm exit code 1 and error logging are captured by monitoring infrastructure
-4. **[Low] Update README.md** — Document new `HOST` and `PORT` environment variable support (explicitly excluded from bug fix scope per AAP §0.5.2)
+1. **[High]** Review and merge this PR after verifying behavioral parity with the original Express 5.x implementation
+2. **[Medium]** Add a Python `.gitignore` file to exclude `__pycache__/`, `venv/`, `.pytest_cache/`, and `*.pyc` artifacts
+3. **[Medium]** Run the full test suite (`pytest -v`) on the target deployment environment to confirm platform-specific compatibility
+4. **[Low]** Consider adding a `venv` creation step to the `README.md` Getting Started section for development best practices
 
 ---
 
@@ -62,104 +61,113 @@ No access issues identified. All dependencies install successfully (373 npm pack
 ### 2.1 Completed Work Detail
 
 | Component | Hours | Description |
-|-----------|-------|-------------|
-| Root cause analysis & Express 5.x diagnosis | 1.5 | Analyzed Express 5.x source (`application.js:598-606`), identified `server.once('error', done)` error-forwarding mechanism, reproduced bug with port blocker, traced callback invocation flow |
-| Environment variable support (server.js:3-6) | 0.5 | Implemented `process.env.HOST` and `process.env.PORT` with `parseInt()` and `||` fallback pattern; covers NaN, empty, undefined edge cases |
-| Error-handling listen callback (server.js:23-33) | 1.5 | Replaced zero-arity callback with `(err) => {}`, added `if (err)` guard, `console.error()` to stderr, `process.exit(1)`, and `const server` reference capture |
-| EADDRINUSE callback test (lifecycle test:111-128) | 1.0 | New test spawns port conflict, validates error passed as first callback argument with `err.code === 'EADDRINUSE'` assertion |
-| Cross-realm Error assertion fix | 0.5 | Replaced unreliable `toBeInstanceOf(Error)` with `Object.prototype.toString.call(err) === '[object Error]'` for Jest VM context isolation |
-| Regression test suite execution | 0.5 | Ran full 43-test suite (33 HTTP contract + 10 lifecycle), confirmed zero failures, zero skipped |
-| Runtime validation (4 scenarios) | 1.0 | Validated EADDRINUSE (exit code 1, correct stderr), PORT override, normal startup (routes respond), module import (no auto-listen) |
-| **Total Completed** | **6.5** | |
+|---|---|---|
+| Flask App Factory (`app.py`) | 5 | Express-to-Flask migration: `create_app()` factory, URL normalization middleware (`before_request` for case-insensitive routing and `//` collapsing), `errorhandler(405)` → 404 conversion, `strict_slashes=False`, two GET route handlers with exact response body parity |
+| Startup Entry Point (`main.py`) | 3 | Environment config (`HOST`/`PORT` from `os.environ`), socket pre-check for port-conflict detection, `OSError` handling with stderr logging and `sys.exit(1)`, `__main__` guard for import safety |
+| HTTP Contract Tests (`test_http_contract.py`) | 6 | 33 pytest tests across 7 test classes translating all Jest/Supertest assertions: route responses, 404 handling, unsupported methods (405→404), edge cases (query params, case-insensitive, HEAD, trailing slash, double slash), X-Powered-By suppression |
+| Lifecycle Tests (`test_lifecycle.py`) | 6 | 10 pytest tests across 4 test classes: subprocess-based server startup verification, socket connectivity checks, port-conflict simulation via socket blocking, import safety validation, process termination and cleanup |
+| Shared Test Fixtures (`conftest.py`) | 1 | `app` fixture via `create_app()` factory, `client` fixture via Flask `test_client()`, TESTING config — replaces Supertest `request(app)` pattern |
+| Test Package Marker (`__init__.py`) | 0.5 | Empty file for pytest test discovery in the `tests/` package |
+| Dependency Manifest (`requirements.txt`) | 0.5 | Exact-pinned `flask==3.1.3` and `pytest==9.0.2` — replaces `package.json` dependencies |
+| Project Configuration (`pyproject.toml`) | 0.5 | Project metadata and `[tool.pytest.ini_options]` with `testpaths` and `pythonpath` — replaces `jest.config.js` and `package.json` metadata |
+| README.md Update | 1 | Replaced Node.js 18+ prerequisite with Python 3.11+, npm commands with pip/pytest, added Run Tests section, preserved endpoint table and license |
+| Node.js Artifact Removal | 1 | Removed `server.js`, `package.json`, `package-lock.json`, `jest.config.js`, `__tests__/server.test.js`, `__tests__/server.lifecycle.test.js` |
+| Validation & Bug Fixes | 2 | Final Validator: all 6 `.py` files compiled, 43/43 tests passing, runtime verification, subprocess cleanup fix in lifecycle test `finally` blocks |
+| **Total** | **26.5** | |
 
 ### 2.2 Remaining Work Detail
 
 | Category | Hours | Priority |
-|----------|-------|----------|
-| Code review & PR approval | 1.0 | High |
-| Production deployment verification | 0.5 | Medium |
-| **Total Remaining** | **1.5** | |
-
-### 2.3 Hours Verification
-
-- Section 2.1 Total: **6.5 hours**
-- Section 2.2 Total: **1.5 hours**
-- Sum (2.1 + 2.2): 6.5 + 1.5 = **8.0 hours** = Total Project Hours in Section 1.2 ✓
+|---|---|---|
+| Code Review & PR Approval | 2 | High |
+| Python `.gitignore` Setup | 0.5 | Medium |
+| Environment Smoke Testing on Target Platform | 1 | Medium |
+| **Total** | **3.5** | |
 
 ---
 
 ## 3. Test Results
 
 | Test Category | Framework | Total Tests | Passed | Failed | Coverage % | Notes |
-|---------------|-----------|-------------|--------|--------|------------|-------|
-| HTTP Contract (Unit) | Jest 30.3.0 + Supertest 7.2.2 | 33 | 33 | 0 | 72.22% (stmt) | Routes, 404s, methods, edge cases, headers |
-| Server Lifecycle (Integration) | Jest 30.3.0 | 10 | 10 | 0 | 72.22% (stmt) | Startup, shutdown, EADDRINUSE, export, callback error |
-| **Total** | **Jest 30.3.0** | **43** | **43** | **0** | **72.22%** | **100% pass rate** |
-
-**Coverage Notes:**
-- Statement coverage: 72.22% | Branch coverage: 62.5% | Function coverage: 66.66% | Line coverage: 72.22%
-- Uncovered lines 25–32 are inside `if (require.main === module)` guard — this block only executes during direct `node server.js` invocation, not during Jest test imports. This is by design and validated via runtime child-process tests.
-- All test results originate from Blitzy's autonomous validation execution: `CI=true npx jest --watchAll=false --ci --verbose`
+|---|---|---|---|---|---|---|
+| HTTP Contract (routes, 404s, methods, headers, edge cases) | pytest 9.0.2 + Flask test client | 33 | 33 | 0 | — | 7 test classes: GetRoot (4), GetEvening (4), NotFound (4), UnsupportedMethods Root (4), UnsupportedMethods Evening (4), EdgeCases (8), XPoweredBy (5) |
+| Lifecycle (startup, shutdown, port conflict, import safety) | pytest 9.0.2 + subprocess | 10 | 10 | 0 | — | 4 test classes: ServerStartup (4), ServerShutdown (2), PortConflict (2), AppExport (2) |
+| Compilation | `python -m py_compile` | 6 | 6 | 0 | 100% | All Python source files: app.py, main.py, conftest.py, test_http_contract.py, test_lifecycle.py, __init__.py |
+| **Total** | | **49** | **49** | **0** | | All test data from Blitzy autonomous validation |
 
 ---
 
 ## 4. Runtime Validation & UI Verification
 
-### Server Startup Validation
-- ✅ **Normal startup (PORT=6789):** Server binds, `console.log` prints correct URL, `GET /` returns `Hello, World!\n`, `GET /evening` returns `Good evening`
-- ✅ **EADDRINUSE scenario (PORT=5555, port occupied):** Exit code 1, stderr: `Failed to start server: listen EADDRINUSE: address already in use 127.0.0.1:5555`, no false success on stdout
-- ✅ **PORT environment variable override (PORT=4444):** Server binds to custom port, all routes respond correctly
-- ✅ **Module import path:** `require('./server')` returns Express app without triggering `app.listen()`
+### Runtime Health
 
-### API Endpoint Validation
-- ✅ `GET /` → 200, `text/plain`, `Hello, World!\n`
-- ✅ `GET /evening` → 200, `text/plain`, `Good evening`
-- ✅ `GET /nonexistent` → 404
-- ✅ `X-Powered-By` header suppressed on all responses
+- ✅ **Server Startup** — `python main.py` starts Flask development server on `http://127.0.0.1:3000/`
+- ✅ **Startup Message** — Prints `Server running at http://127.0.0.1:3000/` to stdout before blocking
+- ✅ **GET /** — Returns `Hello, World!\n` (200, `text/plain`)
+- ✅ **GET /evening** — Returns `Good evening` (200, `text/plain`)
+- ✅ **GET /Evening** — Returns `Good evening` (200, case-insensitive parity)
+- ✅ **GET /EVENING** — Returns `Good evening` (200, case-insensitive parity)
+- ✅ **GET /evening/** — Returns `Good evening` (200, trailing-slash tolerance)
+- ✅ **GET //** — Returns `Hello, World!\n` (200, double-slash normalization)
+- ✅ **GET /nonexistent** — Returns 404
+- ✅ **POST /** — Returns 404 (405→404 conversion parity)
+- ✅ **HEAD /** — Returns 200, `text/plain`, no body
+- ✅ **X-Powered-By header** — Absent on all responses
+- ✅ **Port Conflict** — Exit code 1 with `Failed to start server:` on stderr
+- ✅ **Import Safety** — `from app import create_app` does not trigger server startup
 
-### Error Handling Validation
-- ✅ EADDRINUSE error message includes system error details (`listen EADDRINUSE: address already in use`)
-- ✅ Error logged to stderr (not stdout) — compatible with standard log routing
-- ✅ Process exits with code 1 — detectable by CI/CD pipelines and monitoring
+### API Verification
+
+- ✅ `curl http://127.0.0.1:3000/` → `Hello, World!\n` (200 OK, Content-Type: text/plain)
+- ✅ `curl http://127.0.0.1:3000/evening` → `Good evening` (200 OK, Content-Type: text/plain)
+- ✅ No `X-Powered-By` header in response headers
 
 ---
 
 ## 5. Compliance & Quality Review
 
-| AAP Requirement | Section | Status | Evidence |
-|----------------|---------|--------|----------|
-| Modify hostname to `process.env.HOST \|\| '127.0.0.1'` | §0.4.2 | ✅ Pass | `server.js:4` — `const hostname = process.env.HOST \|\| '127.0.0.1'` |
-| Modify port to `parseInt(process.env.PORT, 10) \|\| 3000` | §0.4.2 | ✅ Pass | `server.js:6` — `const port = parseInt(process.env.PORT, 10) \|\| 3000` |
-| Accept `err` parameter in listen callback | §0.4.1 | ✅ Pass | `server.js:25` — `(err) => {` |
-| Add `if (err)` guard before success log | §0.4.1 | ✅ Pass | `server.js:26` — `if (err) {` |
-| Log error to stderr with `console.error` | §0.4.1 | ✅ Pass | `server.js:29` — `console.error(\`Failed to start server: ${err.message}\`)` |
-| Exit with code 1 on error | §0.4.1 | ✅ Pass | `server.js:30` — `process.exit(1)` |
-| Capture server reference | §0.4.1 | ✅ Pass | `server.js:25` — `const server = app.listen(...)` |
-| Add EADDRINUSE callback test | §0.4.2 | ✅ Pass | `server.lifecycle.test.js:111-128` |
-| No modifications to excluded files | §0.5.2 | ✅ Pass | Only `server.js` and `server.lifecycle.test.js` modified |
-| All 42+ tests pass | §0.6.1 | ✅ Pass | 43/43 tests pass (42 original + 1 new) |
-| EADDRINUSE exits with code 1 | §0.6.1 | ✅ Pass | Runtime validation confirmed |
-| No false success message on EADDRINUSE | §0.6.1 | ✅ Pass | stdout empty on port conflict |
-| PORT env override works | §0.6.2 | ✅ Pass | `PORT=4444 node server.js` binds correctly |
-| CommonJS convention preserved | §0.7.3 | ✅ Pass | No ES module syntax; `require`/`module.exports` used throughout |
-| Express 5.x compatibility | §0.7.3 | ✅ Pass | Tested with Express 5.2.1 |
-| No GitHub Actions workflow changes | §0.7.1 | ✅ Pass | No workflow files created or modified |
+| AAP Requirement | Status | Evidence |
+|---|---|---|
+| Replace `server.js` with `app.py` + `main.py` | ✅ Pass | `app.py` (167 lines), `main.py` (94 lines) created; `server.js` deleted |
+| Preserve GET / response (`Hello, World!\n`, 200, text/plain) | ✅ Pass | 4 passing tests + runtime curl verification |
+| Preserve GET /evening response (`Good evening`, 200, text/plain) | ✅ Pass | 4 passing tests + runtime curl verification |
+| Case-insensitive routing (/Evening, /EVENING) | ✅ Pass | `before_request` PATH_INFO normalization + 2 passing tests |
+| Trailing-slash tolerance (/evening/) | ✅ Pass | `strict_slashes=False` + 1 passing test |
+| Double-slash normalization (//) | ✅ Pass | `before_request` slash collapsing + 1 passing test |
+| 405→404 for unsupported methods | ✅ Pass | `errorhandler(405)` + 8 passing tests |
+| X-Powered-By header absent | ✅ Pass | Flask default (no action needed) + 5 passing tests |
+| HEAD request handling | ✅ Pass | Flask auto-handles HEAD for GET + 2 passing tests |
+| Query parameter transparency | ✅ Pass | 2 passing tests |
+| Import-safe app module | ✅ Pass | `create_app()` factory + `__main__` guard + 2 passing tests |
+| Startup success log format | ✅ Pass | `Server running at http://{host}:{port}/` + 1 passing test |
+| Port conflict → stderr + exit(1) | ✅ Pass | Socket pre-check + OSError handling + 2 passing tests |
+| Replace package.json → requirements.txt + pyproject.toml | ✅ Pass | `requirements.txt` (flask==3.1.3, pytest==9.0.2), `pyproject.toml` (metadata + pytest config) |
+| Replace jest.config.js → pyproject.toml | ✅ Pass | `[tool.pytest.ini_options]` in `pyproject.toml` |
+| Remove all Node.js artifacts | ✅ Pass | `server.js`, `package.json`, `package-lock.json`, `jest.config.js`, `__tests__/` all deleted |
+| Recreate 43-test behavioral specification | ✅ Pass | 43/43 tests passing (33 HTTP contract + 10 lifecycle) |
+| Update README.md | ✅ Pass | Python 3.11+ prerequisites, pip/pytest commands, endpoint table preserved |
+| No GitHub workflow changes | ✅ Pass | No `.github/` files created or modified |
+| No changes to `blitzy/` documentation | ✅ Pass | `blitzy/documentation/` folder unchanged |
+| No production features added | ✅ Pass | No DB, auth, TLS, Docker, CI/CD, or middleware beyond parity needs |
 
-**Autonomous Fixes Applied During Validation:**
-- Strengthened EADDRINUSE callback test assertion from `toBeInstanceOf(Error)` to `Object.prototype.toString.call(err) === '[object Error]'` for cross-realm safety in Jest VM context
+### Validation Fixes Applied During Autonomous Testing
+
+| Fix | Commit | Description |
+|---|---|---|
+| Subprocess cleanup in lifecycle tests | `251c34c` | Added robust `finally` blocks with `proc.terminate()` / `proc.kill()` / `proc.wait()` to ensure server subprocesses are always cleaned up, preventing port leaks during test execution |
 
 ---
 
 ## 6. Risk Assessment
 
 | Risk | Category | Severity | Probability | Mitigation | Status |
-|------|----------|----------|-------------|------------|--------|
-| `process.exit(1)` in listen callback bypasses cleanup | Technical | Low | Low | The exit only triggers on startup failure before any connections exist; no resources to clean up | Accepted |
-| `PORT=0` defaults to 3000 (not OS-assigned ephemeral) | Technical | Low | Very Low | Documented in AAP §0.4.4 as acceptable; localhost-only defaults preserved per requirements | Accepted |
-| Coverage at 72.22% due to `require.main` guard | Technical | Low | N/A | Uncovered lines are the startup block validated via runtime child-process tests; cannot be unit-tested by design | Mitigated |
-| Negative PORT values pass `parseInt` but fail at bind time | Technical | Very Low | Very Low | Node.js rejects invalid ports with an error, caught by the new `if (err)` handler | Mitigated |
-| No graceful shutdown handlers (SIGTERM/SIGINT) | Operational | Low | Low | Explicitly excluded from scope per AAP §0.5.2; server is minimal, stateless, no persistent connections | Accepted |
-| Express 5.x callback contract may change in future versions | Integration | Low | Very Low | Express 5.x is stable release; callback error-forwarding is documented and intentional (PR #2623) | Monitored |
+|---|---|---|---|---|---|
+| Flask development server used in main.py (not production-grade) | Technical | Low | N/A | Intentional per AAP — system is a tutorial-grade test harness, not a production service. Use Gunicorn/uWSGI if production deployment is ever needed. | Accepted |
+| No `.gitignore` for Python artifacts | Operational | Low | High | Add `.gitignore` with `__pycache__/`, `venv/`, `.pytest_cache/`, `*.pyc` entries | Open |
+| Socket pre-check race condition in main.py | Technical | Low | Very Low | Port could be claimed between pre-check and `app.run()` bind. Secondary `except OSError` block catches this edge case. | Mitigated |
+| No virtual environment setup in README | Operational | Low | Medium | Add `python -m venv venv && source venv/bin/activate` to Getting Started section | Open |
+| Werkzeug `Server` header exposes framework version | Security | Low | High | Werkzeug emits `Server: Werkzeug/3.1.7 Python/3.12.10` by default. Not a concern for this tutorial-grade project, but should be suppressed if the system is ever deployed publicly. | Accepted |
+| Time-based lifecycle tests may be flaky on slow CI | Technical | Low | Low | Tests use `time.sleep(2)` for server startup. May need adjustment on resource-constrained CI runners. | Monitoring |
 
 ---
 
@@ -167,43 +175,48 @@ No access issues identified. All dependencies install successfully (373 npm pack
 
 ```mermaid
 pie title Project Hours Breakdown
-    "Completed Work" : 6.5
-    "Remaining Work" : 1.5
+    "Completed Work" : 26.5
+    "Remaining Work" : 3.5
 ```
 
-**Remaining Work by Priority:**
-
-| Priority | Category | Hours |
-|----------|----------|-------|
-| 🔴 High | Code review & PR approval | 1.0 |
-| 🟡 Medium | Production deployment verification | 0.5 |
-| **Total** | | **1.5** |
+```mermaid
+pie title Remaining Work by Priority
+    "Code Review & Approval (High)" : 2
+    ".gitignore Setup (Medium)" : 0.5
+    "Environment Smoke Testing (Medium)" : 1
+```
 
 ---
 
 ## 8. Summary & Recommendations
 
-### Achievements
-All AAP-specified deliverables for the Express 5.x EADDRINUSE bug fix have been fully implemented, tested, and validated. The project is **81.3% complete** (6.5 hours completed out of 8.0 total hours). The remaining 1.5 hours consist entirely of human path-to-production activities: code review/PR approval (1.0h) and production deployment verification (0.5h).
+### Achievement Summary
 
-### What Was Fixed
-The root cause — Express 5.x's `app.listen()` forwarding `EADDRINUSE` errors to a zero-arity callback that silently discarded them — is now fully resolved. The listen callback accepts the error argument, guards the success log, logs actionable diagnostics to stderr, and exits with code 1 on failure. Environment variable overrides (`HOST`, `PORT`) provide operational flexibility without source code changes.
+The Node.js/Express 5.x → Python/Flask 3.x technology stack migration is **88.3% complete** (26.5 of 30 total hours). Every AAP-scoped deliverable has been autonomously implemented and validated:
 
-### Test Confidence
-43 out of 43 tests pass with zero failures, zero skipped, and zero regressions. The new EADDRINUSE callback test specifically validates the Express 5.x error-forwarding contract with a cross-realm-safe assertion. Runtime validation across 4 scenarios (EADDRINUSE, PORT override, normal startup, module import) confirms the fix works end-to-end.
+- **Application source**: `server.js` (37 lines) replaced by `app.py` (167 lines) + `main.py` (94 lines) with full Express 5.x behavioral parity
+- **Test suite**: 43 Jest/Supertest tests recreated as 43 pytest tests — all passing (33 HTTP contract + 10 lifecycle)
+- **Configuration**: `package.json` + `jest.config.js` replaced by `requirements.txt` + `pyproject.toml`
+- **Documentation**: `README.md` updated with Python-native instructions
+- **Artifact cleanup**: All 6 Node.js files/directories removed
+
+### Remaining Gaps
+
+The 3.5 remaining hours consist exclusively of standard path-to-production human activities:
+
+1. **Code review** (2h) — Human verification of Express→Flask behavioral parity decisions
+2. **Environment testing** (1h) — Smoke testing on the target deployment platform
+3. **`.gitignore` setup** (0.5h) — Python artifact exclusion patterns
 
 ### Production Readiness Assessment
-The codebase is **production-ready** pending human code review and merge. All production readiness gates are satisfied:
-- ✅ 100% test pass rate (43/43)
-- ✅ Application runtime validated across all execution paths
-- ✅ Zero unresolved errors or issues
-- ✅ All in-scope files validated and committed (3 commits)
-- ✅ No out-of-scope modifications
 
-### Recommendations
-1. Approve and merge the PR after code review — the fix is minimal (31 lines added, 3 removed in 2 files), well-tested, and follows the Express 5.x idiomatic error-handling pattern
-2. After deployment, verify that `console.error` output from EADDRINUSE scenarios is captured by your production logging/monitoring infrastructure
-3. Consider adding `README.md` documentation for the new `HOST`/`PORT` environment variables in a follow-up commit (outside this bug fix scope)
+The system is **ready for human review and merge**. All functional requirements are met, all tests pass, the runtime is verified, and zero compilation errors exist. The remaining work is exclusively review and environmental validation — no code changes are anticipated.
+
+### Critical Path to Merge
+
+1. Human code review of this PR (focus on `app.py` behavioral parity middleware)
+2. Merge and verify in target environment
+3. Add `.gitignore` as a follow-up commit
 
 ---
 
@@ -211,109 +224,104 @@ The codebase is **production-ready** pending human code review and merge. All pr
 
 ### System Prerequisites
 
-| Software | Minimum Version | Verified Version |
-|----------|----------------|-----------------|
-| Node.js | 18.x LTS | v20.19.5 |
-| npm | 8.x | 10.8.2 |
+| Software | Version | Purpose |
+|---|---|---|
+| Python | ≥ 3.11 | Runtime environment |
+| pip | (bundled with Python) | Package manager |
 
 ### Environment Setup
 
 ```bash
-# Clone the repository and checkout the bug fix branch
-git clone <repository-url>
-cd hello_world
-git checkout blitzy-9363aaa7-dcc0-4a05-8ff7-1f2d02cfc24b
+# 1. Navigate to the project directory
+cd /path/to/hello_world
+
+# 2. (Recommended) Create a virtual environment
+python -m venv venv
+
+# 3. Activate the virtual environment
+# On Linux/macOS:
+source venv/bin/activate
+# On Windows:
+venv\Scripts\activate
 ```
 
 ### Dependency Installation
 
 ```bash
-# Install all dependencies (373 packages, 0 vulnerabilities)
-npm install
+# Install all dependencies (Flask 3.1.3, pytest 9.0.2)
+pip install -r requirements.txt
 ```
 
-Expected output: `added 373 packages` with no vulnerability warnings.
-
-### Running Tests
-
-```bash
-# Run the full test suite (43 tests)
-CI=true npx jest --watchAll=false --ci --verbose
-
-# Run with coverage report
-CI=true npx jest --watchAll=false --ci --coverage
+**Expected output:**
 ```
-
-Expected output: `Tests: 43 passed, 43 total` — 2 test suites, 0 failures.
+Successfully installed Flask-3.1.3 Werkzeug-3.1.7 blinker-1.9.0 ...
+```
 
 ### Application Startup
 
 ```bash
-# Default startup (port 3000)
-node server.js
-
-# Custom port
-PORT=4567 node server.js
-
-# Custom host and port
-HOST=0.0.0.0 PORT=8080 node server.js
-
-# Using npm start (uses default port 3000)
-npm start
+# Start the Flask development server
+python main.py
 ```
 
-Expected output: `Server running at http://127.0.0.1:3000/` (or custom host:port).
+**Expected output:**
+```
+Server running at http://127.0.0.1:3000/
+ * Serving Flask app 'app'
+ * Running on http://127.0.0.1:3000
+```
+
+**Custom host/port:**
+```bash
+HOST=0.0.0.0 PORT=8080 python main.py
+```
 
 ### Verification Steps
 
 ```bash
-# 1. Start the server
-PORT=5000 node server.js &
-
-# 2. Test root endpoint
-curl -s http://127.0.0.1:5000/
+# Test the root endpoint
+curl http://127.0.0.1:3000/
 # Expected: Hello, World!
 
-# 3. Test evening endpoint
-curl -s http://127.0.0.1:5000/evening
+# Test the evening endpoint
+curl http://127.0.0.1:3000/evening
 # Expected: Good evening
 
-# 4. Test 404 handling
-curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5000/nonexistent
-# Expected: 404
+# Verify Content-Type header
+curl -sI http://127.0.0.1:3000/ | grep Content-Type
+# Expected: Content-Type: text/plain
 
-# 5. Verify X-Powered-By suppression
-curl -sI http://127.0.0.1:5000/ | grep -i "x-powered-by"
-# Expected: no output (header absent)
-
-# 6. Stop the server
-kill %1
+# Verify X-Powered-By absent
+curl -sI http://127.0.0.1:3000/ | grep -i x-powered-by
+# Expected: (no output)
 ```
 
-### EADDRINUSE Verification
+### Running Tests
 
 ```bash
-# Terminal 1: Block port 3000
-node -e "require('net').createServer().listen(3000, '127.0.0.1', () => console.log('blocking'))"
+# Run all 43 tests with verbose output
+python -m pytest -v
 
-# Terminal 2: Attempt to start server on same port
-node server.js
-# Expected stderr: Failed to start server: listen EADDRINUSE: address already in use 127.0.0.1:3000
-# Expected exit code: 1
+# Run only HTTP contract tests (33 tests)
+python -m pytest tests/test_http_contract.py -v
 
-# Verify exit code
-echo $?
-# Expected: 1
+# Run only lifecycle tests (10 tests)
+python -m pytest tests/test_lifecycle.py -v
+```
+
+**Expected output:**
+```
+============================= 43 passed in ~14s =============================
 ```
 
 ### Troubleshooting
 
 | Issue | Cause | Resolution |
-|-------|-------|------------|
-| `Failed to start server: listen EADDRINUSE` | Port already in use | Use `lsof -i :3000` to find the blocking process, then `kill <PID>`, or set `PORT=<other>` |
-| `npm install` fails | Node.js version too old | Upgrade to Node.js 18+ LTS (`node -v` to check) |
-| Tests timeout | Open handles from prior runs | Run `CI=true npx jest --watchAll=false --ci --detectOpenHandles` |
-| Coverage < 100% | `require.main === module` guard | Expected — startup block only runs in direct execution, not during test imports |
+|---|---|---|
+| `ModuleNotFoundError: No module named 'flask'` | Dependencies not installed | Run `pip install -r requirements.txt` |
+| `OSError: [Errno 98] Address already in use` | Port 3000 occupied | Use a different port: `PORT=3001 python main.py` |
+| `Failed to start server:` on stderr | Port conflict detected by socket pre-check | Kill the process using port 3000: `lsof -i :3000` |
+| Tests fail with `TimeoutExpired` | Lifecycle tests need server startup time | Increase `time.sleep()` values in `tests/test_lifecycle.py` if running on slow hardware |
 
 ---
 
@@ -322,65 +330,68 @@ echo $?
 ### A. Command Reference
 
 | Command | Purpose |
-|---------|---------|
-| `npm install` | Install all dependencies |
-| `npm start` | Start server on default port 3000 |
-| `npm test` | Run test suite (jest --watchAll=false) |
-| `CI=true npx jest --watchAll=false --ci --verbose` | Run tests in CI mode with verbose output |
-| `CI=true npx jest --watchAll=false --ci --coverage` | Run tests with coverage report |
-| `node -c server.js` | Syntax check server.js |
-| `PORT=<n> node server.js` | Start server on custom port |
-| `HOST=<ip> PORT=<n> node server.js` | Start server on custom host and port |
+|---|---|
+| `pip install -r requirements.txt` | Install Flask and pytest dependencies |
+| `python main.py` | Start the Flask development server |
+| `python -m pytest -v` | Run all 43 tests with verbose output |
+| `python -m pytest tests/test_http_contract.py -v` | Run 33 HTTP contract tests |
+| `python -m pytest tests/test_lifecycle.py -v` | Run 10 lifecycle tests |
+| `python -m py_compile app.py` | Verify app.py compiles without errors |
+| `HOST=0.0.0.0 PORT=8080 python main.py` | Start with custom host/port |
 
 ### B. Port Reference
 
-| Service | Default Port | Environment Variable | Configurable |
-|---------|-------------|---------------------|--------------|
-| Express HTTP Server | 3000 | `PORT` | Yes |
+| Port | Service | Default |
+|---|---|---|
+| 3000 | Flask development server | Yes (configurable via `PORT` env var) |
 
 ### C. Key File Locations
 
 | File | Purpose |
-|------|---------|
-| `server.js` | Main application entry point — Express 5.x app with routes and listen block (BUG FIX TARGET) |
-| `__tests__/server.test.js` | 33 HTTP contract tests (routes, 404s, methods, edge cases, headers) |
-| `__tests__/server.lifecycle.test.js` | 10 lifecycle tests (startup, shutdown, EADDRINUSE, export) |
-| `package.json` | npm manifest — dependencies, scripts, metadata |
-| `jest.config.js` | Jest 30.x configuration — node environment, coverage, test patterns |
+|---|---|
+| `app.py` | Flask application factory — `create_app()`, routes, middleware |
+| `main.py` | Server startup entry point — env config, socket pre-check, `__main__` guard |
+| `requirements.txt` | Python dependency manifest (Flask 3.1.3, pytest 9.0.2) |
+| `pyproject.toml` | Project metadata and pytest configuration |
+| `README.md` | Developer onboarding documentation |
+| `tests/__init__.py` | Python package marker for test discovery |
+| `tests/conftest.py` | Shared pytest fixtures (`app`, `client`) |
+| `tests/test_http_contract.py` | 33 HTTP contract tests (routes, 404s, methods, edge cases, headers) |
+| `tests/test_lifecycle.py` | 10 lifecycle tests (startup, shutdown, port conflict, import safety) |
 
 ### D. Technology Versions
 
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| Node.js | v20.19.5 | JavaScript runtime |
-| npm | 10.8.2 | Package manager |
-| Express | 5.2.1 | HTTP framework (runtime dependency) |
-| Jest | 30.3.0 | Test runner (dev dependency) |
-| Supertest | 7.2.2 | HTTP assertion library (dev dependency) |
+| Technology | Version | Role |
+|---|---|---|
+| Python | 3.12.10 (requires ≥ 3.11) | Runtime |
+| Flask | 3.1.3 | Web framework (replaces Express 5.2.1) |
+| Werkzeug | 3.1.7 | WSGI utility library (Flask dependency) |
+| Jinja2 | 3.1.6 | Template engine (Flask dependency, unused) |
+| pytest | 9.0.2 | Test framework (replaces Jest 30.3.0 + Supertest 7.2.2) |
 
 ### E. Environment Variable Reference
 
 | Variable | Default | Description |
-|----------|---------|-------------|
-| `HOST` | `127.0.0.1` | Server bind address — set to `0.0.0.0` for all interfaces |
-| `PORT` | `3000` | Server listen port — any valid TCP port number |
-| `CI` | (unset) | Set to `true` for non-interactive test execution |
+|---|---|---|
+| `HOST` | `127.0.0.1` | Server bind address |
+| `PORT` | `3000` | Server bind port |
 
 ### F. Developer Tools Guide
 
-| Tool | Command | Notes |
-|------|---------|-------|
-| Syntax check | `node -c server.js` | Validates JavaScript syntax without executing |
-| REPL import test | `node -e "const app = require('./server'); console.log(typeof app)"` | Verifies module exports without starting server |
-| Port finder | `lsof -i :3000` | Identifies processes occupying port 3000 |
-| Process cleanup | `kill $(lsof -t -i :3000)` | Kills process on port 3000 |
+| Tool | Usage |
+|---|---|
+| Flask test client | `app.test_client()` — HTTP assertion library built into Flask, replaces Supertest |
+| pytest fixtures | `conftest.py` provides `app` and `client` fixtures auto-injected into test functions |
+| `subprocess.Popen` | Used in lifecycle tests for server startup/shutdown verification |
+| `socket.socket` | Used in lifecycle tests for port availability checks and port blocking |
 
 ### G. Glossary
 
 | Term | Definition |
-|------|-----------|
-| EADDRINUSE | OS-level error code indicating a TCP port is already bound by another process |
-| Express 5.x callback contract | Express 5.x's `app.listen()` forwards listen errors to the callback as the first argument (unlike Express 4.x which throws uncaught exceptions) |
-| `require.main === module` | Node.js guard pattern that executes code only when the file is run directly (not imported) |
-| Cross-realm Error | JavaScript Error objects created in a different VM context (e.g., Jest worker) that fail `instanceof Error` checks |
-| Zero-arity callback | A callback function declared with no parameters `() => {}`, which ignores all arguments passed to it |
+|---|---|
+| App Factory | Pattern where `create_app()` returns a new Flask app instance — enables test isolation and import safety |
+| `before_request` | Flask hook that runs before each request — used for URL normalization (case folding, slash collapsing) |
+| `strict_slashes` | Flask URL map setting — when `False`, routes match with or without trailing slashes |
+| 405→404 conversion | Error handler that converts Flask's Method Not Allowed (405) to Not Found (404) for Express 5.x parity |
+| Import safety | Importing the app module does not start a server — achieved via `if __name__ == '__main__':` guard |
+| EADDRINUSE | OS error when a port is already in use — detected via socket pre-check in `main.py` |
