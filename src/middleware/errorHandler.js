@@ -37,6 +37,7 @@
  */
 
 const logger = require('../utils/logger');
+const { sanitizeLogInput } = require('../utils/sanitizer');
 
 /**
  * Express error-handling middleware function.
@@ -60,7 +61,8 @@ const errorHandler = (err, req, res, next) => {
   // Format: "<statusCode> - <message> - <originalUrl> - <httpMethod>"
   // req.originalUrl is used instead of req.url to capture the full URL path
   // including any base path prefixes from mounted sub-applications.
-  logger.error(`${statusCode} - ${err.message} - ${req.originalUrl} - ${req.method}`);
+  // SECURITY: Log injection prevention — sanitize user-controlled input (req.originalUrl, req.method) before logging to prevent log forging via control characters (CWE-117)
+  logger.error(`${statusCode} - ${err.message} - ${sanitizeLogInput(req.originalUrl)} - ${sanitizeLogInput(req.method)}`);
 
   // Build the standardized JSON error response object.
   // The format is consistent across the entire application:
@@ -69,6 +71,7 @@ const errorHandler = (err, req, res, next) => {
   // with a generic string to prevent potential information disclosure of
   // internal details (file paths, module names, connection strings).
   // Client errors (4xx) retain the specific message for API consumer feedback.
+  // SECURITY: CWE-209 — Error message masking for 5xx errors in production prevents information disclosure
   const isServerError = statusCode >= 500;
   const isProduction = process.env.NODE_ENV === 'production';
   const message = (isServerError && isProduction)

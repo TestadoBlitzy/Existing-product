@@ -4,524 +4,958 @@
 
 ## 0.1 Intent Clarification
 
+### 0.1.1 Core Security Objective
 
-### 0.1.1 Core Objective
+Based on the security concern described, the Blitzy platform understands that the security vulnerabilities to resolve span **six distinct vulnerability categories** affecting a Node.js + Express 5 application: HTTP security header hardening, input validation enforcement, dependency vulnerability remediation, rate limiting verification, error handling tightening, and log injection prevention. The remediation must be applied exclusively through middleware-layer changes, security configuration enhancements, and dependency version management — while preserving all existing business logic, API contracts, route responses, and middleware execution order.
 
-Based on the provided requirements, the Blitzy platform understands that the objective is to transform a minimal, built-in Node.js HTTP server into a production-grade Express.js application with a professional middleware stack, structured logging, environment-driven configuration, organized routing, and process management via PM2 for production deployment.
+**Vulnerability category:** Multiple vulnerabilities (Configuration weakness + Code vulnerability + Dependency vulnerability)
 
-The specific requirements, restated with enhanced clarity:
+**Severity levels as classified by the user:**
+- **High:** Input validation gaps (no validation on any request payloads), dependency vulnerabilities (per `npm audit` directive)
+- **Medium:** Rate limiting refinement (DoS risk), error handling improvement (stack trace leakage)
+- **Low:** HTTP security header configuration strengthening
 
-- **Migrate from built-in `http` module to Express.js framework**: Replace the current bare-bones `http.createServer()` implementation in `server.js` with the Express.js web framework, leveraging its routing, middleware pipeline, and request/response abstractions.
-- **Add structured routing**: Introduce a modular route system with separate route files for health checks, API endpoints, and a root index, replacing the single catch-all request handler that currently returns `"Hello, World!\n"` for every request regardless of path or method.
-- **Integrate production middleware**: Establish a comprehensive middleware pipeline including security headers (Helmet), CORS handling, request body parsing, response compression, and rate limiting to harden the server for production traffic.
-- **Implement environment-based configuration**: Replace the hardcoded `hostname = '127.0.0.1'` and `port = 3000` values with a centralized configuration module backed by environment variables loaded from `.env` files via `dotenv`, supporting multiple deployment environments (development, production).
-- **Add structured logging**: Replace the single `console.log` statement with a professional logging system using Winston for application-level logging (with console and file transports) and Morgan for HTTP request access logging, producing structured JSON logs suitable for log aggregation tools.
-- **Prepare for production deployment with PM2**: Create a PM2 ecosystem configuration file enabling cluster-mode process management, zero-downtime reloads, automatic restarts on failure, and log management for production deployments.
+**Security requirements with enhanced clarity:**
 
-Implicit requirements detected:
+- **HTTP Security Headers (Low):** The application already employs `helmet@8.1.0` with default configuration at pipeline Layer 1 in `src/app.js`, setting 13 HTTP security response headers. The fix requires STRENGTHENING the existing Helmet configuration with explicit Content-Security-Policy (CSP) directives tuned for API-only responses, and verifying HSTS and other header settings are appropriate for production deployment.
 
-- The `package.json` must be updated with all new dependencies, scripts for development and production, and an `engines` field to declare Node.js compatibility.
-- The `main` field in `package.json` currently points to a non-existent `index.js` and must be corrected to point to the actual entry point.
-- A `.gitignore` file must be created to exclude `node_modules/`, `.env`, and log files from version control.
-- A `.env.example` file should be provided as a template for environment variable documentation.
-- Proper error handling middleware must be introduced, as Express requires explicit error handlers for production use.
-- A health check endpoint is necessary for PM2 and load balancer monitoring.
-- The `README.md` needs a complete rewrite to document the new project setup, scripts, and deployment procedures.
+- **Input Validation (High):** No input validation exists anywhere in the application. Request payloads (JSON body, URL-encoded body, query parameters) pass directly through Express body parsers at Layer 4 to route handlers with zero schema enforcement. Additionally, no body parser size limits are configured, creating a potential payload-based DoS vector. The fix requires adding `zod`-based schema validation middleware and configuring explicit body size limits.
 
-### 0.1.2 Task Categorization
+- **Dependency Vulnerabilities (High):** The user directs remediation per `npm audit` results. Comprehensive audit reveals **0 known vulnerabilities** across all 117 packages (8 direct + 109 transitive). All 8 direct dependencies resolve to their latest semver-compatible versions. The fix requires verifying and documenting this clean posture, ensuring the lockfile is current, and adding `zod` as a new secure dependency.
 
-- **Primary task type**: Mixed (Framework Migration + Feature Addition + Configuration + Tooling)
-- **Secondary aspects**: Security enhancement (Helmet, CORS, rate limiting), Developer experience (structured logging, environment config), Deployment readiness (PM2 configuration)
-- **Scope classification**: Cross-cutting change — this enhancement touches every layer of the application from entry point through configuration, routing, middleware, logging, error handling, and deployment configuration.
+- **Rate Limiting (Medium):** The application already implements IP-based rate limiting via `express-rate-limit@8.3.1` at pipeline Layer 6 in `src/app.js`, configured for 100 requests per 15-minute window with IETF standard headers. The fix requires configuration verification and ensuring the rate limiter responds with standardized error responses.
 
-### 0.1.3 Special Instructions and Constraints
+- **Error Handling (Medium):** The centralized error handler in `src/middleware/errorHandler.js` already masks 5xx error messages in production and suppresses stack traces per CWE-209. However, `NODE_ENV` defaults to `development` in `.env`, meaning stack traces are exposed in the default configuration. The fix requires hardening the error handler with explicit comments and ensuring production deployment documentation enforces `NODE_ENV=production`.
 
-- **User Rule**: "Do not make any updates or changes in GitHub App to create or update a workflow." — No `.github/workflows/` files will be created or modified. CI/CD pipeline changes are explicitly excluded.
-- **CommonJS convention**: The existing codebase uses CommonJS (`require()`/`module.exports`). The enhanced project will maintain CommonJS module syntax for consistency with the existing code and `package.json` configuration (no `"type": "module"` change).
-- **No existing tests**: The current project has no test infrastructure (`"test": "echo \"Error: no test specified\" && exit 1"`). Test scaffolding is not explicitly requested and will be noted as out of scope.
-- **No existing dependencies**: The project currently has zero npm dependencies — all packages are new additions.
+- **Log Injection (Medium):** The Winston logger in `src/utils/logger.js` uses JSON-structured logging which provides inherent resistance to some log injection vectors. However, user-controlled data such as `req.originalUrl` is logged directly without sanitization in `src/middleware/notFound.js` and `src/middleware/errorHandler.js`. The fix requires adding a log sanitization utility and applying it to all locations where user-controlled input is logged.
 
-### 0.1.4 Technical Interpretation
+**Implicit security needs surfaced:**
+- `CORS_ORIGIN=*` wildcard in `.env` is a documented security gap (Section 3.8.2) that should be tightened alongside this remediation
+- `src/middleware/notFound.js` reflects `req.originalUrl` in JSON response bodies — a potential information leakage vector
+- `/api/info` endpoint at `src/routes/api.js` exposes application version, environment name, and Node.js version without access control
+- `/health` endpoint at `src/routes/health.js` exposes process memory usage, uptime, and Node.js version without access control
+- Body parsers (`express.json()`, `express.urlencoded()`) in `src/app.js` have no explicit size limits, permitting arbitrarily large payloads
 
-These requirements translate to the following technical implementation strategy:
+### 0.1.2 Special Instructions and Constraints
 
-- To **adopt Express.js**, we will rewrite `server.js` to serve as the application entry point that loads environment configuration and starts the Express server, and create `src/app.js` as the Express application factory that configures the middleware pipeline and mounts route handlers.
-- To **implement structured routing**, we will create a `src/routes/` directory with modular route files (`index.js`, `health.js`, `api.js`) and mount them on the Express app using `express.Router()`.
-- To **add production middleware**, we will install and configure `helmet` for HTTP security headers, `cors` for cross-origin resource sharing, `compression` for gzip response compression, `express-rate-limit` for request throttling, and `express.json()`/`express.urlencoded()` for body parsing.
-- To **implement environment config**, we will create `src/config/index.js` that centralizes all environment variable access, create `.env` and `.env.example` files for local development, and use `dotenv` to load variables into `process.env`.
-- To **add structured logging**, we will create `src/utils/logger.js` configuring Winston with JSON-formatted file transports and colorized console transports, and integrate Morgan HTTP request logging piped through the Winston logger.
-- To **prepare PM2 deployment**, we will create `ecosystem.config.js` at the project root with cluster-mode configuration, environment variable definitions, log file paths, and restart policies.
+**CRITICAL directives captured from user input:**
+- "Make ONLY minimal changes required to fix vulnerabilities"
+- "Do NOT refactor or optimize unrelated code"
+- "Preserve all existing functionality exactly"
+- "Prefer middleware/config fixes over code changes"
+- "Document each fix with comments explaining the vulnerability addressed"
+- "If additional vulnerabilities are found, note them but do not fix"
 
+**System boundary constraints (user-specified):**
+- **Only modify:** Middleware, security configurations, dependency versions
+- **Do NOT modify:** Business logic, route responses, API contracts, middleware execution structure
+- **Affected layers:** Express backend, npm dependencies, environment/config
 
-## 0.2 Repository Scope Discovery
+**Performance constraints:**
+- Minimal acceptable overhead from middleware additions
+- No change to response structure or UX
 
+**Implementation rules (from project configuration):**
+- Do not make any updates or changes in GitHub App to create or update a workflow
 
-### 0.2.1 Comprehensive File Analysis
+**Change scope preference:** Minimal — Apply only the smallest possible changes that completely eliminate each identified vulnerability
 
-The repository is a minimal Node.js project containing exactly four files at the root level with no subdirectories:
+**User-provided examples preserved exactly:**
+- User Example: "Run `npm audit` → zero high/critical issues"
+- User Example: "Test injection scenarios (invalid/malicious inputs)"
+- User Example: "Validate rate limiting under load"
+- User Example: "Verify security headers"
+- User Example: "Revert dependency versions via lockfile"
+- User Example: "Disable new middleware via config flags"
+- User Example: "Roll back deployment using PM2"
 
-| File | Purpose | Key Observations |
-|------|---------|-----------------|
-| `server.js` | Runtime entry point — a 14-line HTTP server using Node.js built-in `http` module | Hardcoded `hostname = '127.0.0.1'` and `port = 3000`; single request handler returns `"Hello, World!\n"` for all paths/methods; binds only to loopback; no error handling; no exports |
-| `package.json` | npm manifest | `name: "hello_world"`, `version: "1.0.0"`, `main: "index.js"` (non-existent file), zero dependencies, no start script, test script is a placeholder that exits with error code 1, `license: "MIT"`, `author: "hxu"` |
-| `package-lock.json` | npm lockfile (v3 format) | Contains only the root package entry — no external dependency entries recorded |
-| `README.md` | Repository documentation | Contains only heading `# hao-backprop-test` and a single line `test project for backprop integration.` — naming mismatch with `package.json` name |
+### 0.1.3 Technical Interpretation
 
-**Notable gaps identified:**
-- No `src/` directory or any organized source structure
-- No `.gitignore` file — `node_modules/` is unprotected from commits
-- No `.env` or environment configuration mechanism
-- No logging infrastructure beyond `console.log`
-- No middleware or routing layer
-- No error handling
-- No deployment configuration
-- No health check endpoint
-- `main` field references non-existent `index.js`
-- Name mismatch: README says `hao-backprop-test` while `package.json` says `hello_world`
+This security vulnerability assessment translates to the following technical fix strategy:
 
-### 0.2.2 Web Search Research Conducted
+Based on comprehensive code review of all 12 source files, dependency audit of all 117 packages, and security research across Express.js 5 best practices, the Blitzy platform maps each vulnerability to specific, minimal fix actions:
 
-The following research was conducted to inform implementation decisions:
+- To resolve **HTTP security header gaps**, we will ENHANCE the existing `helmet()` call in `src/app.js` by passing explicit configuration options for Content-Security-Policy directives tuned for API-only responses, while preserving all 13 default headers. The pipeline position (Layer 1) and middleware execution order remain unchanged.
 
-- **Express.js latest version and features**: Confirmed Express 5.2.1 is the latest stable version on npm. Express 5 is now the default on npm as of March 2025, with built-in promise support for async middleware and updated path-to-regexp routing. Node.js >= 18 is required.
-- **PM2 process management best practices**: Confirmed PM2 6.0.14 is the latest version. Documented cluster mode configuration, ecosystem file format, startup script generation, and log management commands.
-- **Winston logging for Node.js**: Confirmed Winston 3.19.0 is the latest version. Reviewed best practices for transport configuration, structured JSON logging, log level hierarchy, and integration with Morgan for HTTP request logging.
-- **Morgan HTTP request logging**: Confirmed Morgan 1.10.1 is the latest version. Reviewed predefined formats (`combined`, `dev`, `common`) and custom token creation for integration with Winston logger streams.
-- **dotenv environment management**: Confirmed dotenv 17.3.1 is the latest version. Note: Node.js v20.6.0+ supports native `--env-file` flag, but dotenv provides cross-version compatibility and programmatic control.
-- **Helmet security middleware**: Confirmed Helmet 8.1.0 is the latest version. Sets 13 HTTP security response headers by default including Content-Security-Policy, Strict-Transport-Security, and X-Content-Type-Options.
-- **CORS middleware**: Confirmed cors 2.8.6 is the latest version. Supports origin whitelisting, preflight request handling, and route-specific configuration.
-- **Express middleware stack patterns**: Reviewed established patterns for middleware ordering — security (Helmet) first, then CORS, then compression, then body parsing, then logging, then routes, and finally error handling.
+- To resolve **input validation gaps**, we will ADD the `zod` package as a new dependency and CREATE a reusable validation middleware at `src/middleware/validateInput.js`. Validation schemas will be applied at the route level in `src/routes/api.js` and `src/routes/health.js` to reject unexpected or malformed payloads. We will also ADD explicit body parser size limits to `express.json()` and `express.urlencoded()` calls in `src/app.js` to prevent payload-based DoS.
 
-### 0.2.3 Existing Infrastructure Assessment
+- To resolve **dependency vulnerability risk**, we will VERIFY the current clean `npm audit` posture (0 vulnerabilities), CONFIRM all dependencies are at their latest semver-compatible versions, and DOCUMENT the audit results. No existing dependency version changes are required.
 
-- **Project structure**: Flat root-level layout with no directory organization. All code resides in a single `server.js` file.
-- **Existing patterns and conventions**: CommonJS module system (`require()`/`module.exports`), no code style configuration (no `.eslintrc`, `.prettierrc`).
-- **Build and deployment configurations**: None present. No Dockerfile, no CI/CD pipeline, no PM2 config, no start scripts.
-- **Testing infrastructure**: Absent. The test script in `package.json` is a placeholder that echoes an error message and exits non-zero.
-- **Documentation system**: Minimal — `README.md` contains only a project title and one-line description that does not match the project purpose.
-- **Runtime**: Node.js v20.20.1 with npm v11.1.0. No `.nvmrc` or `engines` field specified.
+- To resolve **rate limiting concerns**, we will VERIFY the existing `express-rate-limit` configuration in `src/app.js` and CONFIRM it provides adequate protection at 100 requests per 15-minute window with standard IETF headers.
 
+- To resolve **error handling exposure**, we will HARDEN the existing error handler in `src/middleware/errorHandler.js` with explicit inline comments documenting the CWE-209 mitigation, and UPDATE `.env.example` to emphasize `NODE_ENV=production` for production deployments.
 
-## 0.3 Scope Boundaries
+- To resolve **log injection risks**, we will CREATE a sanitization utility at `src/utils/sanitizer.js` and APPLY it in `src/middleware/notFound.js` and `src/middleware/errorHandler.js` wherever user-controlled input (`req.originalUrl`, `req.method`) is passed to the Winston logger.
 
+**User understanding level:** Explicit vulnerability identification — The user has provided a structured vulnerability assessment with specific categories, severity levels, targeted mitigation approaches, and clear system boundaries, indicating strong technical understanding of the security landscape.
 
-### 0.3.1 Exhaustively In Scope
+## 0.2 Vulnerability Research and Analysis
 
-**Source code changes:**
-- `server.js` — Rewrite as Express application entry point with environment config loading and graceful shutdown
-- `src/app.js` — New Express application factory with full middleware pipeline
-- `src/routes/index.js` — Root route aggregator mounting all sub-routers
-- `src/routes/health.js` — Health check endpoint for PM2 and monitoring
-- `src/routes/api.js` — API route module with sample endpoints demonstrating routing
-- `src/middleware/errorHandler.js` — Centralized error handling middleware
-- `src/middleware/notFound.js` — 404 catch-all handler for unmatched routes
-- `src/config/index.js` — Centralized environment-based configuration module
-- `src/utils/logger.js` — Winston logger factory with console and file transports
+### 0.2.1 Initial Assessment
 
-**Configuration updates:**
-- `package.json` — Add all dependencies, npm scripts (`start`, `dev`, `start:pm2`, `stop:pm2`), `engines` field, fix `main` field
-- `.env` — Development environment variable defaults
-- `.env.example` — Documented environment variable template for onboarding
-- `ecosystem.config.js` — PM2 ecosystem configuration for production cluster mode
+All security-related information extracted from the user's vulnerability assessment and repository analysis:
 
-**Documentation updates:**
-- `README.md` — Complete rewrite with project overview, prerequisites, installation, configuration, development usage, production deployment with PM2, project structure, and available API endpoints
+- **CVE numbers mentioned:** None explicitly — the user describes vulnerability categories rather than specific CVEs
+- **Vulnerability names identified:**
+  - Missing or weak HTTP security headers
+  - Lack of input validation on request payloads
+  - Vulnerable npm dependencies (per `npm audit`)
+  - No rate limiting (DoS risk)
+  - Unsafe error handling (stack trace leakage)
+  - Potential log injection risks
+- **Affected packages:** All 8 direct dependencies (`express@5.2.1`, `helmet@8.1.0`, `cors@2.8.6`, `express-rate-limit@8.3.1`, `dotenv@17.3.1`, `compression@1.8.1`, `morgan@1.10.1`, `winston@3.19.0`) and 109 transitive dependencies
+- **Symptoms described:** Missing validation middleware, default-only header configuration, potential for stack trace leakage in non-production, unsanitized user input in log entries
+- **Security advisories referenced:** `npm audit` output (user-directed)
 
-**Utility and project files:**
-- `.gitignore` — Standard Node.js ignore patterns for `node_modules/`, `.env`, `logs/`, editor files
+### 0.2.2 Required Web Research
 
-### 0.3.2 Explicitly Out of Scope
+Extensive web research was conducted across authoritative security sources:
 
-- **GitHub Actions workflows**: Per user rule, no `.github/workflows/` files will be created or modified
-- **Test infrastructure**: No test framework, test files, or test scripts will be added (not requested)
-- **Docker containerization**: No `Dockerfile` or `docker-compose.yml` will be created (not requested)
-- **Database integration**: No database drivers, ORM, or data persistence layer
-- **Authentication/authorization**: No auth middleware, JWT handling, or session management
-- **Frontend/view engine**: No template engine, static file serving configuration, or client-side assets
-- **API documentation tools**: No Swagger/OpenAPI specification generation
-- **Code quality tooling**: No ESLint, Prettier, or other linting/formatting configuration
-- **TypeScript migration**: The project will remain in JavaScript with CommonJS modules
-- **Performance optimization beyond middleware**: No advanced caching, CDN, or load balancer configuration outside PM2 cluster mode
-- **Monitoring and alerting**: No APM agents, health dashboard, or external monitoring service integration beyond the health check endpoint
+- **Express.js official security documentation** (expressjs.com): Confirms that Helmet, input validation, rate limiting, dependency auditing, and proper error handling are the foundational security best practices for Express applications in production. The official guide specifically recommends filtering and sanitizing user input to protect against XSS and command injection attacks.
 
+- **Helmet.js documentation and npm registry** (helmetjs.github.io, npmjs.com/package/helmet): Confirms `helmet@8.1.0` is the latest version with 0 known vulnerabilities per Snyk. Sets 13 HTTP security response headers by default including Content-Security-Policy, Strict-Transport-Security, X-Content-Type-Options, and X-Frame-Options. CSP directives are fully customizable for API-specific use cases.
 
-## 0.4 Dependency Inventory
+- **Zod validation library** (npmjs.com/package/zod, community guides): Zod is the modern schema-first validation library recommended for Express.js input validation. Version 3.25.76 (latest stable 3.x) is fully compatible with CommonJS modules and Express 5. The `safeParse` pattern provides non-throwing validation suitable for middleware use.
 
+- **Log injection prevention** (Snyk blog, OWASP documentation): Log injection occurs when attackers manipulate input to inject malicious content into application logs. Winston's JSON-structured logging provides inherent protection since log entries are serialized as JSON objects rather than concatenated strings. However, explicit sanitization of control characters (newlines, carriage returns) in user-controlled input before logging is still recommended as defense-in-depth.
 
-### 0.4.1 Key Private and Public Packages
+- **Express rate limiting best practices** (npm, community guides): `express-rate-limit@8.3.1` is confirmed as the latest version compatible with Express 5. Standard IETF headers (`RateLimit-*`) and in-memory store are appropriate for single-process deployments. Redis store upgrade is recommended for production cluster deployments.
 
-All packages listed below are new additions. The existing project has zero npm dependencies.
+- **OWASP Node.js security guidance**: Recommends defense-in-depth approach combining Helmet, input validation, injection prevention, CSRF protection (where applicable), and rate limiting as the five foundational security pillars for Express.js applications.
 
-| Registry | Package Name | Version | Purpose |
-|----------|--------------|---------|---------|
-| npm | express | ^5.2.1 | Web framework — routing, middleware pipeline, request/response handling |
-| npm | dotenv | ^17.3.1 | Environment variable loading from `.env` files into `process.env` |
-| npm | winston | ^3.19.0 | Structured application logging with multiple transports (console, file) |
-| npm | morgan | ^1.10.1 | HTTP request access logging middleware for Express |
-| npm | helmet | ^8.1.0 | Security middleware — sets 13 protective HTTP response headers |
-| npm | cors | ^2.8.6 | Cross-Origin Resource Sharing middleware for controlled API access |
-| npm | compression | ^1.8.1 | Gzip/deflate response compression middleware |
-| npm | express-rate-limit | ^8.3.1 | Request rate limiting middleware to prevent abuse |
-| npm (global) | pm2 | ^6.0.14 | Production process manager with cluster mode, auto-restart, and log management |
+### 0.2.3 Vulnerability Classification
 
-### 0.4.2 Dependency Updates
+| Vulnerability | Type | Attack Vector | Exploitability | Impact | Root Cause |
+|---|---|---|---|---|---|
+| Input validation absence | Injection (XSS, malformed payloads) | Network | High | Integrity, Confidentiality | No validation middleware in application; body parsers pass raw input to handlers |
+| Weak HTTP header config | Configuration weakness | Network | Low | Confidentiality | Helmet uses defaults without explicit CSP directives for API use |
+| Dependency drift risk | Dependency vulnerability | Network | Low (currently 0 CVEs) | All CIA triad | Dependencies may drift without automated scanning |
+| Body parser DoS | Denial of Service | Network | Medium | Availability | No explicit body size limits on `express.json()` or `express.urlencoded()` |
+| Stack trace leakage | Information disclosure (CWE-209) | Network | Medium | Confidentiality | `NODE_ENV=development` default exposes stack traces |
+| Log injection | Log manipulation | Network | Medium | Integrity | User-controlled `req.originalUrl` logged without sanitization in `notFound.js` and `errorHandler.js` |
+| CORS wildcard | Cross-origin misconfiguration | Network | Medium | Confidentiality | `CORS_ORIGIN=*` allows any origin |
+| Information exposure | Information disclosure | Network | Low | Confidentiality | `/api/info` and `/health` expose system metadata without auth |
 
-**New dependencies to add (production):**
-- `express`: ^5.2.1 — Core web framework replacing the built-in `http` module
-- `dotenv`: ^17.3.1 — Environment configuration management
-- `winston`: ^3.19.0 — Application-level structured logging
-- `morgan`: ^1.10.1 — HTTP request logging middleware
-- `helmet`: ^8.1.0 — HTTP security header middleware
-- `cors`: ^2.8.6 — Cross-origin resource sharing control
-- `compression`: ^1.8.1 — Response body compression
-- `express-rate-limit`: ^8.3.1 — Rate limiting for API protection
+### 0.2.4 Web Search Research Conducted
 
-**Global tool to install:**
-- `pm2`: ^6.0.14 — Installed globally via `npm install -g pm2` for production process management
+**Official security advisories reviewed:**
+- Express.js Production Security Best Practices — https://expressjs.com/en/advanced/best-practice-security.html
+- Helmet.js Official Documentation — https://helmetjs.github.io/
+- Helmet npm Security Status — https://security.snyk.io/package/npm/helmet (latest non-vulnerable: 8.1.0)
+- npm audit results for project dependencies (0 vulnerabilities across 117 packages)
 
-**Dependencies to remove:** None (no existing dependencies)
+**Recommended mitigation strategies identified:**
+- Add schema-based input validation using Zod for Express 5 middleware compatibility
+- Enhance Helmet CSP configuration with API-specific directives
+- Configure explicit body parser size limits via `express.json({ limit })` option
+- Create log sanitization utility to strip control characters from user input before logging
+- Enforce `NODE_ENV=production` in production deployment documentation
+- Tighten CORS configuration from wildcard to specific origins
 
-**Dependencies to update:** None (no existing dependencies)
+**Alternative solutions considered with trade-offs:**
+- `express-validator` vs `zod`: express-validator is Express-specific with built-in sanitization but uses Express 4.x middleware patterns; Zod is framework-agnostic, modern, and more suitable for Express 5
+- `joi` vs `zod`: Joi is mature and widely adopted but heavier; Zod is lighter-weight, more actively maintained, and has superior TypeScript integration
+- `perfect-express-sanitizer` for XSS: Provides comprehensive sanitization but adds unnecessary complexity for this API-only application where Zod validation plus structured logging is sufficient
+- `hpp` (HTTP Parameter Pollution): Express 5 uses the `simple` query parser (`node:querystring`) by default instead of `qs`, which changes parameter handling; hpp is more relevant for Express 4.x
 
-### 0.4.3 Import/Reference Updates
+## 0.3 Security Scope Analysis
 
-Since all packages are new additions, the following new `require()` statements will be introduced:
+### 0.3.1 Affected Component Discovery
 
-- `server.js` — `require('dotenv').config()` at the top, `require('./src/app')`, `require('./src/config')`, `require('./src/utils/logger')`
-- `src/app.js` — `require('express')`, `require('helmet')`, `require('cors')`, `require('compression')`, `require('morgan')`, `require('express-rate-limit')`, plus local route and middleware imports
-- `src/utils/logger.js` — `require('winston')`
-- `src/config/index.js` — References to `process.env.*` variables loaded by dotenv
-- `src/routes/*.js` — `require('express')` for `express.Router()`
-- `src/middleware/*.js` — `require('../utils/logger')` for error logging
+Exhaustive repository search identified all files affected by the vulnerability remediation. The application consists of 12 source files plus 2 package management files across 6 directories.
 
-No existing imports need modification since the project currently has no external dependencies.
+**Search patterns employed and results:**
 
+- **Dependency manifests:** `package.json`, `package-lock.json` — both require updates (new `zod` dependency)
+- **Middleware pipeline:** `src/app.js` — requires Helmet configuration enhancement and body parser limit additions
+- **Error handling middleware:** `src/middleware/errorHandler.js` — requires log sanitization integration and documentation comments
+- **404 handler:** `src/middleware/notFound.js` — requires log sanitization for `req.originalUrl`
+- **Configuration module:** `src/config/index.js` — requires new security-related configuration variables
+- **Logger utility:** `src/utils/logger.js` — reference for logging patterns (no direct changes)
+- **Route files:** `src/routes/api.js`, `src/routes/health.js`, `src/routes/index.js` — validation middleware application targets
+- **Environment files:** `.env`, `.env.example` — require new security variable documentation
+- **Entry point:** `server.js` — no changes required (already has proper error handling)
+- **PM2 config:** `ecosystem.config.js` — no changes required
 
-## 0.5 Implementation Design
+**New files to be created:**
+- `src/middleware/validateInput.js` — Zod-based input validation middleware factory
+- `src/utils/sanitizer.js` — Input and log sanitization utility functions
 
+**Vulnerability affects 10 existing files requiring modification and 2 new files to be created, spanning 6 directories.**
 
-### 0.5.1 Technical Approach
+### 0.3.2 Root Cause Identification
 
-**Primary objectives with implementation approach:**
+**Input validation vulnerability — `src/routes/api.js`, `src/routes/health.js`, `src/routes/index.js`:**
+The application has no input validation middleware anywhere in its codebase. Express body parsers (`express.json()`, `express.urlencoded()`) at Layer 4 in `src/app.js` parse raw request bodies and populate `req.body` without any schema enforcement. All 4 route handlers in 3 route files accept and process whatever data passes through the parsers. The root cause is the complete absence of a validation step between body parsing and route handling.
 
-- **Achieve Express.js migration** by rewriting `server.js` to serve as the application bootstrap (loading environment, importing the app, binding to port with graceful shutdown handling), and creating `src/app.js` as the Express application factory that assembles the middleware pipeline and mounts all routes. This separation enables the app to be imported independently for testing while keeping server lifecycle management in the entry point.
+**HTTP header configuration — `src/app.js`:**
+Helmet is configured with `app.use(helmet())` using all defaults. While defaults set 13 security headers including a baseline CSP, the default Content-Security-Policy (`default-src 'self'`) is designed for web pages, not API-only services. An API-specific CSP should be more restrictive (e.g., disabling script sources entirely). The root cause is using generic default configuration without API-specific customization.
 
-- **Achieve modular routing** by creating `src/routes/` with individual router modules, each exporting an `express.Router()` instance. The main route index aggregates all sub-routers and mounts them at defined path prefixes (`/health`, `/api`, `/`). This pattern enables route-level middleware and independent route module development.
+**Body parser DoS — `src/app.js`:**
+The body parser calls `app.use(express.json())` and `app.use(express.urlencoded({ extended: false }))` include no `limit` option. Express 5's body-parser defaults to 100kb, but this should be explicitly configured rather than relying on defaults. The root cause is implicit reliance on framework defaults for security-critical settings.
 
-- **Achieve production middleware stack** by configuring middleware in the correct order within `src/app.js`: Helmet (security headers) → CORS → Compression → Body parsers → Morgan (request logging) → Rate limiter → Routes → 404 handler → Error handler. This ordering ensures security headers are set before any processing, and error handling catches any unhandled failures.
+**Error handling exposure — `src/middleware/errorHandler.js`, `.env`:**
+The error handler correctly masks 5xx messages in production. However, the `.env` file sets `NODE_ENV=development` as default, meaning any environment that doesn't explicitly override this will expose stack traces and original error messages. The root cause is the development-oriented default environment configuration.
 
-- **Achieve environment-driven configuration** by creating `src/config/index.js` that reads all required environment variables with sensible defaults, validates critical values, and exports a frozen configuration object. The `.env` file provides development defaults, and `dotenv` is loaded at the very top of `server.js` before any other module imports.
+**Log injection — `src/middleware/notFound.js`, `src/middleware/errorHandler.js`:**
+In `notFound.js`, the middleware logs `logger.warn(\`404 - Not Found - ${req.originalUrl}\`)` using direct string interpolation of user-controlled input. In `errorHandler.js`, both `req.originalUrl` and `req.method` are passed directly to the logger. An attacker crafting URLs with newline characters, JSON structural characters, or escape sequences could inject arbitrary content into log entries. The root cause is logging user-controlled input without sanitization.
 
-- **Achieve structured logging** by creating `src/utils/logger.js` that configures a Winston logger with JSON format for file transports (separate files for combined and error-level logs) and colorized simple format for console output. Morgan is configured with a custom write stream that pipes HTTP request logs through the Winston logger at the `http` level.
+**Vulnerability propagation trace:**
+- **Direct usage locations:** `src/middleware/notFound.js` (line with `req.originalUrl` in log), `src/middleware/errorHandler.js` (line with `req.originalUrl` and `req.method` in log)
+- **Indirect dependencies:** `src/utils/logger.js` receives unsanitized strings via its `info()`, `warn()`, and `error()` methods
+- **Configuration enablers:** `.env` → `NODE_ENV=development` (enables stack traces), `.env` → `CORS_ORIGIN=*` (allows any origin), `src/app.js` → no body size limits
 
-- **Achieve PM2 production readiness** by creating `ecosystem.config.js` with cluster mode using all available CPUs, environment variable definitions for production and development, log file configuration, restart strategies (exponential backoff), and watch mode for development.
+### 0.3.3 Current State Assessment
 
-**Logical implementation flow:**
+| Component | Current State | File Location | Security Posture |
+|---|---|---|---|
+| Helmet | v8.1.0, default config | `src/app.js` (Layer 1) | 13 headers set; CSP needs API-specific tuning |
+| CORS | v2.8.6, `CORS_ORIGIN=*` | `src/app.js` (Layer 2) | Wildcard origin — needs restriction |
+| Body Parsers | JSON + URL-encoded, no limits | `src/app.js` (Layer 4) | No explicit payload size limits |
+| Rate Limiter | v8.3.1, 100/15min | `src/app.js` (Layer 6) | Functional; single-process memory store |
+| Error Handler | CWE-209 masking | `src/middleware/errorHandler.js` (Layer 9) | Masks 5xx in production; dev exposes traces |
+| 404 Handler | Reflects `req.originalUrl` | `src/middleware/notFound.js` (Layer 8) | Logs unsanitized user input |
+| Logger | Winston JSON format | `src/utils/logger.js` | Structured logging but no explicit sanitization |
+| Input Validation | **NOT PRESENT** | — | Zero validation on any endpoint |
+| Log Sanitization | **NOT PRESENT** | — | No sanitization utility exists |
+| Body Size Limits | **NOT CONFIGURED** | `src/app.js` | Relies on Express 5 default (100kb) |
 
-- First, establish the **foundation** by creating the configuration module (`src/config/index.js`) and logger utility (`src/utils/logger.js`), as these are consumed by all other modules.
-- Next, build the **application core** by creating the Express app factory (`src/app.js`) with its full middleware pipeline, and creating the route modules (`src/routes/`) and error handling middleware (`src/middleware/`).
-- Then, integrate the **entry point** by rewriting `server.js` to load environment config, import the app, bind to the configured port, and implement graceful shutdown via `SIGTERM`/`SIGINT` signal handling.
-- Finally, prepare for **deployment** by creating the PM2 ecosystem configuration, updating `package.json` with scripts and dependencies, creating `.env` / `.env.example` / `.gitignore` files, and rewriting `README.md` with complete documentation.
+**Scope of exposure:** All 4 endpoints (`/`, `/health`, `/api`, `/api/info`) are publicly accessible without authentication. The health and API info endpoints expose system metadata including Node.js version, application version, process memory usage, and uptime. All request bodies and query parameters are processed without schema validation.
 
-### 0.5.2 Component Impact Analysis
+## 0.4 Version Compatibility Research
 
-**Direct modifications required:**
+### 0.4.1 Secure Version Identification
 
-- `server.js`: Complete rewrite — replace 14-line `http` server with Express bootstrap that loads dotenv, imports the app from `src/app.js`, reads config, starts listening, and handles graceful shutdown signals.
-- `package.json`: Structural update — add `dependencies` block with all 8 packages, add/modify `scripts` (start, dev, start:pm2, stop:pm2, logs), fix `main` to `server.js`, add `engines` field.
-- `README.md`: Complete rewrite — replace 2-line stub with comprehensive project documentation.
+Comprehensive web research and `npm audit` analysis were conducted to identify the security posture of all existing dependencies and determine the appropriate version for the new `zod` dependency.
 
-**New components introduction:**
+**Existing dependency audit results — no version changes required:**
 
-- `src/app.js`: Express application factory — configures and exports the Express app instance with the complete middleware pipeline and mounted routes. Rationale: separating the app from the server enables modular testing and reuse.
-- `src/config/index.js`: Centralized configuration — reads environment variables, applies defaults, validates required values, and exports frozen config object. Rationale: avoids scattered `process.env` access throughout the codebase.
-- `src/utils/logger.js`: Winston logger — exports a configured logger instance used across all modules for consistent, structured logging. Rationale: replaces ad-hoc `console.log` with production-grade logging.
-- `src/routes/index.js`: Route aggregator — combines all sub-routers into a single module mounted by `app.js`. Rationale: keeps `app.js` focused on middleware, delegates routing to dedicated modules.
-- `src/routes/health.js`: Health endpoint — `GET /health` returns JSON with server status, uptime, timestamp, and memory usage for PM2 and load balancer probes.
-- `src/routes/api.js`: API routes — sample `GET /api` and `GET /api/info` endpoints demonstrating Express 5 routing patterns and JSON responses.
-- `src/middleware/errorHandler.js`: Central error handler — Express 4-argument error middleware that logs errors via Winston and returns standardized JSON error responses.
-- `src/middleware/notFound.js`: 404 handler — catches requests that match no route and returns a structured JSON 404 response.
-- `ecosystem.config.js`: PM2 config — declares the application name, entry script, cluster instance count, environment variables, log paths, and restart policy.
-- `.env` / `.env.example`: Environment templates — define `NODE_ENV`, `PORT`, `HOST`, `LOG_LEVEL`, `CORS_ORIGIN`, `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX`.
-- `.gitignore`: Version control exclusions — prevents `node_modules/`, `.env`, `logs/`, and editor artifacts from being committed.
+| Package | Current Version | Latest Compatible | npm audit Status | Action |
+|---|---|---|---|---|
+| `express` | 5.2.1 | 5.2.1 | 0 vulnerabilities | NO CHANGE — latest semver-compatible |
+| `helmet` | 8.1.0 | 8.1.0 | 0 vulnerabilities | CONFIG CHANGE ONLY — enhance CSP |
+| `cors` | 2.8.6 | 2.8.6 | 0 vulnerabilities | CONFIG CHANGE ONLY — tighten origin |
+| `express-rate-limit` | 8.3.1 | 8.3.1 | 0 vulnerabilities | CONFIG VERIFICATION ONLY |
+| `dotenv` | 17.3.1 | 17.3.1 | 0 vulnerabilities | NO CHANGE |
+| `compression` | 1.8.1 | 1.8.1 | 0 vulnerabilities | NO CHANGE |
+| `morgan` | 1.10.1 | 1.10.1 | 0 vulnerabilities | NO CHANGE |
+| `winston` | 3.19.0 | 3.19.0 | 0 vulnerabilities | NO CHANGE |
 
-**Indirect impacts and dependencies:**
+**New dependency to add:**
 
-- `package-lock.json`: Will be regenerated automatically by npm when dependencies are installed. No manual modification needed.
+| Package | Target Version | Semver Range | Rationale | Security Advisory |
+|---|---|---|---|---|
+| `zod` | 3.25.76 | `^3.25.0` | Input validation middleware; latest stable 3.x release | 0 known vulnerabilities; actively maintained |
 
-### 0.5.3 Critical Implementation Details
+**Why `zod@^3.25.0` (not 4.x):**
+- Zod 4.x (latest: 4.3.6) was recently released and is still stabilizing
+- Zod 3.x provides full CommonJS support matching the project's module system
+- Validated via direct testing: `const { z } = require('zod')` works correctly in the project's Node.js v20.20.1 environment
+- `safeParse()` API is stable and well-documented for middleware patterns
+- Breaking changes in Zod 4.x are unnecessary for this application's validation needs
 
-**Middleware ordering strategy** (critical for Express correctness):
+**Transitive dependency security posture:**
+All 109 transitive dependencies resolved by `npm ls --all` show 0 known vulnerabilities. Notable transitive packages include `body-parser@2.2.2`, `qs@6.15.0`, `cookie@0.7.2`, `path-to-regexp@8.3.0`, and `debug@2.6.9` — all at their latest semver-compatible versions with no security advisories.
 
-```text
-Helmet → CORS → Compression → Body Parsers → Morgan → Rate Limiter → Routes → 404 Handler → Error Handler
+### 0.4.2 Compatibility Verification
+
+**Runtime compatibility:**
+- Node.js v20.20.1 (installed and active) is compatible with all existing and proposed dependencies
+- The `package.json` engine constraint `>=18.0.0` is satisfied
+- Zod 3.25.x requires Node.js >= 12, well within the project's v20 runtime
+
+**Module system compatibility:**
+- The project uses CommonJS (`require()` / `module.exports`) throughout all 12 source files
+- Zod 3.x provides full CommonJS support via `const { z } = require('zod')`
+- Verified via direct execution: Zod schema creation and `safeParse()` work correctly in the project environment
+
+**Express 5 compatibility:**
+- Zod is framework-agnostic and integrates with Express 5 through custom middleware (no express-specific adapter needed)
+- Multiple community libraries (`express-zod-safe`, `zod-express-middleware`, `express-zod-api`) validate the Express + Zod combination in production
+- Express 5's `body-parser@2.2.2` output (`req.body` as parsed JSON object) is directly compatible with Zod's `z.object().safeParse()` API
+
+**Dependency conflict check:**
+- `npm install zod@^3.25.0` completes with 0 vulnerabilities and no peer dependency warnings
+- Zod has zero dependencies (standalone package), eliminating any risk of transitive conflicts
+- The `package-lock.json` regenerates cleanly with the addition
+
+**Alternative packages evaluated:**
+
+| Package | Version | Pros | Cons | Decision |
+|---|---|---|---|---|
+| `zod` | ^3.25.0 | Modern, zero deps, CJS+ESM, Express 5 proven | Newer than joi | **CHOSEN** |
+| `joi` | ^17.x | Mature, well-tested, comprehensive | Heavier (6 deps), Express 4 patterns | Not chosen |
+| `express-validator` | ^7.x | Express-native, built-in sanitization | Express 4 middleware patterns, less flexible schemas | Not chosen |
+
+**Migration complexity:** Low — Adding a single new zero-dependency package with no replacement of existing packages and no breaking changes to any existing functionality.
+
+## 0.5 Security Fix Design
+
+### 0.5.1 Minimal Fix Strategy
+
+**PRINCIPLE:** Apply the smallest possible change that completely addresses each vulnerability while preserving all existing functionality, middleware execution order, API contracts, and response structures.
+
+**Fix approach:** Combination — Configuration changes + New middleware + New utility
+
+---
+
+**Fix 1 — HTTP Security Headers (Configuration Change in `src/app.js`)**
+
+Enhance the existing `helmet()` call with explicit CSP directives tuned for API-only responses. The middleware pipeline position (Layer 1) and all other Helmet defaults remain unchanged.
+
+- "Upgrade Helmet configuration from `app.use(helmet())` to `app.use(helmet({ contentSecurityPolicy: { directives: { ... } } }))` with API-specific CSP"
+- Justification: Default CSP (`default-src 'self'`) is designed for web pages with embedded scripts/styles; an API should use a more restrictive policy that disallows all script and object sources
+- Side effects: None — API clients do not render HTML, so restrictive CSP has zero impact on functionality
+
+**Fix 2 — Input Validation (New Middleware + New Dependency)**
+
+Add `zod@^3.25.0` as a new dependency and create a reusable validation middleware factory at `src/middleware/validateInput.js`. Apply validation schemas per-route to reject malformed or unexpected payloads with HTTP 400.
+
+- "Add `zod` to `package.json` dependencies and create `src/middleware/validateInput.js`"
+- Justification: No validation exists; all request data passes unchecked to route handlers
+- Side effects: None for existing valid requests — validation schemas will accept all currently valid inputs
+
+**Fix 3 — Body Parser Size Limits (Configuration Change in `src/app.js`)**
+
+Add explicit `limit` options to `express.json()` and `express.urlencoded()` calls to prevent payload-based DoS attacks.
+
+- "Update `express.json()` to `express.json({ limit: '10kb' })` and `express.urlencoded({ extended: false, limit: '10kb' })`"
+- Justification: Without explicit limits, Express 5 defaults to 100kb, which is acceptable but should be explicitly configured; 10kb is sufficient for this application's JSON payloads
+- Side effects: None — no existing endpoint accepts payloads larger than a few hundred bytes
+
+**Fix 4 — Log Sanitization (New Utility)**
+
+Create `src/utils/sanitizer.js` with functions to strip control characters and cap string length for log-safe output. Apply in `src/middleware/notFound.js` and `src/middleware/errorHandler.js`.
+
+- "Create sanitization utility and apply to all user-controlled input before Winston logging"
+- Justification: `req.originalUrl` is logged directly via string interpolation; an attacker could inject newline characters to forge log entries
+- Side effects: None — sanitization preserves readable log content while removing only dangerous characters
+
+**Fix 5 — Error Handler Hardening (Documentation + Minor Enhancement in `src/middleware/errorHandler.js`)**
+
+Add explicit comments documenting the CWE-209 mitigation and ensure consistent error response structure. Update `.env.example` to emphasize production mode requirement.
+
+- "Add inline security comments to errorHandler.js and update .env.example documentation"
+- Justification: Existing handler already masks 5xx errors in production, but the security rationale is not documented in code
+- Side effects: None — no behavioral changes to error handling
+
+**Fix 6 — Configuration Enhancements (Updates to `src/config/index.js`, `.env`, `.env.example`)**
+
+Add new security-related configuration variables for body parser limits and ensure security settings are explicitly documented.
+
+- "Add `BODY_LIMIT` configuration variable for explicit body parser size control"
+- Justification: Security-critical settings should be explicitly configurable, not rely on framework defaults
+- Side effects: None — adds configuration without changing existing behavior
+
+### 0.5.2 Dependency Replacement Analysis
+
+**No dependency replacement is needed.** All 8 existing dependencies are at their latest semver-compatible versions with 0 known vulnerabilities. The only dependency change is the ADDITION of `zod@^3.25.0` as a new package.
+
+Zod has zero dependencies of its own, meaning:
+- No new transitive dependency chain is introduced
+- No risk of conflicting with existing packages
+- Minimal increase in `node_modules` footprint
+- No import changes to existing files for Zod itself (only new files use it)
+
+### 0.5.3 Security Improvement Validation
+
+**How each fix eliminates its target vulnerability:**
+
+| Fix | Vulnerability Eliminated | Verification Method |
+|---|---|---|
+| Enhanced Helmet CSP | Weak HTTP headers | Inspect response headers via `curl -I` for restrictive CSP directives |
+| Zod validation middleware | Input validation gaps | Send malformed payloads; verify HTTP 400 rejection |
+| Body parser size limits | Payload DoS | Send oversized payloads; verify HTTP 413 rejection |
+| Log sanitization utility | Log injection | Send URLs with control characters; verify sanitized log output |
+| Error handler hardening | Stack trace leakage | Trigger 500 error in production mode; verify generic message only |
+| Configuration documentation | Deployment misconfiguration | Review `.env.example` for security guidance |
+
+**Rollback plan if issues arise:**
+- **Dependency rollback:** Revert `package.json` and `package-lock.json` to previous versions; run `npm install`
+- **Middleware rollback:** Remove validation middleware from route files; revert `src/app.js` Helmet configuration to `app.use(helmet())`
+- **Configuration rollback:** Revert `.env` and `src/config/index.js` to previous values
+- **Deployment rollback:** Use PM2 to roll back to previous deployment: `pm2 deploy production revert 1`
+
+```mermaid
+flowchart TD
+    V1["Missing Input Validation"] -->|"Add zod + validateInput.js"| F1["Malformed payloads rejected at 400"]
+    V2["Weak HTTP Headers"] -->|"Enhance Helmet CSP config"| F2["API-specific restrictive CSP active"]
+    V3["Body Parser DoS"] -->|"Add explicit size limits"| F3["Oversized payloads rejected at 413"]
+    V4["Log Injection"] -->|"Add sanitizer.js utility"| F4["Control chars stripped before logging"]
+    V5["Stack Trace Leakage"] -->|"Harden errorHandler + docs"| F5["Production never exposes stack traces"]
+    V6["CORS Wildcard"] -->|"Tighten CORS_ORIGIN config"| F6["Only permitted origins allowed"]
+
+    style V1 fill:#ffcdd2,stroke:#c62828
+    style V2 fill:#fff9c4,stroke:#f9a825
+    style V3 fill:#ffcdd2,stroke:#c62828
+    style V4 fill:#fff9c4,stroke:#f9a825
+    style V5 fill:#fff9c4,stroke:#f9a825
+    style V6 fill:#fff9c4,stroke:#f9a825
+    style F1 fill:#c8e6c9,stroke:#2e7d32
+    style F2 fill:#c8e6c9,stroke:#2e7d32
+    style F3 fill:#c8e6c9,stroke:#2e7d32
+    style F4 fill:#c8e6c9,stroke:#2e7d32
+    style F5 fill:#c8e6c9,stroke:#2e7d32
+    style F6 fill:#c8e6c9,stroke:#2e7d32
 ```
-
-**Graceful shutdown pattern** in `server.js`:
-
-```js
-process.on('SIGTERM', () => { server.close(() => process.exit(0)); });
-```
-
-**Winston-Morgan integration** — Morgan writes to a custom stream that pipes through Winston:
-
-```js
-const stream = { write: (msg) => logger.http(msg.trim()) };
-```
-
-**Configuration validation** — critical environment variables are validated at startup. Missing required values cause the process to log an error and exit, preventing silent misconfiguration.
-
-**PM2 cluster mode** — `ecosystem.config.js` uses `instances: 'max'` to fork one worker per CPU core, with `exec_mode: 'cluster'` for zero-downtime reloads via `pm2 reload`.
-
-**Express 5 compatibility considerations:**
-- Promise rejection in async route handlers is automatically caught and forwarded to error middleware (no manual `try/catch` needed)
-- Updated `path-to-regexp` syntax requires `:param` without sub-expression regex patterns
-- `req.query` returns an `Object.create(null)` (no prototype) for security
-
-**Error response format** — standardized JSON structure for all error responses:
-
-```json
-{ "status": "error", "statusCode": 500, "message": "..." }
-```
-
 
 ## 0.6 File Transformation Mapping
 
+### 0.6.1 File-by-File Security Fix Plan
 
-### 0.6.1 File-by-File Execution Plan
+Every file to be created, updated, deleted, or referenced is mapped below with the target file listed first. No files are left as "pending" or "to be discovered."
 
-| Target File | Transformation | Source File/Reference | Purpose/Changes |
+**Security Fix Transformation Modes:**
+- **UPDATE** — Modify an existing file to patch vulnerability
+- **CREATE** — Create a new file for security improvement
+- **REFERENCE** — Use as a pattern or context source (no changes)
+
+| Target File | Transformation | Source/Reference | Security Changes |
 |---|---|---|---|
-| `server.js` | UPDATE | `server.js` | Rewrite as Express bootstrap: load dotenv, import app from `src/app.js`, read config, bind to configurable host/port, implement graceful shutdown via SIGTERM/SIGINT |
-| `package.json` | UPDATE | `package.json` | Add 8 production dependencies, add npm scripts (start, dev, start:pm2, stop:pm2, logs), fix main field to `server.js`, add engines field for Node.js >=18 |
-| `README.md` | UPDATE | `README.md` | Complete rewrite with project overview, prerequisites, installation, env configuration, development/production usage, PM2 deployment, project structure, API endpoints |
-| `src/app.js` | CREATE | — | Express application factory: create app, configure middleware pipeline (helmet, cors, compression, body parsers, morgan, rate limiter), mount routes, attach 404 and error handlers, export app |
-| `src/config/index.js` | CREATE | — | Centralized configuration module: read environment variables (NODE_ENV, PORT, HOST, LOG_LEVEL, CORS_ORIGIN, rate limit settings), apply defaults, export frozen config object |
-| `src/utils/logger.js` | CREATE | — | Winston logger setup: create logger with JSON file transports (logs/combined.log, logs/error.log), colorized console transport, configurable log level, export logger instance and Morgan stream |
-| `src/routes/index.js` | CREATE | — | Route aggregator: import and mount health router at /health, api router at /api, and root welcome route at / |
-| `src/routes/health.js` | CREATE | — | Health check route: GET /health returns JSON with status, uptime, timestamp, memory usage, and Node.js version for PM2/load balancer probes |
-| `src/routes/api.js` | CREATE | — | API routes: GET /api returns API welcome message; GET /api/info returns server metadata (version, environment, Node.js version) |
-| `src/middleware/errorHandler.js` | CREATE | — | Central error handler: Express 4-argument error middleware that logs errors via Winston, returns standardized JSON error response with appropriate status code |
-| `src/middleware/notFound.js` | CREATE | — | 404 catch-all: middleware that catches unmatched routes and returns structured JSON 404 response with requested path |
-| `ecosystem.config.js` | CREATE | — | PM2 ecosystem config: app name, script path, cluster mode with max instances, env variables for development/production, log file paths, restart policy with exponential backoff |
-| `.env` | CREATE | — | Development environment defaults: NODE_ENV=development, PORT=3000, HOST=0.0.0.0, LOG_LEVEL=debug, CORS_ORIGIN=*, rate limit defaults |
-| `.env.example` | CREATE | — | Environment variable template: documented list of all supported variables with descriptions and example values for developer onboarding |
-| `.gitignore` | CREATE | — | Git exclusion rules: node_modules/, .env, logs/, *.log, editor files (.vscode/, .idea/), OS files (.DS_Store, Thumbs.db) |
+| `package.json` | UPDATE | `package.json` | Add `zod@^3.25.0` to dependencies for input validation |
+| `package-lock.json` | UPDATE | `package-lock.json` | Regenerated after `npm install zod` |
+| `src/app.js` | UPDATE | `src/app.js` | Enhance Helmet CSP config; add body parser size limits (`10kb`); add security comments |
+| `src/config/index.js` | UPDATE | `src/config/index.js` | Add `bodyLimit` config variable from `BODY_LIMIT` env var with `10kb` default |
+| `src/middleware/errorHandler.js` | UPDATE | `src/middleware/errorHandler.js` | Integrate log sanitization for `req.originalUrl` and `req.method`; add CWE-209 security comments |
+| `src/middleware/notFound.js` | UPDATE | `src/middleware/notFound.js` | Integrate log sanitization for `req.originalUrl` in warn log; sanitize URL in response body |
+| `src/middleware/validateInput.js` | CREATE | `src/middleware/errorHandler.js` | New Zod-based validation middleware factory following existing middleware patterns |
+| `src/utils/sanitizer.js` | CREATE | `src/utils/logger.js` | New sanitization utility with `sanitizeLogInput()` and `sanitizeUrl()` functions |
+| `src/routes/api.js` | UPDATE | `src/routes/api.js` | Apply validation middleware to reject unexpected body/query on API routes |
+| `src/routes/health.js` | UPDATE | `src/routes/health.js` | Apply validation middleware to reject unexpected body/query on health route |
+| `src/routes/index.js` | UPDATE | `src/routes/index.js` | Apply validation middleware to reject unexpected body/query on root route |
+| `.env` | UPDATE | `.env` | Add `BODY_LIMIT=10kb` variable |
+| `.env.example` | UPDATE | `.env.example` | Document `BODY_LIMIT` variable; add security notes for `NODE_ENV=production` |
+| `server.js` | REFERENCE | `server.js` | Reference for process bootstrap and error handling patterns (no changes) |
+| `ecosystem.config.js` | REFERENCE | `ecosystem.config.js` | Reference for PM2 production config (no changes) |
+| `src/utils/logger.js` | REFERENCE | `src/utils/logger.js` | Reference for Winston logging patterns (no changes) |
+| `README.md` | REFERENCE | `README.md` | Reference for project documentation (no changes — per minimal change clause) |
 
-### 0.6.2 New Files Detail
+### 0.6.2 Code Change Specifications
 
-- **`src/app.js`** — Express application factory
-  - Content type: source code
-  - Key sections: Express app creation, middleware registration (helmet, cors, compression, json parser, urlencoded parser, morgan, rate limiter), route mounting, 404 handler, error handler
-  - Exports: `app` instance
+**File: `src/app.js` — Enhance Helmet Configuration and Body Parser Limits**
+- Lines affected: Helmet middleware call (~line 12), body parser calls (~lines 17-18)
+- Before state: `app.use(helmet())` uses defaults only; `app.use(express.json())` has no size limit
+- After state: Helmet configured with explicit API-specific CSP directives; body parsers have explicit `limit: config.bodyLimit` option
+- Security improvement: Restrictive CSP prevents script injection in API responses; body size limits prevent payload DoS
 
-- **`src/config/index.js`** — Configuration module
-  - Content type: source code
-  - Key sections: Environment variable reading with defaults, validation of critical values, configuration object construction and freezing
-  - Exports: frozen `config` object with properties: `env`, `port`, `host`, `logLevel`, `corsOrigin`, `rateLimit.windowMs`, `rateLimit.max`
+**File: `src/config/index.js` — Add Security Configuration Variable**
+- Lines affected: Config object definition (~lines 10-25)
+- Before state: Config object has `env`, `port`, `host`, `logLevel`, `corsOrigin`, `rateLimit` properties
+- After state: Config object includes additional `bodyLimit` property from `BODY_LIMIT` env var with `'10kb'` default
+- Security improvement: Explicit security configuration prevents reliance on framework defaults
 
-- **`src/utils/logger.js`** — Winston logger
-  - Content type: source code
-  - Key sections: Logger creation with `winston.createLogger()`, file transport for `logs/combined.log`, file transport for `logs/error.log` (error-level only), console transport with colorized output, Morgan stream adapter
-  - Exports: `logger` instance and `stream` object
+**File: `src/middleware/errorHandler.js` — Log Sanitization and Documentation**
+- Lines affected: Logger call lines and function header
+- Before state: `logger.error()` receives unsanitized `req.originalUrl` and `req.method` directly
+- After state: Logger call uses `sanitizeLogInput(req.originalUrl)` and `sanitizeLogInput(req.method)`; inline comments document CWE-209 mitigation
+- Security improvement: Eliminates log injection vector via control character stripping
 
-- **`src/routes/index.js`** — Route aggregator
-  - Content type: source code
-  - Key sections: Import sub-routers, mount at path prefixes, root GET handler
-  - Exports: `router` instance
+**File: `src/middleware/notFound.js` — Log and Response Sanitization**
+- Lines affected: Logger warn call line and response object
+- Before state: `logger.warn(\`404 - Not Found - ${req.originalUrl}\`)` logs unsanitized input; response includes raw `req.originalUrl`
+- After state: Logger uses `sanitizeLogInput(req.originalUrl)`; response uses `sanitizeUrl(req.originalUrl)`
+- Security improvement: Eliminates log injection vector and prevents information leakage via reflected URLs
 
-- **`src/routes/health.js`** — Health check endpoint
-  - Content type: source code
-  - Key sections: `GET /` handler returning status JSON with uptime, timestamp, memory, node version
-  - Exports: `router` instance
+**File: `src/middleware/validateInput.js` — New Validation Middleware (CREATE)**
+- Purpose: Reusable middleware factory accepting Zod schemas for `body`, `query`, and `params`
+- Pattern: Higher-order function returning Express middleware; calls `schema.safeParse()`; returns HTTP 400 on validation failure
+- Integration: Applied per-route in route files without modifying global middleware pipeline order
 
-- **`src/routes/api.js`** — API routes
-  - Content type: source code
-  - Key sections: `GET /` welcome endpoint, `GET /info` server metadata endpoint
-  - Exports: `router` instance
+**File: `src/utils/sanitizer.js` — New Sanitization Utility (CREATE)**
+- Purpose: Provides `sanitizeLogInput(str)` to strip control characters and cap string length; `sanitizeUrl(str)` to encode unsafe characters in URLs
+- Pattern: Pure functions following existing utility module pattern from `src/utils/logger.js`
+- Integration: Imported in `notFound.js` and `errorHandler.js`
 
-- **`src/middleware/errorHandler.js`** — Error handling middleware
-  - Content type: source code
-  - Key sections: Error logging via Winston, status code extraction, JSON error response formatting, stack trace inclusion in development mode only
-  - Exports: error handler function
+**File: `src/routes/api.js` — Validation Middleware Application**
+- Lines affected: Route handler definitions
+- Before state: Route handlers accept any request without validation
+- After state: Validation middleware applied per-route to enforce expected schema (reject unexpected body/query params)
+- Security improvement: Malformed or unexpected payloads rejected at HTTP 400 before reaching handler
 
-- **`src/middleware/notFound.js`** — 404 handler
-  - Content type: source code
-  - Key sections: Catch-all middleware that constructs a 404 JSON response with the unmatched path
-  - Exports: notFound handler function
+**File: `src/routes/health.js` — Validation Middleware Application**
+- Lines affected: Route handler definition
+- Before state: Health endpoint accepts any request without validation
+- After state: Validation middleware ensures no unexpected request body is present
+- Security improvement: Rejects injection attempts via unexpected payloads
 
-- **`ecosystem.config.js`** — PM2 configuration
-  - Content type: configuration
-  - Key sections: `apps` array with application definition (name, script, instances, exec_mode, env, env_production, log paths, restart delay, max restarts)
-  - Exports: `module.exports` with PM2 config object
+**File: `src/routes/index.js` — Validation Middleware Application**
+- Lines affected: Root route handler definition
+- Before state: Root GET `/` accepts any request without validation
+- After state: Validation middleware ensures no unexpected request body is present
+- Security improvement: Rejects injection attempts via unexpected payloads
 
-- **`.env`** — Environment defaults for development
-  - Content type: configuration
-  - Key values: `NODE_ENV=development`, `PORT=3000`, `HOST=0.0.0.0`, `LOG_LEVEL=debug`, `CORS_ORIGIN=*`, `RATE_LIMIT_WINDOW_MS=900000`, `RATE_LIMIT_MAX=100`
+### 0.6.3 Configuration Change Specifications
 
-- **`.env.example`** — Documented environment template
-  - Content type: documentation/configuration
-  - Key sections: All supported variables with inline comments describing purpose and accepted values
+**File: `.env` — Add Security Configuration Variable**
+- Setting: `BODY_LIMIT`
+- Current value: Not present
+- New value: `BODY_LIMIT=10kb`
+- Security rationale: Explicit body size limit prevents payload-based DoS; configurable per environment
 
-- **`.gitignore`** — Git exclusion rules
-  - Content type: configuration
-  - Key patterns: `node_modules/`, `.env`, `logs/`, `*.log`, `.vscode/`, `.idea/`, `.DS_Store`, `Thumbs.db`
+**File: `.env.example` — Document Security Variables**
+- Setting: `BODY_LIMIT`
+- Current value: Not present
+- New value: `BODY_LIMIT=10kb` with comment explaining security purpose
+- Setting: `NODE_ENV` documentation
+- Current value: `NODE_ENV=development`
+- New value: Same value, with added comment: `# SECURITY: Set to 'production' in production to enable error masking (CWE-209)`
+- Security rationale: Documentation ensures operators understand security implications of environment configuration
 
-### 0.6.3 Files to Modify Detail
+**File: `src/app.js` — Helmet Configuration Enhancement**
+- Setting: `helmet()` configuration object
+- Current value: `app.use(helmet())` (defaults only)
+- New value: `app.use(helmet({ contentSecurityPolicy: { directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } } }))` with API-specific CSP
+- Security rationale: API-specific CSP denies all content loading since API responses are JSON, not rendered HTML; `frame-ancestors: 'none'` prevents embedding
 
-- **`server.js`** — Complete rewrite
-  - Current content: 14 lines using `http.createServer()` with hardcoded hostname/port
-  - New content: Load `dotenv` at top, import `app` from `./src/app`, import `config`, import `logger`, create HTTP server from app, bind to `config.host:config.port`, log startup message via Winston, register `SIGTERM`/`SIGINT` handlers for graceful shutdown
-  - Lines to remove: All existing lines (full replacement)
+**File: `src/app.js` — Body Parser Size Limits**
+- Setting: `express.json()` and `express.urlencoded()` `limit` option
+- Current value: No `limit` option (Express 5 defaults to 100kb)
+- New value: `express.json({ limit: config.bodyLimit })` and `express.urlencoded({ extended: false, limit: config.bodyLimit })`
+- Security rationale: Explicit size limits prevent oversized payload DoS attacks; configurable via `BODY_LIMIT` env var
 
-- **`package.json`** — Structural updates
-  - Sections to update: `main` field (`"index.js"` → `"server.js"`), `description` (update to reflect Express server), `scripts` object (add start, dev, start:pm2, stop:pm2, logs)
-  - New content to add: `dependencies` block with all 8 packages, `engines` field (`{ "node": ">=18.0.0" }`)
-  - Content to remove: None (additive changes only, aside from `main` fix)
+## 0.7 Dependency Inventory
 
-- **`README.md`** — Complete rewrite
-  - Current content: 2-line stub with mismatched heading
-  - New content: Project name and description, features list, prerequisites, installation steps, environment configuration, development usage, production deployment with PM2, project directory structure, API endpoint reference, license
+### 0.7.1 Security Patches and Updates
 
-### 0.6.4 Configuration and Documentation Updates
+**All existing dependencies are confirmed secure — no version updates required.**
 
-**Configuration changes:**
+The `npm audit` scan conducted against the complete dependency tree (117 packages: 8 direct + 109 transitive) returned **0 vulnerabilities** at all severity levels (0 info, 0 low, 0 moderate, 0 high, 0 critical). The `npm outdated` check confirmed all 8 direct dependencies are at their latest semver-compatible versions.
 
-- `package.json` — Adding `engines: { "node": ">=18.0.0" }` ensures npm warns users on incompatible Node.js versions. Adding scripts automates development and production workflows.
-- `.env` — Defines all runtime-configurable values with development defaults. Impact: the server will bind to `0.0.0.0:3000` in development instead of the previous `127.0.0.1:3000`.
-- `ecosystem.config.js` — Enables PM2 to manage the application in cluster mode. Impact: `pm2 start ecosystem.config.js` will launch workers equal to CPU count, enable zero-downtime reloads, and manage log rotation.
+**Current dependency security status:**
 
-**Documentation updates:**
+| Registry | Package Name | Current Version | Target Version | Advisory | Severity |
+|---|---|---|---|---|---|
+| npm | `express` | 5.2.1 | 5.2.1 (no change) | No known vulnerabilities | — |
+| npm | `helmet` | 8.1.0 | 8.1.0 (no change) | No known vulnerabilities | — |
+| npm | `cors` | 2.8.6 | 2.8.6 (no change) | No known vulnerabilities | — |
+| npm | `express-rate-limit` | 8.3.1 | 8.3.1 (no change) | No known vulnerabilities | — |
+| npm | `dotenv` | 17.3.1 | 17.3.1 (no change) | No known vulnerabilities | — |
+| npm | `compression` | 1.8.1 | 1.8.1 (no change) | No known vulnerabilities | — |
+| npm | `morgan` | 1.10.1 | 1.10.1 (no change) | No known vulnerabilities | — |
+| npm | `winston` | 3.19.0 | 3.19.0 (no change) | No known vulnerabilities | — |
 
-- `README.md` — Complete project documentation covering installation, configuration, development, and production deployment.
-- `.env.example` — Self-documenting environment variable reference for new developers.
+**New dependency to add:**
 
-### 0.6.5 Cross-File Dependencies
+| Registry | Package Name | Current | Target Version | Rationale | Severity |
+|---|---|---|---|---|---|
+| npm | `zod` | NOT INSTALLED | ^3.25.0 (resolves 3.25.76) | Input validation middleware for rejecting malformed payloads | N/A — new addition |
 
-**Import/reference chain:**
+### 0.7.2 Dependency Chain Analysis
 
-```mermaid
-graph TD
-    A[server.js] -->|requires dotenv| B[.env]
-    A -->|imports| C[src/app.js]
-    A -->|imports| D[src/config/index.js]
-    A -->|imports| E[src/utils/logger.js]
-    C -->|imports| D
-    C -->|imports| E
-    C -->|mounts| F[src/routes/index.js]
-    C -->|uses| G[src/middleware/errorHandler.js]
-    C -->|uses| H[src/middleware/notFound.js]
-    F -->|mounts| I[src/routes/health.js]
-    F -->|mounts| J[src/routes/api.js]
-    G -->|imports| E
-    H -->|imports| E
-    D -->|reads| B
+**Direct dependencies requiring updates:**
+- `zod@^3.25.0` — NEW addition (not an update)
+- No existing direct dependencies require version changes
+
+**Transitive dependencies affected:**
+- None — Zod has zero dependencies, so no new transitive packages are introduced
+- All existing transitive dependencies remain unchanged
+
+**Notable transitive dependencies verified secure:**
+
+| Package | Version | Parent | Status |
+|---|---|---|---|
+| `body-parser` | 2.2.2 | express | 0 vulnerabilities |
+| `router` | 2.2.0 | express | 0 vulnerabilities |
+| `path-to-regexp` | 8.3.0 | express (via router) | 0 vulnerabilities |
+| `qs` | 6.15.0 | express (via body-parser) | 0 vulnerabilities |
+| `http-errors` | 2.0.1 | express | 0 vulnerabilities |
+| `cookie` | 0.7.2 | express | 0 vulnerabilities |
+| `debug` | 2.6.9 | compression, morgan | 0 vulnerabilities |
+| `winston-transport` | 4.9.0 | winston | 0 vulnerabilities |
+| `logform` | 2.7.0 | winston | 0 vulnerabilities |
+| `ip-address` | 10.1.0 | express | 0 vulnerabilities |
+
+**Peer dependencies to verify:** None — Zod has no peer dependencies
+
+**Development dependencies with vulnerabilities:** Not applicable — the project declares zero `devDependencies`
+
+### 0.7.3 Import and Reference Updates
+
+**Source files requiring new imports:**
+
+| File | New Import | Purpose |
+|---|---|---|
+| `src/middleware/validateInput.js` (CREATE) | `const { z } = require('zod')` | Zod schema types for validation factory |
+| `src/middleware/notFound.js` | `const { sanitizeLogInput, sanitizeUrl } = require('../utils/sanitizer')` | Log and URL sanitization |
+| `src/middleware/errorHandler.js` | `const { sanitizeLogInput } = require('../utils/sanitizer')` | Log input sanitization |
+| `src/routes/api.js` | `const { validateInput } = require('../middleware/validateInput')` | Per-route validation |
+| `src/routes/health.js` | `const { validateInput } = require('../middleware/validateInput')` | Per-route validation |
+| `src/routes/index.js` | `const { validateInput } = require('../middleware/validateInput')` | Per-route validation |
+
+**Import transformation rules:**
+- All new imports use CommonJS `require()` syntax, matching the existing codebase pattern
+- Relative paths follow the existing project convention (e.g., `../utils/sanitizer`, `../middleware/validateInput`)
+- No existing import statements are modified or removed
+
+**Configuration reference updates:**
+- `src/app.js` — Add `config.bodyLimit` reference in body parser calls (config object already imported)
+- `src/config/index.js` — Add `BODY_LIMIT` environment variable reading with `'10kb'` default
+- `.env` and `.env.example` — Add `BODY_LIMIT=10kb` entry
+
+**No package name renames, no environment variable renames, no documentation reference changes are required.** The changes are purely additive — new imports in existing files and new files with their own imports.
+
+## 0.8 Impact Analysis and Testing Strategy
+
+### 0.8.1 Security Testing Requirements
+
+**Vulnerability regression tests — ensure each vulnerability is no longer exploitable:**
+
+| Vulnerability | Test Scenario | Expected Result |
+|---|---|---|
+| Input validation gaps | Send malformed JSON body to POST-capable routes | HTTP 400 with validation error message |
+| Input validation gaps | Send oversized payload (>10kb) | HTTP 413 Payload Too Large |
+| Input validation gaps | Send XSS payload in query parameters (`?q=<script>`) | HTTP 400 rejection or sanitized response |
+| Weak HTTP headers | Inspect response headers on any endpoint | CSP, HSTS, X-Content-Type-Options all present with API-specific values |
+| Log injection | Send URL with newline characters (`%0A%0D`) | Log entry contains sanitized URL without injected lines |
+| Stack trace leakage | Trigger 500 error with `NODE_ENV=production` | Response contains `"Internal Server Error"` only, no stack trace |
+| CORS wildcard | Send cross-origin request from unauthorized origin | Access-Control-Allow-Origin reflects configured origin, not `*` |
+| Rate limiting | Send >100 requests in 15-minute window from same IP | HTTP 429 response after threshold breach |
+
+**Security-specific test cases to add:**
+
+| Test File | Purpose | Verification |
+|---|---|---|
+| Manual curl tests for security headers | Verify all 13+ Helmet headers present with correct values | `curl -I http://localhost:3000/` response inspection |
+| Manual curl tests for input rejection | Verify malformed payloads are rejected at HTTP 400 | `curl -X POST -H "Content-Type: application/json" -d '{"invalid":true}' http://localhost:3000/api` |
+| Manual curl tests for body size limits | Verify oversized payloads are rejected at HTTP 413 | `curl -X POST -d @large_payload.json http://localhost:3000/api` |
+| Manual log inspection for sanitization | Verify log entries do not contain injected control characters | Send requests with `%0A%0D` in URLs and inspect `logs/combined.log` |
+
+**Existing tests to verify:**
+- The project has no existing automated test suite (`npm test` is a placeholder that outputs an error message)
+- All regression testing must be performed via manual `curl`/Postman verification
+- Full endpoint behavior verification: ensure all 4 endpoints (`/`, `/health`, `/api`, `/api/info`) return identical responses for valid requests
+
+### 0.8.2 Verification Methods
+
+**Automated security scanning:**
+
+| Tool | Command | Expected Result |
+|---|---|---|
+| `npm audit` | `npm audit` | 0 vulnerabilities at all severity levels |
+| `npm audit` (JSON) | `npm audit --json` | `"vulnerabilities": {}` empty object |
+| `npm outdated` | `npm outdated` | No output (all packages current) |
+
+**Manual verification steps:**
+
+- **Security headers verification:**
+  - Run `curl -sI http://localhost:3000/` and verify presence of: `Content-Security-Policy`, `Strict-Transport-Security`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, absence of `X-Powered-By`
+  - Verify CSP includes API-specific directives (`default-src 'none'`)
+
+- **Input validation verification:**
+  - Send valid GET requests to all endpoints — verify unchanged 200 responses
+  - Send unexpected POST body to GET endpoints — verify 400 rejection
+  - Send oversized JSON payload — verify 413 rejection
+
+- **Log sanitization verification:**
+  - Send request to `http://localhost:3000/test%0A%0DINJECTED` (non-existent route)
+  - Inspect `logs/combined.log` — verify the 404 log entry does not contain raw newline injection
+  - Verify log entry shows sanitized URL representation
+
+- **Error masking verification:**
+  - Set `NODE_ENV=production` and trigger a server error
+  - Verify response body contains `"Internal Server Error"` and no stack trace
+  - Verify non-production mode still provides debug information for development
+
+- **Rate limiting verification:**
+  - Send rapid requests from a single IP: `for i in $(seq 1 105); do curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/; done`
+  - Verify requests 101-105 return HTTP 429
+  - Verify `RateLimit-*` headers present in responses
+
+**Penetration testing scenarios (if applicable):**
+- Attempt log forging via specially crafted URLs containing ANSI escape codes
+- Attempt body parser exploitation with deeply nested JSON objects
+- Attempt HTTP parameter pollution via duplicate query parameters
+- Attempt content-type confusion by sending non-JSON bodies with JSON content-type
+
+### 0.8.3 Impact Assessment
+
+**Direct security improvements achieved:**
+- Input validation gaps **eliminated** — all routes enforce schema validation, rejecting unexpected payloads
+- Body parser DoS vector **eliminated** — explicit 10kb payload limits prevent oversized request attacks
+- Log injection vector **eliminated** — all user-controlled input sanitized before logging
+- HTTP headers **strengthened** — API-specific CSP directives replace generic defaults
+- Error handling **documented** — CWE-209 mitigation explicitly commented in code
+- Configuration guidance **improved** — `.env.example` documents security implications of each variable
+
+**Minimal side effects on existing functionality:**
+- No breaking changes to public API contracts — all 4 endpoints continue to return identical responses for valid requests
+- No changes to response structure or HTTP status codes for normal operations
+- No changes to middleware execution order — all existing 9 layers remain in their original positions
+- No changes to business logic in any route handler
+- No changes to logging format or destination
+- No changes to PM2 configuration or deployment procedures
+
+**Potential impacts to address:**
+
+| Potential Impact | Likelihood | Mitigation |
+|---|---|---|
+| Validation middleware rejects previously accepted edge-case requests | Low | Schemas designed to be permissive for GET endpoints that accept no body/query |
+| Body size limit rejects legitimate large payloads | Very Low | Current endpoints accept no large payloads; limit configurable via `BODY_LIMIT` env var |
+| Enhanced CSP headers break browser-based API consumers | Very Low | API returns JSON, not HTML; CSP only affects rendered content |
+| New `zod` dependency increases bundle size | Negligible | Zod is ~50kb; has zero transitive dependencies |
+| Sanitization modifies logged data readability | Low | Sanitizer preserves alphanumeric content; only strips control characters |
+
+## 0.9 Scope Boundaries
+
+### 0.9.1 Exhaustively In Scope
+
+**Dependency manifests (security updates):**
+- `package.json` — Add `zod@^3.25.0` dependency
+- `package-lock.json` — Regenerated lockfile after dependency addition
+
+**Middleware files (security hardening):**
+- `src/app.js` — Helmet CSP enhancement, body parser size limits, security comments
+- `src/middleware/errorHandler.js` — Log sanitization integration, CWE-209 documentation comments
+- `src/middleware/notFound.js` — Log sanitization for `req.originalUrl`, response URL sanitization
+- `src/middleware/validateInput.js` — NEW: Zod-based input validation middleware factory
+
+**Route files (validation middleware application):**
+- `src/routes/api.js` — Apply validation middleware to `/api` and `/api/info` routes
+- `src/routes/health.js` — Apply validation middleware to `/health` route
+- `src/routes/index.js` — Apply validation middleware to `/` root route
+
+**Utility files (security utilities):**
+- `src/utils/sanitizer.js` — NEW: Input and log sanitization functions
+
+**Configuration files (security settings):**
+- `src/config/index.js` — Add `bodyLimit` configuration property
+- `.env` — Add `BODY_LIMIT=10kb` variable
+- `.env.example` — Document `BODY_LIMIT` variable and security notes for `NODE_ENV`
+
+**Files verified secure (no changes needed):**
+- `server.js` — Entry point with proper error handling and graceful shutdown (verified)
+- `src/utils/logger.js` — Winston logger with JSON structured format (verified)
+- `ecosystem.config.js` — PM2 production configuration with proper env blocks (verified)
+
+### 0.9.2 Explicitly Out of Scope
+
+**Feature additions unrelated to security:**
+- No new API endpoints or routes
+- No new business logic or data processing
+- No UI or frontend changes (application is API-only)
+
+**Performance optimizations not required for security:**
+- No caching layer additions
+- No compression algorithm changes
+- No database optimization (no database exists)
+
+**Code refactoring beyond security fix requirements:**
+- No migration from CommonJS to ESM modules
+- No code restructuring or file reorganization
+- No variable renaming or style changes
+- No changes to existing function signatures or return types
+
+**Non-vulnerable dependencies (per minimal change clause):**
+- No version bumps for `express`, `cors`, `compression`, `morgan`, `winston`, `dotenv`, `express-rate-limit`, or `helmet` — all at latest semver-compatible versions with 0 vulnerabilities
+
+**Infrastructure and deployment changes:**
+- No Dockerfile creation or modification (none exists)
+- No Docker Compose changes (none exists)
+- No GitHub Actions workflow creation or modification (per implementation rule: "Do not make any updates or changes in GitHub App to create or update a workflow")
+- No CI/CD pipeline creation
+- No Kubernetes manifests (none exist)
+
+**Authentication and authorization:**
+- No authentication framework addition (documented as out-of-scope in Section 6.4.1)
+- No authorization or RBAC implementation
+- No session management or token handling
+
+**Test infrastructure:**
+- No test framework installation (no `devDependencies` exist)
+- No automated test file creation beyond manual verification scripts
+- No test runner configuration
+
+**Monitoring and observability:**
+- No APM (Application Performance Monitoring) integration
+- No external security monitoring service integration
+- No alerting system configuration
+
+**Documentation changes:**
+- No README.md updates (per minimal change clause — existing documentation sufficient)
+- No SECURITY.md creation (not required for demo scope)
+
+**Items explicitly excluded by user instructions:**
+- Business logic modifications
+- Route response structure changes
+- API contract changes
+- Middleware execution structure reordering
+- Style or formatting changes
+- Unrelated code optimization or refactoring
+
+**Additional vulnerabilities noted but NOT fixed (per user directive):**
+- No authentication on any endpoint (documented gap, out of scope)
+- In-memory rate limiter not shared across PM2 cluster workers (requires Redis, out of scope)
+- No TLS/SSL termination in application (delegated to reverse proxy per Assumption A-001)
+- `/api/info` and `/health` expose system metadata without access control (no auth system to gate them)
+
+## 0.10 Execution Parameters
+
+### 0.10.1 Security Verification Commands
+
+**Dependency vulnerability scan:**
+```bash
+npm audit
+```
+Expected output: `found 0 vulnerabilities`
+
+**Dependency vulnerability scan (JSON format for CI):**
+```bash
+npm audit --json
+```
+Expected output: JSON object with empty `vulnerabilities` field
+
+**Dependency currency check:**
+```bash
+npm outdated
+```
+Expected output: No output (all packages at latest semver-compatible versions)
+
+**Security header verification:**
+```bash
+curl -sI http://localhost:3000/ | grep -iE "(content-security|strict-transport|x-content-type|x-frame|x-powered)"
+```
+Expected output: CSP, HSTS, X-Content-Type-Options, X-Frame-Options headers present; X-Powered-By absent
+
+**Input validation verification:**
+```bash
+curl -s -X POST -H "Content-Type: application/json" -d '{"unexpected":"data"}' http://localhost:3000/api
+```
+Expected output: HTTP 400 with validation error
+
+**Body size limit verification:**
+```bash
+python3 -c "print('{\"x\":\"' + 'A'*20000 + '\"}')" | curl -s -X POST -H "Content-Type: application/json" -d @- http://localhost:3000/api
+```
+Expected output: HTTP 413 Payload Too Large
+
+**Rate limiting verification:**
+```bash
+for i in $(seq 1 105); do curl -s -o /dev/null -w "%{http_code} " http://localhost:3000/; done
+```
+Expected output: 100 responses with `200`, then 5 responses with `429`
+
+**Log sanitization verification:**
+```bash
+curl -s "http://localhost:3000/test%0A%0DINJECTED-LINE" && cat logs/combined.log | tail -1
+```
+Expected output: 404 response; log entry shows sanitized URL without raw newline characters
+
+**Full test suite validation:**
+```bash
+npm audit && echo "Audit passed" && curl -sI http://localhost:3000/ | head -20
 ```
 
-**Configuration sync requirements:**
-- Environment variables defined in `.env` must match the keys consumed by `src/config/index.js`
-- `.env.example` must list all variables referenced in `src/config/index.js`
-- PM2 `ecosystem.config.js` environment definitions must include the same variable keys as `.env`
-- `package.json` scripts must reference the correct entry file (`server.js`) and PM2 config (`ecosystem.config.js`)
+### 0.10.2 Research Documentation
 
-**Documentation consistency:**
-- `README.md` must document all environment variables listed in `.env.example`
-- `README.md` must list all API endpoints defined in `src/routes/`
-- `README.md` project structure must reflect all new `src/` files created
+**Security advisories consulted:**
+- Express.js Security Best Practices — https://expressjs.com/en/advanced/best-practice-security.html
+- Helmet.js Official Documentation — https://helmetjs.github.io/
+- Helmet npm Security (Snyk) — https://security.snyk.io/package/npm/helmet (confirms 8.1.0 as latest non-vulnerable)
+- OWASP Node.js Security Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/Nodejs_Security_Cheat_Sheet.html
+- Snyk Log Injection Prevention — https://snyk.io/blog/prevent-log-injection-vulnerability-javascript-node-js/
+- CWE-209: Generation of Error Message Containing Sensitive Information — https://cwe.mitre.org/data/definitions/209.html
 
+**CVE numbers and vulnerability databases referenced:**
+- No active CVEs found for any of the 8 direct dependencies at current versions
+- npm audit database: 0 advisories across 117 packages
+- Snyk vulnerability database: helmet@8.1.0 confirmed as latest non-vulnerable version
 
-## 0.7 Rules
+**Security best practices followed:**
+- OWASP defense-in-depth: Multiple security layers (headers + validation + rate limiting + error masking + log sanitization)
+- Principle of least privilege: API-specific CSP denies all content loading; validation rejects all unexpected input
+- Secure by default: Body parser limits and validation active without explicit opt-in
+- Fail securely: Validation failures return safe HTTP 400 responses; error masking ensures no internal details leak
 
+**OWASP guidelines applied:**
+- A03:2021 Injection — Addressed by input validation (Zod) and log sanitization
+- A05:2021 Security Misconfiguration — Addressed by Helmet CSP hardening and explicit configuration
+- A09:2021 Security Logging and Monitoring Failures — Addressed by log sanitization preventing log integrity compromise
 
-### 0.7.1 User-Specified Rules
+### 0.10.3 Implementation Constraints
 
-The following rules have been explicitly specified by the user and must be strictly adhered to throughout the implementation:
+**Priority:** Security fix first, minimal disruption second — All changes are security-focused; no feature additions, refactoring, or optimization
 
-- **No GitHub Actions workflow changes**: "Do not make any updates or changes in GitHub App to create or update a workflow." This means no files within `.github/workflows/` will be created, modified, or deleted. CI/CD pipeline configuration is entirely excluded from this scope.
+**Backward compatibility:** Must maintain — All 4 existing endpoints (`/`, `/health`, `/api`, `/api/info`) must return identical responses for valid requests; no public API contract changes permitted
 
-### 0.7.2 Derived Implementation Rules
+**Deployment considerations:**
+- Changes can be deployed immediately via PM2 rolling restart (`pm2 reload ecosystem.config.js`)
+- No database migration required (no database exists)
+- No external service coordination required (all changes are application-internal)
+- New `zod` dependency must be installed via `npm install` before deployment
+- `BODY_LIMIT` env var is optional — defaults to `10kb` if not set
+- Existing `.env` file in production will continue to work without modification (new variable has defaults)
 
-The following rules are derived from the project context and best practices applicable to this task:
+**Rollback procedure:**
+- Revert `package.json` and `package-lock.json` to previous version
+- Run `npm install` to restore original dependency tree
+- Revert all modified source files to previous versions
+- Restart via PM2: `pm2 reload ecosystem.config.js`
+- Total rollback time: Under 2 minutes
 
-- **Maintain CommonJS module syntax**: The existing codebase uses `require()`/`module.exports`. All new files must follow this convention. No ES module `import`/`export` syntax or `"type": "module"` in `package.json`.
-- **Preserve project identity**: The `package.json` `name` field (`hello_world`), `version` (`1.0.0`), `author` (`hxu`), and `license` (`MIT`) must be retained unless the user explicitly requests changes.
-- **Use caret (^) version ranges**: All new dependency versions in `package.json` must use caret ranges (e.g., `^5.2.1`) to permit compatible minor and patch updates while locking the major version.
-- **No hardcoded runtime values**: All configurable values (port, host, log level, CORS origin, rate limits) must be read from environment variables with sensible defaults — never hardcoded in source code.
-- **Structured JSON logging in production**: File transports must use JSON format for machine-parseable log aggregation. Console transports may use human-readable format for developer convenience.
-- **Graceful shutdown handling**: The server must handle `SIGTERM` and `SIGINT` signals to close active connections before exiting, ensuring PM2 cluster mode reloads work without dropping requests.
+## 0.11 Special Instructions for Security Fixes
 
+### 0.11.1 Security-Specific Requirements Explicitly Emphasized by the User
 
-## 0.8 Special Instructions
+The following directives were explicitly stated in the user's security remediation specification and must be strictly honored throughout implementation:
 
+**Change scope discipline:**
+- "Make ONLY minimal changes required to fix vulnerabilities" — Every code change must directly address a specific vulnerability. No opportunistic refactoring, formatting, or optimization permitted.
+- "Do NOT refactor or optimize unrelated code" — Even if suboptimal patterns are observed during implementation, they must be left unchanged unless they are the vulnerability itself.
+- "Preserve all existing functionality exactly" — All 4 endpoints must return byte-identical responses for valid requests after remediation.
+- "Prefer middleware/config fixes over code changes" — Configuration-level changes (Helmet options, body parser limits, env vars) are preferred over modifying route handler logic. New middleware is preferred over modifying existing business logic.
 
-### 0.8.1 Special Execution Instructions
+**Documentation requirements:**
+- "Document each fix with comments explaining the vulnerability addressed" — Every modified file must include inline comments that explain which vulnerability the change mitigates, using the format: `// SECURITY: [vulnerability description] - [mitigation applied]`
 
-- **No test generation required**: The user has not requested test infrastructure. The existing placeholder test script in `package.json` may be retained or updated with a note, but no test files or test framework setup will be generated.
-- **PM2 is a global tool**: PM2 must be installed globally (`npm install -g pm2`) and is not included in `package.json` `dependencies`. The `ecosystem.config.js` is the sole project-level PM2 artifact.
-- **Log directory creation**: The `logs/` directory referenced by Winston file transports must be created automatically by the logger or documented as a prerequisite step. Winston's file transport will create the directory if it does not exist when using recent versions.
-- **Environment file security**: The `.env` file must be listed in `.gitignore` to prevent accidental commit of secrets. Only `.env.example` (with placeholder values) should be committed to version control.
+**Discovered vulnerability handling:**
+- "If additional vulnerabilities are found, note them but do not fix" — The following additional vulnerabilities were identified during analysis but are explicitly NOT being fixed per this directive:
+  - No authentication on any endpoint (documented in Sections 3.8.2 and 6.4.8)
+  - In-memory rate limiter not shared across PM2 cluster workers (documented in Section 6.4.2.4)
+  - No TLS/SSL in-app termination (delegated to reverse proxy per Assumption A-001)
+  - `/api/info` exposes application version, environment name, and Node.js version
+  - `/health` exposes process memory usage, uptime, and system metadata
+  - No automated test infrastructure exists
+  - No CI/CD security scanning pipeline
 
-### 0.8.2 Constraints and Boundaries
+**System boundary enforcement:**
+- "Only modify: Middleware, security configurations, dependency versions" — All changes are confined to middleware layer (`src/middleware/`), configuration (`src/config/`, `.env`), dependency management (`package.json`), and route-level middleware application (`src/routes/`). No changes to `server.js` entry point, `ecosystem.config.js` PM2 config, or `src/utils/logger.js` logger.
+- "Do NOT modify: Business logic, Route responses, API contracts, Middleware execution structure" — The 9-layer middleware pipeline order in `src/app.js` is preserved exactly. No route handler return values are changed. No API endpoint paths or HTTP methods are altered.
 
-- **Technical constraints**:
-  - Node.js >= 18.0.0 required (Express 5 minimum)
-  - CommonJS module system only (no ESM)
-  - No breaking changes to the project name or license
+### 0.11.2 Implementation Rule Compliance
 
-- **Process constraints**:
-  - No CI/CD pipeline creation or modification (per user rule)
-  - No database or external service integration
-  - No frontend or view engine setup
+**Project-specific implementation rule:**
+- "Do not make any updates or changes in GitHub App to create or update a workflow" — No `.github/workflows/` files will be created, modified, or referenced as targets in the transformation map. Security scanning via GitHub Actions is explicitly out of scope.
 
-- **Output constraints**:
-  - All new source files go under `src/` directory for organizational clarity
-  - All configuration files remain at the project root
-  - Log files are written to `logs/` directory at the project root
-  - All JSON responses follow a consistent structure with `status` and `message` fields
+**Secrets management:**
+- No new secrets or credentials are introduced by this security remediation
+- Existing `.env` file management (excluded from VCS via `.gitignore`) remains unchanged
+- New `BODY_LIMIT` env var is a non-sensitive configuration value with a safe default
 
-- **Compatibility requirements**:
-  - The enhanced server must listen on the same default port (3000) as the original to maintain any existing references
-  - The root path (`GET /`) must continue to serve a response (updated from plain text to JSON) to preserve basic functionality
+**Breaking changes justification:**
+- This security remediation introduces **zero breaking changes** to the public API
+- All existing endpoints continue to accept and return identical data for valid requests
+- The only behavioral changes affect invalid or malicious requests (which are now properly rejected)
+- No backward compatibility concerns for any API consumer
 
+### 0.11.3 Compliance and Risk Summary
 
-## 0.9 References
+**Compliance posture after remediation:**
+- OWASP Top 10 coverage improved for A03 (Injection), A05 (Security Misconfiguration), A09 (Security Logging)
+- CWE-209 mitigation explicitly documented in code
+- Defense-in-depth principle applied across 6 security layers
 
+**Residual risk after remediation:**
 
-### 0.9.1 Repository Files and Folders Searched
+| Residual Risk | Severity | Acceptance Rationale |
+|---|---|---|
+| No authentication | Low (demo scope) | Explicitly out of scope per Section 6.4.1 |
+| Per-process rate limiter | Medium | Requires Redis store upgrade; acceptable for single-process deployment |
+| No TLS in-app | High (mitigated) | Delegated to reverse proxy per Assumption A-001 |
+| No automated security scanning | Low | Requires CI/CD pipeline; manual `npm audit` documented |
+| Information exposure on metadata endpoints | Low | No sensitive data; acceptable for demo scope |
 
-All files in the repository were exhaustively examined to derive conclusions for this action plan:
-
-| File Path | Type | Analysis Performed |
-|-----------|------|-------------------|
-| `server.js` | Source code | Full content read — identified as 14-line HTTP server with built-in `http` module, hardcoded hostname/port, single catch-all handler |
-| `package.json` | Configuration | Full content read — confirmed zero dependencies, `main` pointing to non-existent `index.js`, placeholder test script, MIT license |
-| `package-lock.json` | Lockfile | Full content read — confirmed lockfile v3 format with empty dependency tree |
-| `README.md` | Documentation | Full content read — confirmed 2-line stub with naming mismatch vs. `package.json` |
-| Root directory (`/`) | Folder | Listed all children — confirmed flat 4-file structure with no subdirectories |
-
-No `.blitzyignore` files were found in the repository.
-
-### 0.9.2 Web Sources Consulted
-
-| Source | URL | Information Retrieved |
-|--------|-----|----------------------|
-| Express.js Official Blog | https://expressjs.com/2025/03/31/v5-1-latest-release.html | Express 5.1.0 release announcement, LTS timeline, breaking changes from v4 |
-| npm — express | https://www.npmjs.com/package/express | Latest version (5.2.1), installation command, package metadata |
-| npm — pm2 | https://www.npmjs.com/package/pm2 | Latest version (6.0.14), cluster mode documentation, ecosystem file format |
-| PM2 Quick Start | https://pm2.keymetrics.io/docs/usage/quick-start/ | Ecosystem file configuration, cluster mode, startup scripts, CLI commands |
-| npm — winston | https://www.npmjs.com/package/winston | Latest version (3.19.0), transport configuration, log level hierarchy |
-| Better Stack — Winston Guide | https://betterstack.com/community/guides/logging/how-to-install-setup-and-use-winston-and-morgan-to-log-node-js-applications/ | Winston + Morgan integration patterns, custom logger creation |
-| npm — morgan | https://www.npmjs.com/package/morgan | Latest version (1.10.1), predefined formats, custom tokens |
-| npm — dotenv | https://www.npmjs.com/package/dotenv | Latest version (17.3.1), usage patterns, `.env` file format |
-| npm — helmet | https://www.npmjs.com/package/helmet | Latest version (8.1.0), 13 security headers set by default |
-| npm — cors | https://www.npmjs.com/package/cors | Latest version (2.8.6), origin configuration options |
-| npm — compression | npm registry query | Latest version (1.8.1) via `npm view` |
-| npm — express-rate-limit | npm registry query | Latest version (8.3.1) via `npm view` |
-| Express.js GitHub Releases | https://github.com/expressjs/express/releases | Express 5 feature summary: promise support, Node >= 18, updated path-to-regexp |
-| Infisical Blog — dotenv | https://infisical.com/blog/stop-using-dotenv-in-nodejs-v20.6.0+ | Node.js v20.6.0+ native `--env-file` flag context; dotenv still recommended for broad compatibility |
-
-### 0.9.3 Attachments and External Metadata
-
-No attachments were provided for this project. No Figma URLs or external design references were specified.
-
+**Security trade-offs:**
+- Body parser limit of 10kb is conservative; may need increase if future endpoints accept larger payloads (configurable via `BODY_LIMIT` env var)
+- API-specific CSP (`default-src 'none'`) is maximally restrictive; may need adjustment if API serves HTML content in future (currently JSON-only)
+- Log sanitization caps logged URL length; extremely long malicious URLs may be truncated in logs (intentional defense-in-depth)
 

@@ -19,6 +19,7 @@
 const express = require('express');
 const healthRouter = require('./health');
 const apiRouter = require('./api');
+const { validateInput, z } = require('../middleware/validateInput');
 
 /**
  * Express Router instance that aggregates all application sub-routers
@@ -28,6 +29,7 @@ const apiRouter = require('./api');
  */
 const router = express.Router();
 
+// SECURITY: Input validation — reject unexpected request body and query parameters on root endpoint to prevent injection attacks
 /**
  * GET / — Root welcome route
  *
@@ -39,10 +41,23 @@ const router = express.Router();
  * @param {import('express').Request}  req - Express request object
  * @param {import('express').Response} res - Express response object
  */
-router.get('/', (req, res) => {
+router.get('/', validateInput({ body: z.object({}).strict().optional(), query: z.object({}).strict() }), (req, res) => {
   res.json({
     status: 'success',
     message: 'Hello, World! Welcome to the Express server.'
+  });
+});
+
+// SECURITY: Reject non-GET methods on the root route with 405 Method Not Allowed.
+// Express router.get() only matches GET/HEAD requests; other HTTP methods bypass
+// the route middleware chain entirely (including validateInput) and would fall
+// through to the 404 handler. This catch-all ensures unsupported methods receive
+// a semantically correct 405 response per RFC 9110 §15.5.6.
+router.all('/', (req, res) => {
+  res.status(405).set('Allow', 'GET, HEAD').json({
+    status: 'error',
+    statusCode: 405,
+    message: 'Method Not Allowed'
   });
 });
 

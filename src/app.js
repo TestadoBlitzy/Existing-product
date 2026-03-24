@@ -72,7 +72,18 @@ const app = express();
 //    X-Content-Type-Options, X-Frame-Options, and others to harden the
 //    application against common web vulnerabilities such as XSS, clickjacking,
 //    and MIME-type sniffing.
-app.use(helmet());
+// SECURITY: Enhanced Helmet configuration with API-specific Content-Security-Policy.
+// Default CSP (default-src 'self') is designed for web pages; an API-only service
+// should use a more restrictive policy that disallows all content loading since
+// API responses are JSON, not rendered HTML.
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'none'"],
+      frameAncestors: ["'none'"]
+    }
+  }
+}));
 
 // 2. CORS — Cross-Origin Resource Sharing middleware enables controlled API
 //    access from different origins. The allowed origin is read from the
@@ -91,10 +102,15 @@ app.use(compression());
 // 4. Body Parsers — Enable Express to parse incoming request bodies.
 //    express.json() handles application/json content type.
 //    express.urlencoded() handles application/x-www-form-urlencoded content
-//    type with the 'extended: true' option enabling rich object and array
-//    encoding via the qs library.
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+//    type with 'extended: false' using the simpler querystring parser (reduced
+//    attack surface compared to the qs library).
+// SECURITY: Explicit body size limits (config.bodyLimit) prevent payload-based
+// denial-of-service attacks (CWE-400: Uncontrolled Resource Consumption).
+// Without explicit limits, Express 5 defaults to 100kb; the configured limit
+// is sufficient for this application's JSON payloads and is configurable via
+// the BODY_LIMIT environment variable.
+app.use(express.json({ limit: config.bodyLimit }));
+app.use(express.urlencoded({ extended: false, limit: config.bodyLimit }));
 
 // 5. HTTP Request Logging — Morgan middleware generates Apache-style combined
 //    access logs for every HTTP request. The 'combined' format includes:

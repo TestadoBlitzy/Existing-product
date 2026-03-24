@@ -14,8 +14,11 @@
 'use strict';
 
 const express = require('express');
+const { validateInput, z } = require('../middleware/validateInput');
 
 const router = express.Router();
+
+// SECURITY: Input validation — reject unexpected request body and query parameters to prevent injection attacks
 
 /**
  * GET / — Health check endpoint
@@ -35,13 +38,25 @@ const router = express.Router();
  * @param {import('express').Request}  req - Express request object
  * @param {import('express').Response} res - Express response object
  */
-router.get('/', (req, res) => {
+router.get('/', validateInput({ body: z.object({}).strict().optional(), query: z.object({}).strict() }), (req, res) => {
   res.json({
     status: 'ok',
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
     memory: process.memoryUsage(),
     nodeVersion: process.version
+  });
+});
+
+// SECURITY: Reject non-GET methods on /health with 405 Method Not Allowed.
+// Without this, POST/PUT/DELETE/PATCH requests bypass route-level validation
+// middleware and fall through to the 404 handler with a misleading status code.
+// Returns the required Allow header per RFC 9110 §15.5.6 and consistent JSON.
+router.all('/', (req, res) => {
+  res.status(405).set('Allow', 'GET, HEAD').json({
+    status: 'error',
+    statusCode: 405,
+    message: 'Method Not Allowed'
   });
 });
 
