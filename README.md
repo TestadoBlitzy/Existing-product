@@ -4,7 +4,7 @@ A minimal Python 3 / Flask HTTP server used as a test project for backprop integ
 
 ## Technology Stack
 
-- **Python** 3.12.3 or newer
+- **Python** 3.9 or newer
 - **Flask** 3.1.3
 
 ## Prerequisites
@@ -37,7 +37,7 @@ Server running at http://127.0.0.1:3000/
 Every HTTP request — regardless of method (GET, POST, PUT, DELETE, etc.) or path — returns the same response:
 
 - **Status:** `200 OK`
-- **Content-Type:** `text/plain`
+- **Content-Type:** `text/plain; charset=utf-8`
 - **Body:** `Hello, World!\n`
 
 ## Project Info
