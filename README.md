@@ -6,20 +6,20 @@ A minimal HTTP microserver used as a **Backprop integration test harness**, buil
 
 `hao-backprop-test` is a lightweight Flask-based HTTP microserver designed as a test harness for Backprop integration workflows. It provides two core capabilities:
 
-- **JSON Health Check** — A dedicated `GET /health` endpoint returns `{"status": "ok"}` for programmatic service availability verification by monitoring tools, CI pipelines, and automated deployment checks.
+- **JSON Health Check** — A dedicated `GET /health` endpoint returns `{"status":"ok"}` for programmatic service availability verification by monitoring tools, CI pipelines, and automated deployment checks.
 - **Universal Catch-All** — Every other HTTP request (any method, any path) receives a plain-text `Hello, World!\n` response, replicating the behavior of the original Node.js server.
 
-The project was migrated from a Node.js `http.createServer()` implementation to Python Flask while preserving identical external behavior — same host, same port, same response bodies, same status codes. The original Node.js files (`server.js`, `package.json`, `package-lock.json`) are retained as empty legacy placeholders.
+The project was migrated from a Node.js `http.createServer()` implementation to Python Flask while preserving identical external behavior — same host, same port, same response bodies, same status codes. The original Node.js files (`server.js`, `package.json`, `package-lock.json`) were removed during the migration.
 
 This documentation is intended for developers onboarding to the project, DevOps personnel managing the service, and automated pipelines that interact with the server's endpoints.
 
 ## Architecture
 
-The application is a **single-file monolithic Flask microserver** contained entirely within `app.py` (73 lines). The architecture consists of three components:
+The application is a **single-file monolithic Flask microserver** contained entirely within `app.py` (93 lines). The architecture consists of three components:
 
-1. **Flask Application Instance** — Created via `Flask(__name__)`, serves as the WSGI application object (`app.py:17`).
-2. **Two Route Handlers** — The health check endpoint and the catch-all handler, registered with Flask's routing system (`app.py:30–62`).
-3. **Werkzeug Development Server** — Flask's built-in server, started via `app.run()` at the entry point (`app.py:72`).
+1. **Flask Application Instance** — Created via `Flask(__name__)`, serves as the WSGI application object (`app.py:25`).
+2. **Two Route Handlers** — The health check endpoint and the catch-all handler, registered with Flask's routing system (`app.py:41–79`).
+3. **Werkzeug Development Server** — Flask's built-in server, started via `app.run()` at the entry point (`app.py:92–93`).
 
 ### Request Routing Flow
 
@@ -39,24 +39,18 @@ hao-backprop-test/
 ├── app.py
 ├── requirements.txt
 ├── README.md
-├── server.js
-├── package.json
-├── package-lock.json
 └── blitzy/
     └── documentation/
 ```
 
 | File / Directory | Description |
 |------------------|-------------|
-| `app.py` | Flask application entry point; defines routes, configuration, and server startup (73 lines) |
+| `app.py` | Flask application entry point; defines routes, configuration, and server startup (93 lines) |
 | `requirements.txt` | Python dependency manifest; pins `Flask==3.1.3` |
 | `README.md` | This file; comprehensive project documentation |
-| `server.js` | Empty placeholder from the original Node.js project (legacy, not active) |
-| `package.json` | Empty placeholder from the original Node.js project (legacy, not active) |
-| `package-lock.json` | Empty placeholder from the original Node.js project (legacy, not active) |
 | `blitzy/documentation/` | Internal Blitzy-generated technical specifications and project guide (not user-facing) |
 
-> **Note:** The Node.js files (`server.js`, `package.json`, `package-lock.json`) are retained as legacy placeholders from the original project and are **NOT** part of the active technology stack. The active server implementation is `app.py` using Python/Flask.
+> **Note:** The original Node.js files (`server.js`, `package.json`, `package-lock.json`) were removed during the migration from Node.js to Python/Flask. The active server implementation is `app.py` using Python/Flask.
 
 ## Prerequisites
 
@@ -180,7 +174,7 @@ Stop the server by pressing `Ctrl+C` in the terminal where it is running.
 | **Response Content-Type** | `application/json` |
 | **Response Body** | `{"status":"ok"}` |
 | **Status Code** | `200 OK` |
-| **Source** | `app.py:30–37` |
+| **Source** | `app.py:41–48` |
 
 **Purpose:** Programmatic service availability verification for monitoring tools, CI/CD pipeline health checks, and automated deployment validation.
 
@@ -205,7 +199,7 @@ Expected response:
 | **Response Content-Type** | `text/plain` |
 | **Response Body** | `Hello, World!\n` (with trailing newline) |
 | **Status Code** | `200 OK` |
-| **Source** | `app.py:48–62` |
+| **Source** | `app.py:64–79` |
 
 **Purpose:** Replicates the original Node.js universal request handler behavior — every request receives an identical plain-text response regardless of HTTP method or URL path.
 
@@ -244,7 +238,7 @@ The following table shows how different request patterns are routed between the 
 
 ## Configuration
 
-The server's runtime configuration is defined as hardcoded constants in `app.py` (lines 22–24). These are **not** configurable via environment variables — to change them, edit `app.py` directly.
+The server's runtime configuration is defined as hardcoded constants in `app.py` (lines 30–33). These are **not** configurable via environment variables — to change them, edit `app.py` directly.
 
 | Constant | Value | Type | Description |
 |----------|-------|------|-------------|
@@ -252,7 +246,7 @@ The server's runtime configuration is defined as hardcoded constants in `app.py`
 | `PORT` | `3000` | `int` | Server listen port — matches the original Node.js server for behavioral parity |
 | `METHODS` | `['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS']` | `list[str]` | HTTP methods accepted by the catch-all handler — covers all standard methods |
 
-Source: `app.py:22–24`
+Source: `app.py:30–33`
 
 ## Technology Stack
 
@@ -266,7 +260,7 @@ Only `Flask==3.1.3` is declared in `requirements.txt`. All other packages are **
 
 | Package | Version | Purpose | Active in Code |
 |---------|---------|---------|----------------|
-| Flask | 3.1.3 | Web framework — application core | Yes (`app.py` line 12) |
+| Flask | 3.1.3 | Web framework — application core | Yes (`app.py` line 18) |
 | Werkzeug | 3.1.7 | WSGI server and HTTP utilities | Yes (powers `app.run()`) |
 | Jinja2 | 3.1.6 | Template rendering engine | No (no templates used) |
 | MarkupSafe | 3.0.3 | HTML/XML string escaping | No (no markup generation) |
