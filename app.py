@@ -12,7 +12,9 @@ Originally implemented as a Node.js http.createServer() server in server.js;
 migrated to Python/Flask to align with the Backprop testing infrastructure.
 """
 
-# Flask: web framework core; Response: custom HTTP reply builder; jsonify: JSON response helper
+# Flask: web framework core
+# Response: custom HTTP reply builder
+# jsonify: JSON response helper
 from flask import Flask, Response, jsonify
 
 # ---------------------------------------------------------------------------
@@ -27,13 +29,14 @@ app = Flask(__name__)
 # ---------------------------------------------------------------------------
 HOST = '127.0.0.1'   # Localhost-only; prevents external network exposure
 PORT = 3000           # Matches the original Node.js server.js port
-METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS']  # All standard HTTP methods
+# All commonly used HTTP methods
+METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS']
 
 
 # ---------------------------------------------------------------------------
 # Health check endpoint — programmatic service availability verification
-# Registered before the catch-all route so Flask matches GET /health here
-# rather than falling through to the generic handler.
+# Flask's routing matches this specific static path before
+# the dynamic catch-all based on route specificity.
 # ---------------------------------------------------------------------------
 @app.route('/health', methods=['GET'])
 def health():
@@ -87,4 +90,4 @@ def catch_all(path):
 # printing the host and port to stdout when the server starts.
 # ---------------------------------------------------------------------------
 if __name__ == '__main__':
-    app.run(host=HOST, port=PORT)  # Starts Werkzeug development server (not production-grade)
+    app.run(host=HOST, port=PORT)  # Werkzeug dev server — not for production
