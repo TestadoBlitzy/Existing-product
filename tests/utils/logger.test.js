@@ -81,12 +81,29 @@ describe('logger', () => {
   // -------------------------------------------------------------------------
 
   describe('module initialization', () => {
+    // IMPORTANT: jest.config.js has clearMocks: true which calls
+    // jest.clearAllMocks() before EACH test, wiping mock.calls data.
+    // winston.createLogger is called during module initialization (at
+    // require time, line 70), so its call data exists after module load
+    // but gets cleared before any test function executes. We capture the
+    // initialization evidence in beforeAll, which runs before clearMocks
+    // for the first test in this describe block.
+    let initCallCount;
+    let initCallArgs;
+
+    beforeAll(() => {
+      initCallCount = winston.createLogger.mock.calls.length;
+      initCallArgs = winston.createLogger.mock.calls.length > 0
+        ? winston.createLogger.mock.calls[0]
+        : [];
+    });
+
     test('calls winston.createLogger during module initialization', () => {
-      expect(winston.createLogger).toHaveBeenCalled();
+      expect(initCallCount).toBeGreaterThanOrEqual(1);
     });
 
     test('passes configuration object to createLogger', () => {
-      expect(winston.createLogger).toHaveBeenCalledWith(
+      expect(initCallArgs[0]).toEqual(
         expect.objectContaining({
           level: expect.any(String),
           defaultMeta: expect.objectContaining({ service: 'hello-world' }),
