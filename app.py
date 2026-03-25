@@ -19,36 +19,32 @@ app = Flask(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Catch-all route handler
+# Universal request handler (before_request)
 # ---------------------------------------------------------------------------
-# Two decorators are required to cover every possible URL:
-#   1. The root path '/' with defaults={'path': ''} handles requests to '/'.
-#   2. The '<path:path>' converter catches every other URL path segment,
-#      including nested paths like '/foo/bar/baz'.
+# The original Node.js http.createServer callback handles every incoming HTTP
+# request regardless of method or path — including non-standard methods such
+# as TRACE, CONNECT, and arbitrary custom methods.  Flask's route-decorator
+# approach only supports an explicit allow-list of methods; any method not in
+# the list triggers a 405 Method Not Allowed response.
 #
-# The 'methods' list explicitly enumerates all standard HTTP methods so that
-# the handler responds identically to GET, POST, PUT, DELETE, PATCH, OPTIONS,
-# and HEAD — reproducing the universal request handling of the Node.js server.
-@app.route(
-    '/',
-    defaults={'path': ''},
-    methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
-)
-@app.route(
-    '/<path:path>',
-    methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
-)
-def hello_world(path):
+# To achieve true behavioral fidelity with the Node.js server, a
+# before_request handler is used instead of route decorators.  This handler
+# runs before Flask's URL routing and method checking, so it intercepts every
+# request — any method, any path — and returns the static response directly.
+@app.before_request
+def hello_world():
     """Return a static plain-text response for every request.
 
     This handler is intentionally stateless — it does not inspect, log, or
     transform any request data.  The response body is exactly 14 bytes:
     ``Hello, World!\\n`` (including the trailing newline character).
 
-    Args:
-        path: Captured URL path segment (unused). Required by the
-              ``<path:path>`` route converter but not referenced in the
-              handler body.
+    Because this is a ``before_request`` handler that always returns a
+    ``Response`` object, Flask short-circuits the normal URL dispatching
+    pipeline.  This ensures that every HTTP method — standard (GET, POST,
+    PUT, DELETE, PATCH, OPTIONS, HEAD) and non-standard (TRACE, CONNECT,
+    and any custom method) — receives an identical 200 OK response,
+    matching the behavior of the original Node.js ``http.createServer``.
 
     Returns:
         A ``flask.Response`` with status 200, mimetype ``text/plain``,
