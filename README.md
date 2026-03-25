@@ -1,6 +1,6 @@
 # hao-backprop-test
 
-A minimal Node.js HTTP server tutorial project powered by [Express.js](https://expressjs.com/) (v5.x), serving two plain-text endpoints.
+A minimal Python HTTP server tutorial project powered by [Flask](https://flask.palletsprojects.com/) (v3.x), serving two plain-text endpoints.
 
 ## Endpoints
 
@@ -13,27 +13,27 @@ A minimal Node.js HTTP server tutorial project powered by [Express.js](https://e
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) >= 18
+- [Python](https://www.python.org/) >= 3.11
 
 ### Install Dependencies
 
 ```bash
-npm install
+pip install -r requirements.txt
 ```
 
 ### Start the Server
 
 ```bash
-npm start
-```
-
-Or run directly:
-
-```bash
-node server.js
+python main.py
 ```
 
 The server will start at **http://127.0.0.1:3000/**.
+
+### Run Tests
+
+```bash
+pytest
+```
 
 ## License
 
