@@ -333,7 +333,7 @@ class TestUnsupportedMethodsOnEvening:
         Validates the full normalization + error handler chain: normalize_path
         lowercases /Evening to /evening → url_adapter.match('/evening', method='POST')
         raises MethodNotAllowed → except block (app.py lines 103–107) returns None →
-        Flask 405 handler → method_not_allowed_to_not_found converts to 404.
+        Flask dispatches the original NotFound from the case-sensitive URL match → 404 response.
         """
         response = client.post('/Evening')
         assert response.status_code == 404
@@ -674,7 +674,7 @@ class TestNormalizationMiddleware:
 
         GET /evening// → normalize_path detects '//' in path → while loop body
         at app.py line 89 executes normalized.replace('//', '/') → path becomes
-        /evening/ → then /evening → url_adapter.match() succeeds → status 200,
+        /evening/ → url_adapter.match() succeeds (strict_slashes=False allows trailing slash) → status 200,
         body 'Good evening'.
 
         This specifically exercises the while loop BODY (line 89) which was
@@ -703,7 +703,7 @@ class TestNormalizationMiddleware:
         POST /Evening → normalize_path lowercases to /evening → path differs →
         enters if-block → url_adapter.match('/evening', method='POST') raises
         MethodNotAllowed → except Exception block catches it → returns None →
-        Flask raises 405 → method_not_allowed_to_not_found handler converts to 404.
+        Flask dispatches the stored NotFound from the original case-sensitive URL match → 404 response.
 
         Exercises the exception fallback when the normalized path matches a route
         but the HTTP method is not allowed.
@@ -727,8 +727,8 @@ class TestNormalizationMiddleware:
     def test_triple_leading_slash_normalization(self, client):
         """Triple leading slash is normalized and route resolves correctly.
 
-        GET ///evening → Werkzeug-level normalization + normalize_path lowering
-        and slash collapsing → resolves to /evening → status 200, body
+        GET ///evening → Werkzeug WSGI layer pre-normalizes the path (leading //
+        interpreted per RFC 3986) → resolves to /evening → status 200, body
         'Good evening'.
 
         Verifies that extreme slash normalization still resolves correctly.
