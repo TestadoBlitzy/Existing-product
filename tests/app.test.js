@@ -158,6 +158,33 @@ describe('app middleware pipeline', () => {
       expect(res.headers['content-type']).toMatch(/application\/json/);
     });
 
+    test('POST to /health receives 405 with Allow header', async () => {
+      const res = await request(app).post('/health');
+      expect(res.status).toBe(405);
+      expect(res.headers['allow']).toBe('GET, HEAD');
+      expect(res.body.status).toBe('error');
+      expect(res.body.statusCode).toBe(405);
+      expect(res.body.message).toBe('Method Not Allowed');
+    });
+
+    test('POST to /api receives 405 with Allow header', async () => {
+      const res = await request(app).post('/api');
+      expect(res.status).toBe(405);
+      expect(res.headers['allow']).toBe('GET, HEAD');
+      expect(res.body.status).toBe('error');
+      expect(res.body.statusCode).toBe(405);
+      expect(res.body.message).toBe('Method Not Allowed');
+    });
+
+    test('DELETE to /api/info receives 405 with Allow header', async () => {
+      const res = await request(app).delete('/api/info');
+      expect(res.status).toBe(405);
+      expect(res.headers['allow']).toBe('GET, HEAD');
+      expect(res.body.status).toBe('error');
+      expect(res.body.statusCode).toBe(405);
+      expect(res.body.message).toBe('Method Not Allowed');
+    });
+
     test('unexpected query parameters are rejected by validation middleware', async () => {
       const res = await request(app)
         .get('/')
