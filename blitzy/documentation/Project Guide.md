@@ -1,58 +1,62 @@
-# Blitzy Project Guide
+# Blitzy Project Guide — hello_world Test Suite
+
+---
 
 ## 1. Executive Summary
 
 ### 1.1 Project Overview
 
-This project delivers a comprehensive security hardening remediation for a Node.js + Express 5 API server (`hello_world`). The remediation addresses six vulnerability categories — input validation gaps, HTTP security header weaknesses, body parser denial-of-service vectors, log injection risks, error handling information disclosure, and dependency vulnerability posture — through minimal, targeted changes to the middleware layer, security configuration, and dependency management. All existing business logic, API contracts, route responses, and middleware execution order are preserved. The application serves 4 JSON API endpoints (`/`, `/health`, `/api`, `/api/info`) and is deployed via PM2 in cluster mode.
+This project adds a comprehensive, ground-up automated test suite to the `hello_world` Node.js/Express.js 5 HTTP API server. The application is a production-oriented server with nine runtime dependencies, four GET endpoints (`/`, `/health`, `/api`, `/api/info`), a 9-layer middleware pipeline (Helmet, CORS, compression, body parsing, Morgan logging, rate limiting, routing, 404 handler, error handler), and deliberate testability patterns — but had zero automated test coverage. The Blitzy agents delivered 371 passing tests across 11 test suites achieving 100% code coverage, exceeding the ≥90% target. Zero source files were modified.
 
 ### 1.2 Completion Status
 
 ```mermaid
 pie title Project Completion Status
-    "Completed (19h)" : 19
-    "Remaining (7h)" : 7
+    "Completed (41h)" : 41
+    "Remaining (4h)" : 4
 ```
 
 | Metric | Value |
-|---|---|
-| **Total Project Hours** | 26 |
-| **Completed Hours (AI)** | 19 |
-| **Remaining Hours** | 7 |
-| **Completion Percentage** | 73.1% |
+|--------|-------|
+| **Total Project Hours** | **45** |
+| **Completed Hours (AI)** | **41** |
+| **Remaining Hours (Human)** | **4** |
+| **Completion Percentage** | **91.1%** |
 
-**Calculation:** 19 completed hours / (19 + 7) total hours = 19/26 = 73.1% complete
+**Calculation:** 41 completed hours / (41 + 4) total hours = 91.1% complete
 
 ### 1.3 Key Accomplishments
 
-- ✅ Created Zod-based input validation middleware factory (`src/middleware/validateInput.js`) and applied to all 4 API endpoints, rejecting unexpected payloads with HTTP 400
-- ✅ Created log and URL sanitization utility (`src/utils/sanitizer.js`) with `sanitizeLogInput()` and `sanitizeUrl()` functions preventing log injection (CWE-117) and reflected content injection
-- ✅ Enhanced Helmet configuration with API-specific Content-Security-Policy (`default-src 'none'; frame-ancestors 'none'`) in `src/app.js`
-- ✅ Added explicit body parser size limits (`10kb` configurable via `BODY_LIMIT` env var) preventing payload-based DoS (CWE-400)
-- ✅ Hardened error handler with CWE-209 security documentation and log sanitization integration
-- ✅ Added 405 Method Not Allowed handlers for non-GET methods on all routes per RFC 9110 §15.5.6
-- ✅ Verified 0 vulnerabilities across 117 npm packages (9 direct + 108 transitive)
-- ✅ All 12 JavaScript source files pass syntax validation; application starts and runs correctly in both development and production modes
+- ✅ Installed Jest 30.3.0 and Supertest 7.2.2 as devDependencies with zero production dependency changes
+- ✅ Created 11 test files covering all 11 source modules with 371 passing tests and 0 failures
+- ✅ Achieved 100% coverage across all four metrics (statements, branches, functions, lines) — exceeding the ≥90% target
+- ✅ Built shared test helper utilities (`tests/helpers/setup.js`) with mock factories and environment utilities
+- ✅ Configured Jest (`jest.config.js`) with coverage thresholds, CommonJS support, and mock auto-cleanup
+- ✅ Replaced placeholder `npm test` script with functional `jest --coverage --verbose` plus `test:watch` and `test:ci` scripts
+- ✅ Validated all four GET endpoints, 405/404/429 error handling, security headers, and CORS through integration tests
+- ✅ Tested server lifecycle (SIGTERM/SIGINT handlers, graceful shutdown, unhandled error safety nets) via process spying
+- ✅ Honored the minimal-change constraint: zero modifications to any `src/` file or `server.js`
+- ✅ No CI/CD pipeline files created (per explicit user directive)
 
 ### 1.4 Critical Unresolved Issues
 
 | Issue | Impact | Owner | ETA |
-|---|---|---|---|
-| `CORS_ORIGIN=*` wildcard permits any cross-origin request | Medium — allows unauthorized origins to make API requests | Human Developer | 1 hour |
-| No automated test suite for security middleware | Medium — security regressions cannot be detected automatically | Human Developer | 3.5 hours |
-| Production deployment not validated with PM2 cluster mode | Low — rate limiter uses in-memory store not shared across workers | Human Developer | 1.5 hours |
+|-------|--------|-------|-----|
+| No critical unresolved issues | N/A | N/A | N/A |
+
+All 371 tests pass, 100% coverage achieved, zero compilation errors, and zero runtime errors. No blocking issues remain.
 
 ### 1.5 Access Issues
 
-No access issues identified. All dependencies install from the public npm registry. The application requires no external service credentials, database connections, or third-party API keys.
+No access issues identified. The test suite runs entirely in-process using Jest and Supertest without external service dependencies, network access, or cloud resource requirements.
 
 ### 1.6 Recommended Next Steps
 
-1. **[High]** Tighten `CORS_ORIGIN` from wildcard (`*`) to specific production origin(s) in `.env` for production deployment
-2. **[Medium]** Create automated test suite covering validation middleware, sanitizer utility, and security header verification
-3. **[Medium]** Validate production deployment with `NODE_ENV=production` to confirm error masking, security headers, and rate limiting behavior
-4. **[Low]** Update `README.md` with documentation of new security features, validation behavior, and configuration options
-5. **[Low]** Evaluate Redis-backed rate limiter store for PM2 cluster mode deployments where per-process memory stores are insufficient
+1. **[High]** Conduct human code review of the 11 test files to verify assertion quality, naming conventions, and team standards alignment
+2. **[High]** Merge the branch after review approval to enable test-driven development workflow
+3. **[Medium]** Verify devDependencies do not affect production deployment (confirm `npm install --production` excludes jest/supertest)
+4. **[Low]** Consider adding CI/CD pipeline integration to run tests automatically on pull requests (out of current scope per AAP constraint)
+5. **[Low]** Evaluate adding mutation testing (e.g., Stryker) for test quality verification beyond coverage metrics
 
 ---
 
@@ -61,134 +65,138 @@ No access issues identified. All dependencies install from the public npm regist
 ### 2.1 Completed Work Detail
 
 | Component | Hours | Description |
-|---|---|---|
-| HTTP Security Headers Enhancement | 2 | Enhanced Helmet CSP in `src/app.js` with API-specific `default-src 'none'; frame-ancestors 'none'` directives; added security documentation comments |
-| Input Validation Middleware Creation | 4 | Created `src/middleware/validateInput.js` (90 lines) — Zod-based higher-order middleware factory with `safeParse` pattern, error formatting, and `z` re-export |
-| Route Validation & 405 Handler Integration | 2.5 | Applied validation middleware and 405 Method Not Allowed handlers to `api.js` (31 lines added), `health.js` (16 lines added), `index.js` (16 lines added) |
-| Body Parser DoS Prevention | 1.5 | Added explicit `limit: config.bodyLimit` to `express.json()` and `express.urlencoded()` in `src/app.js`; configurable via `BODY_LIMIT` env var |
-| Log Sanitization Utility Creation | 3 | Created `src/utils/sanitizer.js` (192 lines) with `sanitizeLogInput()` and `sanitizeUrl()` functions; ANSI escape stripping, control character removal, length capping |
-| Log Sanitization Integration | 1 | Integrated sanitization in `notFound.js` (log + response) and `errorHandler.js` (log); imported sanitizer functions |
-| Error Handler Hardening | 1 | Added CWE-209 inline security comments to `errorHandler.js`; documented error masking rationale |
-| Configuration & Environment Updates | 1 | Added `bodyLimit` config in `src/config/index.js`; `BODY_LIMIT=10kb` in `.env`; security documentation in `.env.example` |
-| Dependency Management & Audit | 1 | Added `zod@^3.25.0` to `package.json`; regenerated `package-lock.json`; verified 0 vulnerabilities via `npm audit` |
-| Security Validation & Runtime Testing | 2 | Tested all 4 endpoints, security headers, input validation rejection, body size limits, log injection prevention, error masking, 405 responses, rate limiting |
-| **Total Completed** | **19** | |
+|-----------|-------|-------------|
+| Test Infrastructure Setup | 2 | Created `jest.config.js` with coverage thresholds and CommonJS config; updated `package.json` with devDependencies (jest, supertest) and test scripts (test, test:watch, test:ci); npm install and dependency resolution |
+| Shared Test Helpers | 2 | Created `tests/helpers/setup.js` with `createMockReq()`, `createMockRes()`, `createMockNext()` factory functions and `backupEnv()`/`restoreEnv()` environment utilities (254 lines) |
+| Unit Tests — Sanitizer | 3 | Created `tests/utils/sanitizer.test.js` (299 lines) — boundary-value tests for `sanitizeLogInput()` and `sanitizeUrl()` covering null/undefined, ANSI escape stripping, control char removal, HTML entity encoding, and truncation at MAX_LOG_LENGTH/MAX_URL_LENGTH |
+| Unit Tests — Configuration | 3 | Created `tests/config/index.test.js` (307 lines) — environment-controlled tests with `jest.resetModules()` for fresh module state, default values, custom overrides, `parseIntSafe()` edge cases, and `Object.freeze()` immutability verification |
+| Unit Tests — validateInput Middleware | 4 | Created `tests/middleware/validateInput.test.js` (518 lines) — middleware factory tests with mock req/res/next, empty schema pass-through, validation failure 400 response, error message format, and Zod re-export verification |
+| Unit Tests — notFound Middleware | 3 | Created `tests/middleware/notFound.test.js` (524 lines) — 404 handler tests with URL sanitization in response body, logger.warn() invocation assertions, and malicious URL edge cases |
+| Unit Tests — errorHandler Middleware | 5 | Created `tests/middleware/errorHandler.test.js` (656 lines) — status code resolution chain (err.statusCode → err.status → 500), production 5xx masking (CWE-209), non-production stack trace inclusion, 4xx message preservation, and logger.error() assertions |
+| Integration Tests — Root Route | 2 | Created `tests/routes/index.test.js` (216 lines) — Supertest GET / response validation, POST / → 405 with Allow header, validation rejection for unexpected query parameters |
+| Integration Tests — Health Endpoint | 2 | Created `tests/routes/health.test.js` (244 lines) — Supertest GET /health response structure (status, uptime, timestamp, memory, nodeVersion), 405 enforcement, dynamic field assertions |
+| Integration Tests — API Routes | 3 | Created `tests/routes/api.test.js` (348 lines) — Supertest GET /api and GET /api/info response validation, 405 enforcement on both endpoints, version/environment verification |
+| Full Pipeline Integration Tests | 4 | Created `tests/app.test.js` (392 lines) — security headers (Helmet CSP, HSTS, X-Content-Type-Options), CORS, rate limiting 429, 404 handling, error propagation, compression, and Morgan logging integration |
+| Server Lifecycle Tests | 4 | Created `tests/server.test.js` (518 lines) — signal handler registration (SIGTERM/SIGINT), error safety nets (unhandledRejection/uncaughtException), graceful shutdown via server.close() spy, bootstrap with app.listen() mock |
+| Logger Module Shape Tests | 2 | Created `tests/utils/logger.test.js` (259 lines) — module export shape verification (info/warn/error/http methods), stream adapter existence, Morgan-compatible write() trimming |
+| Validation and Bug Fixes | 2 | Test execution debugging, coverage threshold optimization, error handler test creation for 405 routes, and final validation passes |
+| **Total Completed** | **41** | |
 
 ### 2.2 Remaining Work Detail
 
 | Category | Hours | Priority |
-|---|---|---|
-| Production CORS Configuration — Tighten `CORS_ORIGIN` from `*` to specific origin(s) | 1 | High |
-| Automated Security Test Suite — Unit tests for sanitizer; integration tests for validation middleware; endpoint security tests | 3.5 | Medium |
-| Production Deployment Verification — Validate security features with `NODE_ENV=production` under PM2 cluster mode | 1.5 | Medium |
-| Security Documentation Updates — Update README with security features, validation behavior, configuration reference | 1 | Low |
-| **Total Remaining** | **7** | |
+|----------|-------|----------|
+| Human Code Review and Approval | 2 | High |
+| Test Convention Alignment Verification | 1 | Medium |
+| Documentation and Knowledge Transfer | 1 | Low |
+| **Total Remaining** | **4** | |
 
-**Integrity Check:** Section 2.1 (19h) + Section 2.2 (7h) = 26h = Total Project Hours in Section 1.2 ✓
+**Verification:** 41 (completed) + 4 (remaining) = 45 (total project hours) ✅
 
 ---
 
 ## 3. Test Results
 
 | Test Category | Framework | Total Tests | Passed | Failed | Coverage % | Notes |
-|---|---|---|---|---|---|---|
-| Syntax Validation | `node -c` | 12 | 12 | 0 | 100% | All 12 JavaScript source files pass Node.js syntax check |
-| Dependency Audit | `npm audit` | 117 | 117 | 0 | 100% | 0 vulnerabilities across 9 direct + 108 transitive packages |
-| Runtime Endpoint Verification | `curl` | 5 | 5 | 0 | 100% | GET `/`, `/health`, `/api`, `/api/info` return 200; `/nonexistent` returns 404 |
-| Input Validation Rejection | `curl` | 2 | 2 | 0 | 100% | Unexpected query params rejected with 400; correct error message format |
-| Body Size Limit Enforcement | `curl` | 1 | 1 | 0 | 100% | Oversized payload (>10kb) rejected with HTTP 413 |
-| Security Header Verification | `curl -I` | 1 | 1 | 0 | 100% | CSP, HSTS, X-Content-Type-Options, X-Frame-Options present; X-Powered-By absent |
-| Log Injection Prevention | `curl` + log inspection | 1 | 1 | 0 | 100% | URL with `%0A%0D` characters sanitized in log output |
-| Error Masking (Production) | `curl` | 1 | 1 | 0 | 100% | 5xx errors in production return generic message, no stack trace |
-| Method Not Allowed (405) | `curl -X POST` | 1 | 1 | 0 | 100% | POST to GET-only routes returns 405 with Allow header |
-| Rate Limiting | `curl` | 1 | 1 | 0 | 100% | RateLimit-* IETF headers present; 429 after threshold breach verified |
+|--------------|-----------|-------------|--------|--------|------------|-------|
+| Unit — Sanitizer | Jest 30.3.0 | 47 | 47 | 0 | 100% | Pure function boundary-value tests |
+| Unit — Configuration | Jest 30.3.0 | 45 | 45 | 0 | 100% | Environment-controlled with jest.resetModules() |
+| Unit — validateInput | Jest 30.3.0 | 44 | 44 | 0 | 100% | Mock req/res/next middleware factory tests |
+| Unit — notFound | Jest 30.3.0 | 34 | 34 | 0 | 100% | 404 handler with logger mock |
+| Unit — errorHandler | Jest 30.3.0 | 66 | 66 | 0 | 100% | Status code resolution, production masking, env toggling |
+| Unit — Logger | Jest 30.3.0 | 32 | 32 | 0 | 100% | Module shape verification, stream adapter |
+| Integration — Root Route | Jest + Supertest 7.2.2 | 15 | 15 | 0 | 100% | GET /, 405, validation rejection |
+| Integration — Health | Jest + Supertest 7.2.2 | 16 | 16 | 0 | 100% | GET /health, 405, dynamic fields |
+| Integration — API Routes | Jest + Supertest 7.2.2 | 24 | 24 | 0 | 100% | GET /api, GET /api/info, 405 enforcement |
+| Integration — Full Pipeline | Jest + Supertest 7.2.2 | 25 | 25 | 0 | 100% | Security headers, CORS, rate limit 429, error propagation |
+| Lifecycle — Server | Jest 30.3.0 | 23 | 23 | 0 | 100% | SIGTERM/SIGINT handlers, graceful shutdown, bootstrap |
+| **Totals** | | **371** | **371** | **0** | **100%** | All tests from Blitzy autonomous validation |
 
-**Note:** No automated test framework (Jest, Mocha, etc.) is installed — the project has zero `devDependencies`. All tests above were performed via manual runtime validation during Blitzy's autonomous validation phase. An automated test suite is recommended as a remaining task (Section 2.2).
+**Global Coverage Summary:**
+| Metric | Covered | Total | Percentage |
+|--------|---------|-------|------------|
+| Statements | 151 | 151 | 100% |
+| Branches | 50 | 50 | 100% |
+| Functions | 25 | 25 | 100% |
+| Lines | 151 | 151 | 100% |
 
 ---
 
 ## 4. Runtime Validation & UI Verification
 
-### Runtime Health
+### Application Runtime
 
-- ✅ **Server Startup** — Application starts successfully on `http://0.0.0.0:3000` in both development and production modes
-- ✅ **GET /** — Returns `{"status":"success","message":"Hello, World! Welcome to the Express server."}` (HTTP 200)
-- ✅ **GET /health** — Returns health metrics with `{"status":"ok"}`, uptime, memory, timestamp, nodeVersion (HTTP 200)
-- ✅ **GET /api** — Returns `{"status":"success","message":"Welcome to the API"}` (HTTP 200)
-- ✅ **GET /api/info** — Returns server metadata with version, environment, nodeVersion (HTTP 200)
-- ✅ **GET /nonexistent** — Returns `{"status":"error","statusCode":404,"message":"Not Found - /nonexistent"}` (HTTP 404)
-- ✅ **Graceful Shutdown** — SIGTERM/SIGINT handlers close server cleanly
+- ✅ **Server startup** — Application starts successfully on port 3000 in development mode with dotenv configuration loading
+- ✅ **GET /** — Returns 200 with `{"status":"success","message":"Hello, World! Welcome to the Express server."}`
+- ✅ **GET /health** — Returns 200 with status, uptime, timestamp, memory, and nodeVersion fields
+- ✅ **GET /api** — Returns 200 with `{"status":"success","message":"Welcome to the API"}`
+- ✅ **GET /api/info** — Returns 200 with version (1.0.0), environment, and nodeVersion data
+- ✅ **POST / (405)** — Returns 405 with `{"status":"error","statusCode":405,"message":"Method Not Allowed"}`
+- ✅ **GET /nonexistent (404)** — Returns 404 with `{"status":"error","statusCode":404,"message":"Not Found - /nonexistent"}`
+- ✅ **Server shutdown** — Process terminates cleanly without errors
 
-### Security Feature Verification
+### Security Headers Verified
 
-- ✅ **Content-Security-Policy** — `default-src 'none'; frame-ancestors 'none'` (API-specific restrictive CSP)
-- ✅ **Strict-Transport-Security** — `max-age=31536000; includeSubDomains`
-- ✅ **X-Content-Type-Options** — `nosniff`
-- ✅ **X-Frame-Options** — `SAMEORIGIN`
-- ✅ **X-Powered-By** — Removed (not present in response headers)
-- ✅ **Cross-Origin-Opener-Policy** — `same-origin`
-- ✅ **Cross-Origin-Resource-Policy** — `same-origin`
-- ✅ **Referrer-Policy** — `no-referrer`
-- ✅ **Input Validation** — `GET /api?bad=value` returns HTTP 400 with `"Validation failed: query: Unrecognized key(s) in object: 'bad'"`
-- ✅ **Body Size Limit** — Oversized JSON payload (>10kb) returns HTTP 413
-- ✅ **405 Method Not Allowed** — `POST /api` returns HTTP 405 with `Allow: GET, HEAD` header
-- ✅ **Log Sanitization** — URL with `%0A%0D` injection characters sanitized in log output
-- ✅ **Error Masking** — Production mode returns `"Internal Server Error"` for 5xx errors, no stack trace
-- ✅ **Rate Limiting** — `RateLimit-Policy: 100;w=900`, `RateLimit-Remaining` headers present; HTTP 429 after 100 requests
+- ✅ **Content-Security-Policy** — Restrictive CSP with `default-src 'none'`, `frame-ancestors 'none'`
+- ✅ **Strict-Transport-Security** — HSTS with `max-age=31536000; includeSubDomains`
+- ✅ **X-Content-Type-Options** — `nosniff` preventing MIME type sniffing
+- ✅ **X-Frame-Options** — `SAMEORIGIN` preventing clickjacking
+- ✅ **X-XSS-Protection** — Set to `0` (modern best practice: rely on CSP)
+- ✅ **Access-Control-Allow-Origin** — Wildcard CORS (`*`) as configured
+- ✅ **X-Powered-By** — Removed by Helmet (not present in response)
+- ✅ **RateLimit headers** — `RateLimit-Policy`, `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset` present
 
 ### API Integration
 
-- ✅ **JSON Content-Type** — All responses served as `application/json; charset=utf-8`
-- ✅ **CORS Headers** — `Access-Control-Allow-Origin: *` present (wildcard — needs production tightening)
-- ✅ **Compression** — gzip compression active for eligible responses
+- ✅ **JSON Content-Type** — All endpoints return `application/json; charset=utf-8`
+- ✅ **Rate Limiting** — Enforced at 100 requests per 900-second window with proper 429 rejection
+- ✅ **Input Validation** — Zod-based validation rejects unexpected query parameters with 400 status
 
 ---
 
 ## 5. Compliance & Quality Review
 
-| Deliverable (AAP Section) | Status | Evidence |
-|---|---|---|
-| **Fix 1 — HTTP Security Headers** (§0.5.1) | ✅ Pass | Helmet CSP enhanced with `default-src 'none'; frame-ancestors 'none'` in `src/app.js`; verified via `curl -I` |
-| **Fix 2 — Input Validation** (§0.5.1) | ✅ Pass | `zod@^3.25.0` added; `validateInput.js` created (90 lines); applied to all 3 route files; HTTP 400 on invalid input verified |
-| **Fix 3 — Body Parser Size Limits** (§0.5.1) | ✅ Pass | `express.json({ limit: config.bodyLimit })` in `src/app.js`; `BODY_LIMIT=10kb` configurable; HTTP 413 on oversized payload verified |
-| **Fix 4 — Log Sanitization** (§0.5.1) | ✅ Pass | `sanitizer.js` created (192 lines); integrated in `notFound.js` and `errorHandler.js`; log injection test passed |
-| **Fix 5 — Error Handler Hardening** (§0.5.1) | ✅ Pass | CWE-209 inline comments added; `.env.example` documents `NODE_ENV=production` security requirement; error masking verified |
-| **Fix 6 — Configuration Enhancements** (§0.5.1) | ✅ Pass | `bodyLimit` config in `src/config/index.js`; `.env` and `.env.example` updated with `BODY_LIMIT` |
-| **Dependency Audit** (§0.7.1) | ✅ Pass | `npm audit` returns 0 vulnerabilities across 117 packages; all 9 direct deps at latest semver-compatible versions |
-| **Minimal Change Compliance** (§0.11.1) | ✅ Pass | Only security-related changes made; no refactoring; no business logic changes; no API contract changes |
-| **Security Comment Documentation** (§0.11.1) | ✅ Pass | All modified files include `// SECURITY:` inline comments explaining vulnerability addressed |
-| **Middleware Pipeline Order** (§0.1.2) | ✅ Pass | All 9 middleware layers in `src/app.js` remain in original order; no pipeline restructuring |
-| **CommonJS Module Consistency** | ✅ Pass | All files use `require()`/`module.exports` pattern; no ESM migration |
-| **405 Method Not Allowed** (bonus) | ✅ Pass | Non-GET methods on all GET-only routes return 405 with `Allow: GET, HEAD` header per RFC 9110 |
+| AAP Requirement | Status | Evidence |
+|----------------|--------|----------|
+| Unit tests for `sanitizer.js` (pure function boundary-value) | ✅ Pass | `tests/utils/sanitizer.test.js` — 47 tests, 100% coverage |
+| Unit tests for `config/index.js` (env-controlled) | ✅ Pass | `tests/config/index.test.js` — 45 tests, 100% coverage |
+| Unit tests for `validateInput.js` (factory with mock req/res/next) | ✅ Pass | `tests/middleware/validateInput.test.js` — 44 tests, 100% coverage |
+| Unit tests for `notFound.js` (mock req/res + logger mock) | ✅ Pass | `tests/middleware/notFound.test.js` — 34 tests, 100% coverage |
+| Unit tests for `errorHandler.js` (env toggling, status resolution) | ✅ Pass | `tests/middleware/errorHandler.test.js` — 66 tests, 100% coverage |
+| Integration tests for all 4 GET endpoints via Supertest | ✅ Pass | `tests/routes/*.test.js` — 55 tests, 100% coverage |
+| 405 enforcement tests on all endpoints | ✅ Pass | POST/PUT/PATCH/DELETE tested on /, /health, /api, /api/info |
+| 404 handling for unknown routes | ✅ Pass | `tests/app.test.js` — 404 JSON response structure verified |
+| Rate limiting 429 rejection | ✅ Pass | `tests/app.test.js` — rate limiter threshold tested |
+| Production error masking (CWE-209) | ✅ Pass | `tests/middleware/errorHandler.test.js` — production vs non-production |
+| Server lifecycle tests (SIGTERM/SIGINT) | ✅ Pass | `tests/server.test.js` — signal handlers, graceful shutdown |
+| Logger module shape tests | ✅ Pass | `tests/utils/logger.test.js` — 32 tests, stream adapter verified |
+| Shared test helpers | ✅ Pass | `tests/helpers/setup.js` — mock factories, env utilities |
+| Jest configuration with ≥90% thresholds | ✅ Pass | `jest.config.js` — 90% lines/functions, 80% branches |
+| Zero source code modifications | ✅ Pass | `git diff` on `src/` and `server.js` shows zero changes |
+| No CI/CD pipeline files created | ✅ Pass | No `.github/workflows/` or pipeline files in diff |
+| devDependencies: jest ^30.3.0, supertest ^7.2.2 only | ✅ Pass | `package.json` shows exactly 2 devDependencies |
+| ≥90% line/function coverage | ✅ Exceeded | 100% achieved across all metrics |
+| Test execution under 30 seconds | ✅ Pass | Full suite completes in ~10 seconds |
+| All tests independently runnable | ✅ Pass | Each test file executable via `npx jest tests/path/to/file.test.js` |
 
-### Fixes Applied During Validation
-
-| Fix | File | Description |
-|---|---|---|
-| 405 handlers added | `src/routes/api.js`, `health.js`, `index.js` | Added `router.all()` catch-all handlers to return 405 for unsupported HTTP methods instead of falling through to 404 |
-
-### Outstanding Compliance Items
-
-| Item | Status | Notes |
-|---|---|---|
-| CORS wildcard restriction | ⚠ Noted | AAP documents `CORS_ORIGIN=*` as a gap; user directive says "note but do not fix" |
-| Authentication on endpoints | ⚠ Noted | AAP §0.9.2 explicitly excludes authentication as out-of-scope |
-| Automated test coverage | ⚠ Noted | No test framework installed; manual verification performed |
+**Autonomous Fixes Applied:**
+- Created `errorHandler.test.js` with 405 route tests to meet full endpoint coverage after initial pass
+- All fixes were within test code only; no production source modifications
 
 ---
 
 ## 6. Risk Assessment
 
 | Risk | Category | Severity | Probability | Mitigation | Status |
-|---|---|---|---|---|---|
-| CORS wildcard (`*`) allows unauthorized cross-origin requests | Security | Medium | High | Tighten `CORS_ORIGIN` to specific production origin(s) in `.env` | Open — requires human action |
-| No automated test suite for security regressions | Technical | Medium | Medium | Install Jest/Supertest; create tests for validation middleware, sanitizer, and endpoints | Open — requires human action |
-| In-memory rate limiter not shared across PM2 cluster workers | Operational | Medium | Medium | Upgrade to Redis-backed store for `express-rate-limit` in multi-process deployment | Open — documented as out-of-scope per AAP |
-| No authentication on `/health` and `/api/info` metadata endpoints | Security | Low | Low | Evaluate access control requirements; implement if sensitive data is exposed | Open — documented as out-of-scope per AAP |
-| `NODE_ENV=development` default exposes stack traces if not overridden | Security | Low | Low | Enforce `NODE_ENV=production` in production deployment configuration | Mitigated — documented in `.env.example` |
-| Body parser limit (10kb) may need increase for future endpoints | Technical | Low | Low | Adjust `BODY_LIMIT` env var as needed; current endpoints use <1kb payloads | Mitigated — configurable via environment |
-| Zod 3.x may reach EOL as Zod 4.x stabilizes | Technical | Low | Low | Monitor Zod release schedule; plan migration when 4.x is stable | Mitigated — `^3.25.0` semver range |
-| No TLS/SSL termination in application | Security | High | N/A | Delegated to reverse proxy (nginx/ALB) per AAP Assumption A-001 | Accepted — architectural decision |
+|------|----------|----------|-------------|------------|--------|
+| Test assertion drift as source code evolves | Technical | Low | Medium | Tests are tightly coupled to API contracts documented in source; any contract change will cause meaningful test failures | Monitored |
+| Rate limiter state accumulation across test files | Technical | Low | Low | Integration tests use separate app instances; Jest runs test files in isolated worker processes | Mitigated |
+| Winston file I/O leakage if logger mock is omitted in new tests | Technical | Medium | Medium | Logger mock pattern is documented in every existing test file; shared setup module provides reference implementation | Documented |
+| Jest 30 major version upgrade compatibility | Technical | Low | Low | Greenfield suite uses only canonical Jest 30 APIs; no deprecated aliases | Mitigated |
+| devDependencies included in production builds | Operational | Medium | Low | Verify `npm install --production` or `npm ci --omit=dev` excludes jest/supertest | Human Action Required |
+| Test suite execution time growth | Operational | Low | Medium | Current 10s baseline; monitor as test count grows; consider Jest `--shard` for parallelism | Monitored |
+| Module cache state in config tests | Technical | Low | Low | `jest.resetModules()` pattern ensures fresh require() on each test; documented in test file comments | Mitigated |
+| No CI/CD integration for automated test execution | Operational | Medium | High | Tests are CI-ready via `npm run test:ci`; pipeline creation is explicitly out of scope per AAP | Accepted (AAP constraint) |
 
 ---
 
@@ -196,43 +204,54 @@ No access issues identified. All dependencies install from the public npm regist
 
 ```mermaid
 pie title Project Hours Breakdown
-    "Completed Work" : 19
-    "Remaining Work" : 7
+    "Completed Work" : 41
+    "Remaining Work" : 4
 ```
 
-**Integrity Check:** Completed (19h) + Remaining (7h) = 26h Total = Section 1.2 Total ✓ | Remaining (7h) = Section 2.2 Sum ✓
+**Completed: 41 hours (91.1%) | Remaining: 4 hours (8.9%)**
 
-### Remaining Hours by Category
+**Remaining Hours by Category:**
 
 | Category | Hours | Priority |
-|---|---|---|
-| Production CORS Configuration | 1 | 🔴 High |
-| Automated Security Test Suite | 3.5 | 🟡 Medium |
-| Production Deployment Verification | 1.5 | 🟡 Medium |
-| Security Documentation Updates | 1 | 🟢 Low |
+|----------|-------|----------|
+| Human Code Review and Approval | 2 | High |
+| Test Convention Alignment Verification | 1 | Medium |
+| Documentation and Knowledge Transfer | 1 | Low |
+| **Total** | **4** | |
 
 ---
 
 ## 8. Summary & Recommendations
 
-### Achievements
+### Achievement Summary
 
-All six vulnerability categories identified in the Agent Action Plan have been fully remediated through 13 commits modifying 13 files (2 created, 11 updated) with 403 lines added and 14 lines removed. The security remediation covers input validation (Zod-based middleware), HTTP header hardening (API-specific CSP), body parser DoS prevention (explicit size limits), log injection prevention (sanitizer utility), error handling hardening (CWE-209 documentation), and dependency audit verification (0 vulnerabilities). The project is 73.1% complete (19 hours completed out of 26 total hours).
+The project is **91.1% complete** (41 hours completed out of 45 total hours). Blitzy agents successfully delivered a comprehensive, production-quality test suite for the `hello_world` Express.js 5 API server — transforming it from zero test coverage to **100% coverage** across all metrics with **371 passing tests** and **zero failures**. All 14 AAP-scoped file deliverables were created or updated, all coverage targets were exceeded, and all special constraints (no source modifications, no CI/CD files) were honored.
 
 ### Remaining Gaps
 
-7 hours of path-to-production work remain across four categories: (1) CORS origin tightening from wildcard to specific production origins (1h, High priority), (2) automated test suite for security middleware and sanitizer functions (3.5h, Medium priority), (3) production deployment verification under PM2 cluster mode (1.5h, Medium priority), and (4) security documentation updates to README (1h, Low priority).
+The remaining 4 hours consist entirely of human review tasks:
+1. **Code review** (2h) — Human review of test quality, assertion patterns, and team convention alignment
+2. **Convention verification** (1h) — Confirm test naming, mock strategies, and organizational structure match team preferences
+3. **Knowledge transfer** (1h) — Ensure test documentation is sufficient for team onboarding
 
 ### Critical Path to Production
 
-1. Set `CORS_ORIGIN` to the specific production frontend origin in `.env` (blocks production deployment)
-2. Verify `NODE_ENV=production` is set in production environment (ensures error masking and stack trace suppression)
-3. Run `npm install` in production to install the new `zod` dependency
-4. Restart application via `pm2 reload ecosystem.config.js` to apply changes
+The test suite is merge-ready from a technical standpoint — all tests pass, coverage exceeds targets, and source code integrity is preserved. The critical path is:
+1. Human code review and approval
+2. Branch merge to main
+3. (Optional, out of AAP scope) CI/CD pipeline integration for automated test execution on pull requests
 
 ### Production Readiness Assessment
 
-The application is **production-ready for the security remediation scope** — all AAP-specified vulnerabilities are resolved and verified. The primary production blocker is the CORS wildcard configuration which requires a 1-hour human configuration change. No compilation errors, no runtime failures, and no dependency vulnerabilities exist.
+| Criterion | Status |
+|-----------|--------|
+| All tests passing | ✅ 371/371 |
+| Coverage targets met | ✅ 100% (target: ≥90%) |
+| Source code unmodified | ✅ Zero changes to src/ and server.js |
+| No CI/CD files created | ✅ Per AAP constraint |
+| Runtime validation passed | ✅ All endpoints verified |
+| Security posture unchanged | ✅ Helmet headers, CORS, rate limiting intact |
+| Test execution time acceptable | ✅ ~10 seconds (target: <30s) |
 
 ---
 
@@ -241,104 +260,108 @@ The application is **production-ready for the security remediation scope** — a
 ### System Prerequisites
 
 | Requirement | Version | Verification Command |
-|---|---|---|
-| Node.js | >= 18.0.0 (tested on v20.19.5) | `node -v` |
-| npm | >= 8.0.0 (tested on v10.8.2) | `npm -v` |
-| PM2 (optional, for production) | >= 5.0.0 | `pm2 -v` |
+|-------------|---------|---------------------|
+| Node.js | ≥18.0.0 (tested on v20.19.5) | `node -v` |
+| npm | ≥8.0.0 (tested on 10.8.2) | `npm -v` |
+| Git | Any modern version | `git --version` |
 
 ### Environment Setup
 
 ```bash
-# 1. Clone the repository and navigate to project root
-cd /path/to/project
+# 1. Clone the repository and switch to the feature branch
+git clone <repository-url>
+cd hello_world
+git checkout blitzy-5561232e-168b-4da5-bf70-da23de086236
 
-# 2. Create environment file from template
+# 2. Copy environment configuration template
 cp .env.example .env
 
-# 3. Edit .env for your environment (key security settings):
-#    NODE_ENV=development     # Set to 'production' for production
-#    PORT=3000                # Server port
-#    HOST=0.0.0.0             # Bind address
-#    CORS_ORIGIN=*            # CHANGE to specific origin for production
-#    BODY_LIMIT=10kb          # Max request body size
-#    RATE_LIMIT_MAX=100       # Requests per 15-minute window
-
-# 4. Create logs directory (required before first run)
-mkdir -p logs
-```
-
-### Dependency Installation
-
-```bash
-# Install all dependencies (including new zod package)
+# 3. Install all dependencies (including devDependencies)
 npm install
-
-# Verify clean dependency audit
-npm audit
-
-# Expected output: "found 0 vulnerabilities"
 ```
 
-### Application Startup
+**Expected output from `npm install`:** Resolves jest, supertest, and their transitive dependencies into `node_modules/`. The `package-lock.json` is already committed and ensures deterministic installs.
+
+### Running Tests
 
 ```bash
-# Development mode (with stack traces and debug logging)
+# Run all tests with coverage report (primary command)
+npm test
+
+# Expected output: 11 test suites, 371 tests, all passing, coverage table
+
+# Run tests in CI-safe mode (no watch, no interactive prompts)
+npm run test:ci
+
+# Run tests in watch mode for development
+npm run test:watch
+
+# Run a specific test file
+npx jest tests/utils/sanitizer.test.js --verbose
+
+# Run all tests in a directory
+npx jest tests/middleware/ --verbose
+
+# Run tests matching a pattern
+npx jest --testPathPatterns="routes" --verbose
+```
+
+### Running the Application
+
+```bash
+# Start the server in development mode
 node server.js
-# Output: "Server running on http://0.0.0.0:3000 in development mode"
 
-# Production mode (error masking enabled, stack traces suppressed)
-NODE_ENV=production node server.js
-# Output: "Server running on http://0.0.0.0:3000 in production mode"
+# Expected output: "Server running on http://0.0.0.0:3000 in development mode"
 
-# PM2 cluster mode (production deployment)
-npm run start:pm2
-# Or directly: pm2 start ecosystem.config.js
+# Verify endpoints
+curl http://localhost:3000/          # 200 — Hello World
+curl http://localhost:3000/health    # 200 — Health check
+curl http://localhost:3000/api       # 200 — API welcome
+curl http://localhost:3000/api/info  # 200 — API info
+
+# Verify error handling
+curl -X POST http://localhost:3000/  # 405 — Method Not Allowed
+curl http://localhost:3000/missing   # 404 — Not Found
+
+# Stop the server
+# Press Ctrl+C (sends SIGINT for graceful shutdown)
 ```
 
 ### Verification Steps
 
 ```bash
-# 1. Test root endpoint
-curl -s http://localhost:3000/
-# Expected: {"status":"success","message":"Hello, World! Welcome to the Express server."}
+# 1. Verify all tests pass
+npm test
+# Expected: "Test Suites: 11 passed, 11 total" and "Tests: 371 passed, 371 total"
 
-# 2. Test health endpoint
-curl -s http://localhost:3000/health
-# Expected: {"status":"ok","uptime":...,"timestamp":"...","memory":{...},"nodeVersion":"..."}
+# 2. Verify coverage meets thresholds
+# Coverage table appears at the end of npm test output
+# All files should show 100% across Stmts, Branch, Funcs, Lines
 
-# 3. Test API endpoints
-curl -s http://localhost:3000/api
-# Expected: {"status":"success","message":"Welcome to the API"}
+# 3. Verify no source files were modified
+git diff origin/exit-code-137-test-6 -- src/ server.js
+# Expected: No output (zero changes)
 
-curl -s http://localhost:3000/api/info
-# Expected: {"status":"success","data":{"version":"1.0.0","environment":"...","nodeVersion":"..."}}
+# 4. Verify devDependencies are correctly isolated
+npm ls --dev --depth=0
+# Expected: jest@30.x.x and supertest@7.x.x listed
 
-# 4. Verify security headers
-curl -sI http://localhost:3000/ | grep -iE "(content-security|strict-transport|x-content-type|x-frame)"
-# Expected: CSP, HSTS, X-Content-Type-Options, X-Frame-Options headers present
-
-# 5. Verify input validation
-curl -s "http://localhost:3000/api?bad=value"
-# Expected: {"status":"error","statusCode":400,"message":"Validation failed: query: Unrecognized key(s) in object: 'bad'"}
-
-# 6. Verify 405 handler
-curl -s -X POST http://localhost:3000/api
-# Expected: {"status":"error","statusCode":405,"message":"Method Not Allowed"}
-
-# 7. Verify dependency audit
-npm audit
-# Expected: "found 0 vulnerabilities"
+# 5. Verify production install excludes test dependencies
+npm install --omit=dev --dry-run
+# Expected: jest and supertest are NOT installed
 ```
 
 ### Troubleshooting
 
-| Issue | Resolution |
-|---|---|
-| `Error: ENOENT: no such file or directory, open 'logs/combined.log'` | Run `mkdir -p logs` before starting the server |
-| `Error: listen EADDRINUSE: address already in use :::3000` | Kill existing process: `lsof -ti :3000 \| xargs kill` or change `PORT` in `.env` |
-| `npm audit` shows vulnerabilities | Run `npm audit fix` or check if new advisories were published since last install |
-| `413 Payload Too Large` on legitimate requests | Increase `BODY_LIMIT` in `.env` (e.g., `BODY_LIMIT=100kb`) |
-| Stack traces visible in responses | Ensure `NODE_ENV=production` is set in production environment |
+| Issue | Cause | Resolution |
+|-------|-------|------------|
+| `jest: command not found` | devDependencies not installed | Run `npm install` (not `npm install --production`) |
+| Tests fail with `Cannot find module` | Missing node_modules | Run `npm install` to restore dependencies |
+| Winston log file errors during tests | Logger mock not applied | Ensure `jest.mock('../../src/utils/logger')` appears before any `require()` of modules that import the logger |
+| Rate limit tests flaky | State accumulation from previous test run | Jest isolates test files in separate workers; restart Jest if needed |
+| Config tests fail intermittently | Stale module cache | Verify `jest.resetModules()` is called before re-requiring `src/config` |
+| `logs/` directory errors | Missing logs directory | Create with `mkdir -p logs` (only needed for running the app, not tests) |
 
 ---
 
@@ -347,82 +370,93 @@ npm audit
 ### A. Command Reference
 
 | Command | Description |
-|---|---|
-| `npm install` | Install all dependencies |
-| `npm start` or `node server.js` | Start the server |
-| `NODE_ENV=production node server.js` | Start in production mode |
-| `npm run start:pm2` | Start with PM2 cluster mode |
-| `npm run stop:pm2` | Stop PM2 processes |
-| `npm run logs` | View PM2 logs |
-| `npm audit` | Check for dependency vulnerabilities |
-| `npm outdated` | Check for outdated dependencies |
+|---------|-------------|
+| `npm test` | Run all tests with coverage (`jest --coverage --verbose`) |
+| `npm run test:watch` | Run tests in watch mode (`jest --watch`) |
+| `npm run test:ci` | CI-safe test execution (`jest --coverage --ci --watchAll=false`) |
+| `npx jest <path>` | Run specific test file or directory |
+| `npx jest --listTests` | List all discovered test files |
+| `node server.js` | Start the application server |
+| `npm start` | Start the application server (alias) |
 
 ### B. Port Reference
 
 | Service | Port | Configuration |
-|---|---|---|
-| Express HTTP Server | 3000 (default) | `PORT` in `.env` |
+|---------|------|---------------|
+| Express HTTP Server | 3000 (default) | `PORT` env var or `src/config/index.js` default |
 
 ### C. Key File Locations
 
 | File | Purpose |
-|---|---|
-| `server.js` | Application entry point and lifecycle coordinator |
-| `src/app.js` | Express application factory with middleware pipeline |
-| `src/config/index.js` | Centralized environment-based configuration |
-| `src/middleware/validateInput.js` | Zod-based input validation middleware factory (NEW) |
-| `src/middleware/errorHandler.js` | Centralized error handling with CWE-209 masking |
-| `src/middleware/notFound.js` | 404 catch-all middleware with sanitized responses |
-| `src/utils/sanitizer.js` | Log and URL sanitization utility (NEW) |
-| `src/utils/logger.js` | Winston structured JSON logger |
-| `src/routes/index.js` | Route aggregator — mounts all sub-routers |
-| `src/routes/api.js` | API routes (`/api`, `/api/info`) |
-| `src/routes/health.js` | Health check route (`/health`) |
-| `ecosystem.config.js` | PM2 cluster mode configuration |
-| `.env` | Runtime environment variables (not committed) |
-| `.env.example` | Environment variable documentation template |
-| `logs/combined.log` | Combined application log file (JSON format) |
-| `logs/error.log` | Error-only log file (JSON format) |
+|------|---------|
+| `jest.config.js` | Jest test runner configuration |
+| `package.json` | Package manifest with test scripts and devDependencies |
+| `tests/helpers/setup.js` | Shared mock factories and environment utilities |
+| `tests/utils/sanitizer.test.js` | Sanitizer pure function unit tests |
+| `tests/utils/logger.test.js` | Logger module shape tests |
+| `tests/config/index.test.js` | Configuration module unit tests |
+| `tests/middleware/validateInput.test.js` | Validation middleware tests |
+| `tests/middleware/notFound.test.js` | 404 handler tests |
+| `tests/middleware/errorHandler.test.js` | Error handler tests |
+| `tests/routes/index.test.js` | Root route integration tests |
+| `tests/routes/health.test.js` | Health endpoint integration tests |
+| `tests/routes/api.test.js` | API routes integration tests |
+| `tests/app.test.js` | Full pipeline integration tests |
+| `tests/server.test.js` | Server lifecycle tests |
+| `coverage/` | Generated coverage reports (gitignored) |
 
 ### D. Technology Versions
 
 | Technology | Version | Purpose |
-|---|---|---|
-| Node.js | v20.19.5 | JavaScript runtime |
-| npm | v10.8.2 | Package manager |
-| Express | 5.2.1 | Web framework |
-| Helmet | 8.1.0 | Security headers middleware |
-| CORS | 2.8.6 | Cross-origin resource sharing |
-| express-rate-limit | 8.3.1 | Rate limiting middleware |
-| Zod | 3.25.76 | Input validation (NEW) |
-| Winston | 3.19.0 | Structured JSON logging |
-| Morgan | 1.10.1 | HTTP access logging |
-| Compression | 1.8.1 | Response compression |
-| dotenv | 17.3.1 | Environment variable loading |
+|------------|---------|---------|
+| Node.js | v20.19.5 | Runtime environment |
+| npm | 10.8.2 | Package manager |
+| Express | 5.2.1 | Web framework (production) |
+| Jest | 30.3.0 | Test framework (dev) |
+| Supertest | 7.2.2 | HTTP integration testing (dev) |
+| Helmet | 8.1.0 | Security headers (production) |
+| Winston | 3.19.0 | Structured logging (production) |
+| Zod | 3.25.x | Schema validation (production) |
+| Morgan | 1.10.1 | HTTP access logging (production) |
+| express-rate-limit | 8.3.1 | Rate throttling (production) |
 
 ### E. Environment Variable Reference
 
-| Variable | Default | Description | Security Notes |
-|---|---|---|---|
-| `NODE_ENV` | `development` | Application environment | Set to `production` for error masking (CWE-209) |
-| `PORT` | `3000` | Server listen port | — |
-| `HOST` | `0.0.0.0` | Server bind address | — |
-| `LOG_LEVEL` | `debug` | Winston log verbosity | Use `info` or `warn` in production |
-| `CORS_ORIGIN` | `*` | Allowed CORS origins | **Tighten to specific origin(s) for production** |
-| `RATE_LIMIT_WINDOW_MS` | `900000` | Rate limit window (ms) | 15 minutes default |
-| `RATE_LIMIT_MAX` | `100` | Max requests per window | Adjust based on expected traffic |
-| `BODY_LIMIT` | `10kb` | Max request body size | Prevents payload-based DoS (NEW) |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `NODE_ENV` | `development` | Application environment (development/production) |
+| `PORT` | `3000` | Server port number |
+| `HOST` | `0.0.0.0` | Server bind address |
+| `LOG_LEVEL` | `debug` | Winston log level |
+| `CORS_ORIGIN` | `*` | Allowed CORS origins |
+| `RATE_LIMIT_WINDOW_MS` | `900000` | Rate limit window (ms) |
+| `RATE_LIMIT_MAX` | `100` | Max requests per window |
+| `BODY_LIMIT` | `10kb` | Max request body size |
+
+### F. Developer Tools Guide
+
+**Adding a New Test File:**
+1. Create the test file in `tests/` mirroring the source path (e.g., `src/new/module.js` → `tests/new/module.test.js`)
+2. Use `'use strict'` at the top of the file (matching source conventions)
+3. If the module imports the logger, add `jest.mock('../../src/utils/logger', ...)` before any `require()` statements
+4. Import shared helpers from `tests/helpers/setup.js` for mock factories
+5. Use `describe`/`test` blocks with descriptive natural language names
+6. Run `npx jest tests/new/module.test.js --verbose` to verify
+
+**Mock Patterns:**
+- **Logger mock:** `jest.mock('../../src/utils/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn(), http: jest.fn(), stream: { write: jest.fn() } }))`
+- **Express mock objects:** Import `createMockReq`, `createMockRes`, `createMockNext` from `tests/helpers/setup.js`
+- **Environment control:** Import `backupEnv`/`restoreEnv` from `tests/helpers/setup.js`; use in `beforeEach`/`afterEach`
+- **Module cache reset:** Call `jest.resetModules()` before re-requiring modules that read `process.env` at load time
 
 ### G. Glossary
 
 | Term | Definition |
-|---|---|
-| CSP | Content-Security-Policy — HTTP header controlling resource loading |
-| CWE-209 | Information Exposure Through Error Message — suppressing internal details in error responses |
-| CWE-117 | Improper Output Neutralization for Logs — preventing log injection via unsanitized input |
-| CWE-400 | Uncontrolled Resource Consumption — preventing DoS via oversized payloads |
-| HSTS | HTTP Strict-Transport-Security — forces HTTPS connections |
-| Zod | TypeScript-first schema validation library used for input validation |
-| safeParse | Zod method returning `{success, data, error}` without throwing exceptions |
-| RFC 9110 §15.5.6 | HTTP specification for 405 Method Not Allowed responses |
-| IETF RateLimit headers | Standardized rate limiting response headers (RateLimit-Policy, RateLimit-Limit, etc.) |
+|------|------------|
+| AAP | Agent Action Plan — the primary directive defining project scope and requirements |
+| CWE-117 | Log Injection vulnerability — mitigated by sanitizer ANSI/control char stripping |
+| CWE-209 | Information Exposure Through Error Messages — mitigated by production error masking in errorHandler |
+| Supertest | HTTP assertion library that wraps an Express app for in-process request testing |
+| Jest | JavaScript testing framework providing assertion, mocking, coverage, and test running |
+| CommonJS | Node.js module system using `require()` and `module.exports` |
+| Application Factory | Pattern where `src/app.js` exports a configured Express app without calling `app.listen()`, enabling test imports |
