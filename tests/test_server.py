@@ -17,6 +17,11 @@ def test_get_root_response_body(client):
     assert response.data == b"Hello, World!"
 
 
+def test_get_root_content_type(client):
+    response = client.get("/")
+    assert response.content_type == "text/plain; charset=utf-8"
+
+
 def test_get_evening_status_code(client):
     response = client.get("/evening")
     assert response.status_code == 200
@@ -27,6 +32,11 @@ def test_get_evening_response_body(client):
     assert response.data == b"Good evening"
 
 
+def test_get_evening_content_type(client):
+    response = client.get("/evening")
+    assert response.content_type == "text/plain; charset=utf-8"
+
+
 def test_post_evening_status_code(client):
     response = client.post("/evening")
     assert response.status_code == 201
@@ -35,6 +45,11 @@ def test_post_evening_status_code(client):
 def test_post_evening_response_body(client):
     response = client.post("/evening")
     assert response.data == b"Good evening"
+
+
+def test_post_evening_content_type(client):
+    response = client.post("/evening")
+    assert response.content_type == "text/plain; charset=utf-8"
 
 
 # --- Edge Case Tests ---
