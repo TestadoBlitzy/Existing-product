@@ -1,22 +1,26 @@
 """
-HTTP Contract Tests — replaces __tests__/server.test.js (219 lines, 33 tests).
+HTTP Contract Tests — replaces __tests__/server.test.js (219 lines, 49 tests).
 
-This module contains 33 pytest test functions organized into 7 test classes, each
-corresponding to a describe() block in the original Jest/Supertest test file. Every
-assertion from the original test suite is faithfully recreated using Flask's built-in
-test client instead of Supertest.
+This module contains 49 pytest test functions organized into 9 test classes. The
+original 7 classes correspond to describe() blocks in the original Jest/Supertest
+test file, with 2 additional classes for application factory validation and
+normalization middleware code path coverage. Every assertion from the original
+test suite is faithfully recreated using Flask's built-in test client instead of
+Supertest, plus additional coverage tests for uncovered code paths.
 
 Test classes:
     TestGetRoot                     — 4 tests  (GET / happy path)
     TestGetEvening                  — 4 tests  (GET /evening happy path)
-    TestNotFoundResponses           — 4 tests  (404 error handling)
+    TestNotFoundResponses           — 5 tests  (404 error handling)
     TestUnsupportedMethodsOnRoot    — 4 tests  (POST/PUT/DELETE/PATCH on /)
-    TestUnsupportedMethodsOnEvening — 4 tests  (POST/PUT/DELETE/PATCH on /evening)
-    TestEdgeCases                   — 8 tests  (query params, case-insensitive,
+    TestUnsupportedMethodsOnEvening — 5 tests  (POST/PUT/DELETE/PATCH on /evening)
+    TestEdgeCases                   — 11 tests (query params, case-insensitive,
                                                 HEAD, trailing slash, double slash)
-    TestXPoweredBySuppression       — 5 tests  (X-Powered-By absent on all responses)
+    TestXPoweredBySuppression       — 7 tests  (X-Powered-By absent on all responses)
+    TestApplicationFactory          — 4 tests  (create_app() factory behavior)
+    TestNormalizationMiddleware     — 5 tests  (normalize_path code path coverage)
                                     --------
-                              Total: 33 tests
+                              Total: 49 tests
 
 Assertion mapping (Supertest/Jest → pytest/Flask):
     request(app).get('/')           → client.get('/')
@@ -37,6 +41,9 @@ The ``client`` fixture is provided by tests/conftest.py (replaces the Supertest
 # request(app) in the original server.test.js lines 3-4:
 #   const request = require('supertest');
 #   const app = require('../server');
+
+from flask import Flask
+from app import create_app
 
 
 # ---------------------------------------------------------------------------
@@ -207,6 +214,17 @@ class TestNotFoundResponses:
         response = client.get('/nonexistent')
         assert 'X-Powered-By' not in response.headers
 
+    def test_case_insensitive_undefined_route_returns_404(self, client):
+        """Case-insensitive undefined route returns 404.
+
+        Validates that the normalize_path hook's case-lowering + failed match →
+        return None → Flask default 404 chain works correctly for uppercase
+        undefined routes. GET /UNKNOWNPATH → lowered to /unknownpath → no route
+        match → except block (app.py lines 103–107) returns None → 404.
+        """
+        response = client.get('/UNKNOWNPATH')
+        assert response.status_code == 404
+
 
 # ---------------------------------------------------------------------------
 # Unsupported HTTP methods on defined routes
@@ -307,6 +325,17 @@ class TestUnsupportedMethodsOnEvening:
             expect(res.status).toBe(404);
         """
         response = client.patch('/evening')
+        assert response.status_code == 404
+
+    def test_post_on_case_insensitive_evening_returns_404(self, client):
+        """POST on case-insensitive /Evening returns 404.
+
+        Validates the full normalization + error handler chain: normalize_path
+        lowercases /Evening to /evening → url_adapter.match('/evening', method='POST')
+        raises MethodNotAllowed → except block (app.py lines 103–107) returns None →
+        Flask 405 handler → method_not_allowed_to_not_found converts to 404.
+        """
+        response = client.post('/Evening')
         assert response.status_code == 404
 
 
@@ -443,6 +472,38 @@ class TestEdgeCases:
         assert response.status_code == 200
         assert response.get_data(as_text=True) == 'Hello, World!\n'
 
+    def test_head_request_on_case_insensitive_path(self, client):
+        """HEAD request on case-insensitive path returns 200 with empty body.
+
+        Verifies HEAD behavior works through the case-insensitive normalization
+        path. HEAD /Evening → normalize_path lowercases to /evening → matches
+        route → status 200, correct Content-Type, empty body per HEAD semantics.
+        """
+        response = client.head('/Evening')
+        assert response.status_code == 200
+        assert 'text/plain' in response.content_type
+        assert response.get_data(as_text=True) == ''
+
+    def test_head_request_on_undefined_route_returns_404(self, client):
+        """HEAD request on undefined route returns 404 with empty body.
+
+        Verifies HEAD semantics on error responses — the status code is 404 and
+        the body is empty (HEAD responses never include a body).
+        """
+        response = client.head('/nonexistent')
+        assert response.status_code == 404
+        assert response.get_data(as_text=True) == ''
+
+    def test_query_params_on_case_insensitive_path(self, client):
+        """Query parameters do not interfere with case-insensitive path resolution.
+
+        GET /EVENING?foo=bar → normalize_path lowercases path to /evening (query
+        string not affected) → route matches → status 200, body 'Good evening'.
+        """
+        response = client.get('/EVENING?foo=bar')
+        assert response.status_code == 200
+        assert response.get_data(as_text=True) == 'Good evening'
+
 
 # ---------------------------------------------------------------------------
 # X-Powered-By header suppression — comprehensive verification
@@ -510,3 +571,168 @@ class TestXPoweredBySuppression:
         """
         response = client.head('/')
         assert 'X-Powered-By' not in response.headers
+
+    def test_absent_on_double_slash_normalized_response(self, client):
+        """X-Powered-By absent on response served through double-slash normalization.
+
+        GET /evening// → normalize_path collapses double slash to /evening →
+        serves 200 response. X-Powered-By must be absent even when the response
+        is served through the normalization re-routing path.
+        """
+        response = client.get('/evening//')
+        assert 'X-Powered-By' not in response.headers
+
+    def test_absent_on_case_insensitive_error_response(self, client):
+        """X-Powered-By absent on 404 response triggered via normalization fallback.
+
+        GET /NONEXISTENT → normalize_path lowercases to /nonexistent → no route
+        match → except block returns None → Flask 404. X-Powered-By must be
+        absent on error responses triggered through the normalization path.
+        """
+        response = client.get('/NONEXISTENT')
+        assert 'X-Powered-By' not in response.headers
+
+
+# ---------------------------------------------------------------------------
+# Application Factory — create_app() behavior validation
+# ---------------------------------------------------------------------------
+# These tests verify the Flask application factory function directly,
+# ensuring proper configuration, route registration, and instance isolation.
+
+class TestApplicationFactory:
+    """Application factory behavior — create_app() validation.
+
+    Verifies that the create_app() factory function in app.py returns properly
+    configured Flask instances with correct route registrations, middleware
+    attachment, and instance isolation. These tests call create_app() directly
+    rather than using the client fixture, to test factory behavior explicitly.
+    """
+
+    def test_create_app_returns_flask_instance(self):
+        """create_app() returns a Flask application instance.
+
+        Verifies the factory returns an object that is an instance of Flask,
+        confirming the basic application factory contract.
+        """
+        app = create_app()
+        assert isinstance(app, Flask)
+
+    def test_create_app_produces_independent_instances(self):
+        """Multiple create_app() calls produce independent Flask instances.
+
+        Each call to create_app() should return a new, distinct Flask application
+        object — not a shared singleton. This ensures test isolation when each
+        test gets its own app via the fixture.
+        """
+        app1 = create_app()
+        app2 = create_app()
+        assert app1 is not app2
+
+    def test_create_app_registers_expected_routes(self):
+        """create_app() registers the / and /evening routes.
+
+        Inspects the URL map to verify both expected routes are present.
+        The app should have rules for '/' and '/evening' (plus Flask's
+        built-in 'static' endpoint).
+        """
+        app = create_app()
+        rules = [rule.rule for rule in app.url_map.iter_rules()]
+        assert '/' in rules
+        assert '/evening' in rules
+
+    def test_create_app_disables_strict_slashes(self):
+        """create_app() disables strict_slashes on the URL map.
+
+        Verifies that app.url_map.strict_slashes is set to False, enabling
+        trailing-slash tolerance (e.g., /evening/ matches /evening) for
+        Express 5.x non-strict routing parity.
+        """
+        app = create_app()
+        assert app.url_map.strict_slashes is False
+
+
+# ---------------------------------------------------------------------------
+# Normalization Middleware — normalize_path code path coverage
+# ---------------------------------------------------------------------------
+# These tests exercise specific code paths in the normalize_path before_request
+# hook in app.py that are not reached by the existing test suite, specifically:
+#   - The while '//' in normalized: loop body (app.py line 89)
+#   - The except Exception: return None fallback (app.py lines 103–107)
+#   - Combined case + slash normalization paths
+
+class TestNormalizationMiddleware:
+    """Normalization middleware — normalize_path code path coverage.
+
+    Exercises specific uncovered code paths in the normalize_path before_request
+    hook defined in app.py (lines 64–110). These tests target the double-slash
+    collapsing while loop body and the exception-handling fallback that fires
+    when a case-normalized path does not match any registered route.
+    """
+
+    def test_internal_double_slash_path_normalized_to_route(self, client):
+        """Internal double-slash is collapsed and route matches successfully.
+
+        GET /evening// → normalize_path detects '//' in path → while loop body
+        at app.py line 89 executes normalized.replace('//', '/') → path becomes
+        /evening/ → then /evening → url_adapter.match() succeeds → status 200,
+        body 'Good evening'.
+
+        This specifically exercises the while loop BODY (line 89) which was
+        previously uncovered because Werkzeug pre-normalizes leading // paths.
+        """
+        response = client.get('/evening//')
+        assert response.status_code == 200
+        assert response.get_data(as_text=True) == 'Good evening'
+
+    def test_case_insensitive_undefined_route_returns_404(self, client):
+        """Case-insensitive request to undefined route triggers exception fallback.
+
+        GET /NONEXISTENT → normalize_path lowercases to /nonexistent → path
+        differs from original → enters if-block → url_adapter.match('/nonexistent')
+        raises NotFound → except Exception block (app.py lines 103–107) catches
+        it → returns None → Flask default 404 handling.
+
+        This specifically exercises the except Exception: return None path.
+        """
+        response = client.get('/NONEXISTENT')
+        assert response.status_code == 404
+
+    def test_unsupported_method_on_case_insensitive_path_returns_404(self, client):
+        """Unsupported method on case-insensitive path triggers exception fallback then 405→404.
+
+        POST /Evening → normalize_path lowercases to /evening → path differs →
+        enters if-block → url_adapter.match('/evening', method='POST') raises
+        MethodNotAllowed → except Exception block catches it → returns None →
+        Flask raises 405 → method_not_allowed_to_not_found handler converts to 404.
+
+        Exercises the exception fallback when the normalized path matches a route
+        but the HTTP method is not allowed.
+        """
+        response = client.post('/Evening')
+        assert response.status_code == 404
+
+    def test_combined_case_and_double_slash_normalization(self, client):
+        """Combined case-insensitive lowering AND double-slash collapsing.
+
+        GET /EVENING// → normalize_path lowercases to /evening// → while loop
+        collapses to /evening/ → then /evening → url_adapter.match() succeeds →
+        status 200, body 'Good evening'.
+
+        Tests both normalization operations in a single path traversal.
+        """
+        response = client.get('/EVENING//')
+        assert response.status_code == 200
+        assert response.get_data(as_text=True) == 'Good evening'
+
+    def test_triple_leading_slash_normalization(self, client):
+        """Triple leading slash is normalized and route resolves correctly.
+
+        GET ///evening → Werkzeug-level normalization + normalize_path lowering
+        and slash collapsing → resolves to /evening → status 200, body
+        'Good evening'.
+
+        Verifies that extreme slash normalization still resolves correctly.
+        """
+        response = client.get('///evening')
+        assert response.status_code == 200
+        assert response.get_data(as_text=True) == 'Good evening'
