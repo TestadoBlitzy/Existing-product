@@ -231,10 +231,10 @@ The following table shows how different request patterns are routed between the 
 | `GET /` | `catch_all()` | `Hello, World!\n` (text) |
 | `GET /any/path` | `catch_all()` | `Hello, World!\n` (text) |
 | `DELETE /foo` | `catch_all()` | `Hello, World!\n` (text) |
-| `OPTIONS /health` | `catch_all()` | `Hello, World!\n` (text) |
+| `OPTIONS /health` | Flask auto-OPTIONS | (empty body, `Allow` header) |
 | `PUT /some/resource` | `catch_all()` | `Hello, World!\n` (text) |
 
-> **Note:** Only `GET /health` is handled by the health check endpoint. All other method and path combinations — including non-GET requests to `/health` — are handled by the catch-all handler.
+> **Note:** Only `GET /health` is handled by the health check endpoint. All other method and path combinations — including non-GET requests to `/health` (except `OPTIONS /health`, which Flask handles automatically by returning an empty body with an `Allow` header) — are handled by the catch-all handler.
 
 ## Configuration
 
