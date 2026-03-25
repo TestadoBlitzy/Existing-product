@@ -37,7 +37,9 @@ import time        # time.sleep() — brief delays for server startup readiness
 # Third-party imports
 # ---------------------------------------------------------------------------
 
-import pytest      # Test framework — replaces Jest 30.x as test runner
+# pytest is the test framework (replaces Jest 30.x). It is invoked via the
+# `python -m pytest` CLI — no direct import is required in this file because
+# tests are discovered by naming convention and fixtures come from conftest.py.
 
 # ---------------------------------------------------------------------------
 # Internal imports
