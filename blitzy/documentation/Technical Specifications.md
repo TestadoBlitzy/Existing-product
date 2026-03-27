@@ -4,659 +4,559 @@
 
 ## 0.1 Intent Clarification
 
+### 0.1.1 Core Testing Objective
 
-### 0.1.1 Core Documentation Objective
+Based on the provided requirements, the Blitzy platform understands that the testing objective is to **introduce the first automated test suite** to a currently untested, minimal Flask microserver (`app.py`, 93 lines) that serves as a Backprop integration test harness. The project presently has **zero automated test coverage** — all verification is performed manually via a 7-test curl suite and static analysis tools (`py_compile`, `pycodestyle`).
 
-Based on the provided requirements, the Blitzy platform understands that the documentation objective is to **comprehensively overhaul and expand the project documentation** for the `hao-backprop-test` Flask HTTP microserver. The user requests creation of a single, consolidated comprehensive README that incorporates setup instructions, API documentation, a deployment guide, and inline code explanations — transforming the currently minimal 36-line `README.md` and lightly-commented `app.py` into a fully self-documenting project.
+**Request Category:** Add new tests (greenfield test suite creation)
 
-**Request Categorization:** Update existing documentation + Create new documentation sections + Improve documentation coverage
+The testing requirements, restated with enhanced clarity:
 
-**Documentation Type:** README file (comprehensive project documentation) + API reference + Deployment guide + Inline code comments
+- **HTTP Contract Verification** — Automate the existing manual curl verification behaviors as repeatable, deterministic pytest assertions using Flask's built-in `test_client()`, covering all documented request/response contracts for both the health check and catch-all endpoints
+- **Route Precedence Validation** — Verify that Flask's routing specificity correctly resolves `GET /health` to the health handler while routing non-GET methods on `/health` (e.g., `POST /health`, `DELETE /health`) to the catch-all handler
+- **Multi-Method Coverage** — Confirm that all seven configured HTTP methods (`GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `HEAD`, `OPTIONS`) behave consistently with the documented contract across representative paths
+- **Content-Type and Body Precision** — Assert exact response bodies (`{"status":"ok"}` for health, `Hello, World!\n` for catch-all), exact HTTP status codes (200), and correct content types (`application/json` vs `text/plain`)
+- **Configuration Constant Assertions** — Validate that the hardcoded constants `HOST`, `PORT`, and `METHODS` in `app.py` match their documented values (`127.0.0.1`, `3000`, and the seven-method list)
+- **Module Import Safety** — Confirm that `import app` does not trigger server startup (i.e., the `if __name__ == '__main__'` guard functions correctly)
+- **Startup Lifecycle Validation** — Verify that executing `python app.py` invokes `app.run()` with the configured host and port under the `__main__` guard
 
-**Documentation Requirements with Enhanced Clarity:**
+**Implicit Testing Needs Surfaced:**
 
-- **Comprehensive README** — Expand the existing `README.md` from its current minimal form (~36 lines covering only prerequisites, installation, usage, and technology stack) into a full-featured project document that serves as the single authoritative reference for developers, DevOps personnel, and automated pipelines (such as Backprop) interacting with this service.
-- **Setup Instructions** — Document the complete environment setup workflow including Python 3.13+ runtime installation, virtual environment creation, dependency installation from `requirements.txt` (pinned `Flask==3.1.3`), environment verification, and first-run confirmation. The existing README has basic setup steps but lacks environment verification, troubleshooting, and prerequisite validation details.
-- **API Documentation** — Create a detailed reference for both HTTP endpoints: the `GET /health` JSON health-check endpoint (`app.py` lines 30–37) and the universal catch-all handler accepting all HTTP methods on all paths (`app.py` lines 48–62). This must include request/response formats, status codes, content types, curl examples, and routing behavior.
-- **Deployment Guide** — Document how to run the Flask development server locally (`python app.py` binding to `127.0.0.1:3000`), including server configuration constants (`HOST`, `PORT`, `METHODS` defined at `app.py` lines 22–24), startup verification, and operational considerations. Since this is a localhost-only development server (not production-intended), the guide should clarify this scope.
-- **Inline Code Explanations** — Enhance the existing docstrings and comments in `app.py` with additional inline annotations that explain the architectural reasoning behind key implementation decisions: the dual-decorator catch-all pattern (lines 48–49), the route registration ordering for precedence correctness, the `jsonify` vs `Response` choice, and the behavioral backward compatibility with the original Node.js server.
-
-**Inferred Documentation Needs:**
-
-- Based on code analysis: `app.py` contains well-structured docstrings for the `health()` and `catch_all()` functions, but lacks inline explanations for the configuration constants block (lines 14–24) and the entry point guard pattern (lines 65–72).
-- Based on structure: The project has empty Node.js placeholder files (`package.json`, `package-lock.json`, `server.js`) that require documentation to prevent developer confusion about the active technology stack.
-- Based on dependencies: The transitive dependency chain (Flask → Werkzeug, Jinja2, MarkupSafe, itsdangerous, click, blinker) should be documented so developers understand what gets installed and which packages are actively used at runtime.
-- Based on user journey: A new developer cloning this repository needs a clear path from "git clone" to "server running and verified" — the current README covers this minimally but omits verification steps and troubleshooting.
+- Edge cases for deeply nested arbitrary paths (e.g., `/a/b/c/d/e`) through the catch-all handler
+- Exact byte-length verification of the catch-all response body (14 bytes: `Hello, World!\n`)
+- Boundary behavior for the root path `/` versus sub-paths via Flask's dual-decorator pattern
+- Flask's automatic `OPTIONS` handling on `/health` (empty body with `Allow` header) as a distinct behavioral case
+- Content-type charset suffix handling (`text/plain; charset=utf-8` as returned by Flask versus the base `text/plain` mimetype)
 
 ### 0.1.2 Special Instructions and Constraints
 
-**User-Specified Rule:**
-- "Do not make any updates or changes in GitHub App to create or update a workflow." — This means CI/CD workflow files (`.github/workflows/`) are strictly out of scope. No documentation changes should reference or modify workflow configurations.
+**Critical Directives Captured from User:**
 
-**Style Preferences:**
-- The existing `README.md` uses standard GitHub-flavored Markdown with bash code blocks — the expanded documentation must maintain this convention.
-- Inline code explanations in `app.py` must follow PEP 257 docstring conventions and PEP 8 comment style already established in the file (line-length-appropriate `#` block comments with separator lines `# ---...---`).
+- **Minimal change principle** — ONLY add test files and minimal test infrastructure; do NOT modify existing production code in `app.py`
+- **No heavy tooling** — Use `pytest`, `pytest-cov`, and Flask's built-in `test_client()` only; avoid introducing unnecessary dependencies
+- **Minimal mocking** — Prefer real in-process Flask app behavior for HTTP tests; mock only for startup/lifecycle path validation where binding a real port is impractical
+- **Lightweight structure** — Keep the test directory structure minimal and aligned with the project's single-file architecture
+- **No CI/CD creation** — Do not create or modify GitHub workflows or CI/CD pipelines
+- **No source modification** — Do not modify `app.py`, `requirements.txt` (for production dependencies), `README.md`, or any other existing file unless absolutely necessary for testability
 
-**Constraints:**
-- This is a documentation-only task — no functional changes to `app.py` logic, no new Python modules, no new dependencies.
-- The project is explicitly not production-intended; documentation must not imply production readiness.
-- All documentation must accurately reflect the current codebase state (73-line `app.py`, single `Flask==3.1.3` dependency).
+**Testing Convention Requirements:**
+
+- Follow pytest idiomatic patterns (function-based tests, fixtures, parametrization where helpful)
+- Use Flask's `test_client()` for all HTTP-level assertions to maintain high contract confidence
+- Keep tests synchronous, deterministic, and fast
+- Use `subprocess` from Python's standard library only if needed for narrow startup/import lifecycle validation
+
+**User-Specified Implementation Rule:**
+
+User Example: "Do not make any updates or changes in GitHub App to create or update a workflow."
 
 ### 0.1.3 Technical Interpretation
 
-These documentation requirements translate to the following technical documentation strategy:
+These testing requirements translate to the following technical test implementation strategy:
 
-- To **create a comprehensive README**, we will update `README.md` by restructuring and expanding it with new sections for project overview, architecture, detailed setup, API reference, deployment, configuration, project structure, troubleshooting, and technology stack details.
-- To **document setup instructions**, we will expand the Installation section in `README.md` to include prerequisite validation commands, virtual environment setup with verification steps, dependency installation with expected output, and post-install smoke tests.
-- To **create API documentation**, we will add a dedicated API Reference section within `README.md` that documents both the `GET /health` endpoint and the catch-all handler with complete request/response specifications, curl command examples, and a routing behavior matrix.
-- To **create a deployment guide**, we will add a Deployment / Running the Server section within `README.md` covering server startup, configuration constants, expected terminal output, endpoint verification, and shutdown procedures.
-- To **add inline code explanations**, we will update `app.py` by enhancing existing comments and adding new inline annotations at key decision points — the import block, configuration constants, route registration order, dual-decorator pattern, jsonify usage, Response construction, and the entry point guard.
+- To **verify all HTTP contract behaviors**, we will **create** `tests/test_http_contract.py` containing integration-style tests that exercise Flask's `test_client()` against every documented request/response pattern, including health check JSON, catch-all plain text, multi-method routing, and path variations
+- To **validate route precedence around `/health`**, we will **create** dedicated test cases within `tests/test_http_contract.py` that assert `GET /health` returns JSON while `POST /health`, `DELETE /health`, and other non-GET methods return plain text through the catch-all
+- To **verify import safety and startup behavior**, we will **create** `tests/test_lifecycle.py` containing tests that confirm `import app` does not start a server, validate `__main__` guard behavior, and assert `app.run()` is called with the correct host/port parameters
+- To **assert configuration constants**, we will **create** targeted tests within `tests/test_lifecycle.py` that import and verify `app.HOST`, `app.PORT`, and `app.METHODS` values
+- To **provide a shared Flask test client fixture**, we will **create** `tests/conftest.py` with a reusable `client` fixture that eliminates boilerplate across test files
+- To **enable coverage measurement**, testing dependencies (`pytest`, `pytest-cov`) will be tracked and installed, and the test suite will support `pytest --cov=app --cov-report=term-missing`
 
+### 0.1.4 Coverage Requirements Interpretation
 
-## 0.2 Documentation Discovery and Analysis
+**Explicit coverage target from user:** 90%+ line/function coverage of `app.py`, with 100% coverage of all externally visible HTTP behavior.
 
+**Implicit coverage expectations based on analysis:**
 
-### 0.2.1 Existing Documentation Infrastructure Assessment
+- **Industry standard for a 93-line single-file Flask app:** Near-complete (95–100%) coverage is achievable and expected given the deterministic, stateless nature of the application
+- **Existing coverage pattern:** 0% automated coverage currently; the 7-test manual curl suite covers all 18 documented functional requirements but produces no measurable metric
+- **Critical path analysis:** The two route handlers (`health()` at lines 42–48 and `catch_all()` at lines 66–79) and the configuration constants (lines 30–33) constitute the entirety of testable application logic; only the `if __name__ == '__main__'` block (lines 92–93) requires special handling
 
-Repository analysis reveals a **minimal, README-only documentation structure** with no documentation generation framework, no dedicated docs directory, and no automated documentation tooling.
+To achieve comprehensive testing, coverage should include:
 
-**Documentation Files Discovered:**
+- 100% of the `health()` handler (lines 42–48)
+- 100% of the `catch_all()` handler (lines 66–79)
+- 100% of configuration constants (lines 30–33)
+- The `if __name__ == '__main__'` entry point (lines 92–93) via mock-based lifecycle testing
+- Module-level import lines (lines 1–25) which execute on import
 
-| File | Location | Lines | Status | Purpose |
-|------|----------|-------|--------|---------|
-| `README.md` | Root | 36 | Exists — Incomplete | Basic project overview, prerequisites, installation, usage, tech stack |
-| `Technical Specifications.md` | `blitzy/documentation/` | Large | Exists — Reference only | Blitzy-generated technical specification for the `/health` endpoint feature |
-| `Project Guide.md` | `blitzy/documentation/` | Large | Exists — Reference only | Blitzy-generated delivery report and validation record |
+## 0.2 Test Discovery and Analysis
 
-**Documentation Infrastructure Status:**
+### 0.2.1 Existing Test Infrastructure Assessment
 
-| Infrastructure Element | Status | Details |
-|------------------------|--------|---------|
-| Documentation framework | **Not present** | No mkdocs.yml, docusaurus.config.js, sphinx/conf.py, or .readthedocs.yml found |
-| API documentation tools | **Not present** | No Swagger/OpenAPI spec, no Flask-RESTx, no Flasgger |
-| Diagram tools | **Not present** | No Mermaid CLI or PlantUML configuration; Mermaid is used only within `blitzy/documentation/` markdown |
-| Documentation hosting | **Not present** | No deployment configuration for documentation sites |
-| Inline documentation | **Partial** | `app.py` contains module-level docstring and function docstrings (PEP 257 compliant), but no inline annotations at key decision points |
-| Style guide | **Not present** | No CONTRIBUTING.md or documentation style guide; implicit convention is GitHub-Flavored Markdown |
+Repository analysis was conducted by searching for all files matching `*test*`, `*spec*`, `test_*`, `*_test.*`, `conftest*`, `pytest*`, `.coveragerc`, and `tox.ini` patterns across the entire repository. The results confirm the complete absence of automated test infrastructure:
 
-**Current README.md Analysis (`README.md`, 36 lines):**
+| Repository Artifact | Status | Testing Relevance |
+|---|---|---|
+| `app.py` (93 lines) | Present — sole application source | Only testable artifact |
+| `requirements.txt` | Contains only `Flask==3.1.3` | No testing dependencies declared |
+| `tests/` directory | **Not present** | Must be created from scratch |
+| `conftest.py` | **Not present** | Must be created if shared fixtures needed |
+| `pytest.ini` / `pyproject.toml` | **Not present** | No test configuration exists |
+| `.coveragerc` | **Not present** | No coverage configuration exists |
+| `tox.ini` | **Not present** | No multi-environment test runner |
+| `server.js`, `package.json`, `package-lock.json` | Empty legacy Node.js placeholders | Inert; excluded from testing scope |
+| `blitzy/documentation/` | Internal governance artifacts | Not test-related; excluded |
 
-The existing README contains five sections: a heading with one-line description, Prerequisites (Python 3.13+, pip), Installation (venv creation + pip install), Usage (python app.py + expected behavior), and Technology Stack (Python 3.13, Flask 3.1.3). It is functional but lacks API documentation, deployment guidance, project architecture, troubleshooting, configuration reference, project structure documentation, and contributor information.
+**Summary:** Repository analysis reveals **zero** automated testing infrastructure. No test files, no test framework dependencies, no test configuration files, and no coverage tooling exist anywhere in the repository. The only Python file is `app.py` itself.
 
-### 0.2.2 Repository Code Analysis for Documentation
+**Current Test Infrastructure Details:**
 
-**Search patterns used for code requiring documentation:**
+- **Current testing framework:** None (manual curl verification only)
+- **Test runner configuration location:** N/A — must be created
+- **Coverage tools in use:** None — `pytest-cov` must be introduced
+- **Mock/stub libraries detected:** None — standard library `unittest.mock` will be used where necessary
+- **Test data fixtures or factories present:** None — static responses require no complex fixtures
 
-| Search Target | Pattern | Files Found | Documentation Status |
-|---------------|---------|-------------|---------------------|
-| Public APIs / Routes | `@app.route` in `app.py` | 3 decorators (2 endpoints) | Docstrings present; no external API reference doc |
-| Module interface | `app.py` module-level docstring | 1 file | Docstring present (lines 1–10); describes purpose and behavior |
-| Configuration options | `HOST`, `PORT`, `METHODS` constants | `app.py` lines 22–24 | Block comment present; not documented in README |
-| Entry point | `if __name__ == '__main__'` | `app.py` lines 71–72 | Block comment present; not explained in README |
-| Dependencies | `requirements.txt` | 1 direct dependency | Listed in README; transitive dependencies undocumented |
-| Legacy files | `package.json`, `package-lock.json`, `server.js` | 3 empty files | Not documented; may cause confusion |
+### 0.2.2 Existing Manual Validation Suite
 
-**Key Directories Examined:**
+The project's de facto verification is a 7-test manual curl suite documented in the Tech Spec (Section 6.6.2.1) and `README.md`. All 7 tests are confirmed passing and cover 18 functional requirements:
 
-| Directory | Contents | Documentation Relevance |
-|-----------|----------|------------------------|
-| Root (`/`) | `app.py`, `README.md`, `requirements.txt`, 3 empty Node.js placeholders | Primary documentation targets |
-| `blitzy/documentation/` | Technical Specifications, Project Guide | Reference material for accurate documentation; not user-facing |
+| Manual Test # | curl Command | Expected Response | Validates |
+|---|---|---|---|
+| 1 | `curl -s http://127.0.0.1:3000/health` | `{"status":"ok"}` (JSON, 200) | Health check endpoint |
+| 2 | `curl -s -X POST http://127.0.0.1:3000/health` | `Hello, World!\n` (text, 200) | Route precedence |
+| 3 | `curl -s http://127.0.0.1:3000/` | `Hello, World!\n` (text, 200) | Root path catch-all |
+| 4 | `curl -s http://127.0.0.1:3000/any/path` | `Hello, World!\n` (text, 200) | Arbitrary path catch-all |
+| 5 | `curl -s -X DELETE http://127.0.0.1:3000/foo/bar` | `Hello, World!\n` (text, 200) | DELETE method support |
+| 6 | `curl -s -X PUT http://127.0.0.1:3000/some/resource` | `Hello, World!\n` (text, 200) | PUT method support |
+| 7 | `curl -s -X OPTIONS http://127.0.0.1:3000/health` | Empty body + `Allow` header (200) | Flask auto-OPTIONS |
 
-**Related Documentation Found (for context):**
-
-- `blitzy/documentation/Technical Specifications.md` — Contains the full behavioral contract for the `/health` endpoint, route precedence rules, and scope boundaries. Useful as an authoritative source for API documentation content.
-- `blitzy/documentation/Project Guide.md` — Contains validation results (7/7 curl tests), development commands, and operational context. Useful as a source for deployment guide and troubleshooting content.
+The automated test suite will convert these manual tests into repeatable pytest assertions and extend coverage beyond the 7-test baseline.
 
 ### 0.2.3 Web Search Research Conducted
 
-- **Flask README best practices**: Research confirms that comprehensive Flask project READMEs typically include: project description, prerequisites, installation, configuration, usage/running, API reference with examples, project structure, testing, deployment, and contributing sections. The existing README covers only 3 of these 10 recommended sections.
-- **Inline code documentation for Python/Flask**: PEP 257 docstring conventions and PEP 8 inline comment guidelines are the established standards. The existing `app.py` already follows these for function-level docstrings but lacks architectural decision annotations.
-- **API documentation for minimal Flask services**: For single-file Flask applications without a dedicated API documentation framework, embedding the API reference directly in the README (with curl examples and response tables) is the recommended approach over introducing a documentation framework like Swagger or Sphinx.
+Version compatibility research was performed to validate the testing stack against the project's Python 3.13+ and Flask 3.1.3 runtime:
 
+- **pytest 9.0.x + Python 3.13:** Confirmed compatible — pytest changelog entry `#12334` explicitly documents Python 3.13 support, and entry `#12497` includes Python 3.13-specific test fixes
+- **pytest-cov 7.1.0 + Python 3.13:** Confirmed compatible — the underlying `coverage` package is listed as Python 3.13-ready on pyreadiness.org
+- **Flask 3.1.3 test_client() + pytest:** Flask's test client is a stable, built-in feature that operates as an in-process WSGI client with no external dependencies; fully compatible with any test runner
+- **No version conflicts detected** between the installed testing stack (pytest 9.0.2, pytest-cov 7.1.0) and the project runtime (Python 3.13.12, Flask 3.1.3, Werkzeug 3.1.7)
 
-## 0.3 Documentation Scope Analysis
+## 0.3 Testing Scope Analysis
 
+### 0.3.1 Test Target Identification
 
-### 0.3.1 Code-to-Documentation Mapping
+**Primary code to be tested:**
 
-**Module: `app.py` (73 lines — sole source file)**
+- **Module:** `app` at `app.py` — requires HTTP contract tests, configuration tests, and lifecycle tests
+  - **`health()` function** (lines 42–48): GET-only route handler returning JSON — requires happy path and content-type tests
+  - **`catch_all(path)` function** (lines 66–79): Universal handler for all methods/paths — requires multi-method, multi-path, body, and status tests
+  - **Configuration constants** `HOST`, `PORT`, `METHODS` (lines 30–33): Hardcoded values — requires value assertion tests
+  - **`app` Flask instance** (line 25): Application object — requires importability and route registration tests
+  - **`if __name__ == '__main__'` block** (lines 92–93): Entry point guard — requires lifecycle/startup mock tests
 
-| Code Element | Lines | Public API | Current Documentation | Documentation Needed |
-|--------------|-------|------------|----------------------|---------------------|
-| Module docstring | 1–10 | N/A | Present — describes purpose and behavior | Minor enhancement — add migration context note |
-| Flask imports | 12 | N/A | No comment | Inline explanation of each imported symbol (`Flask`, `Response`, `jsonify`) |
-| `app = Flask(__name__)` | 17 | Application instance | Block comment present | Inline explanation of `__name__` parameter purpose |
-| `HOST = '127.0.0.1'` | 22 | Configuration | Block comment present | Inline note explaining localhost-only binding rationale |
-| `PORT = 3000` | 23 | Configuration | Block comment present | Inline note explaining Node.js port parity |
-| `METHODS` list | 24 | Configuration | Block comment present | Inline note listing all 7 methods with their purpose |
-| `health()` function | 30–37 | `GET /health` → JSON | PEP 257 docstring present | Full API reference in README; inline enhancement with routing precedence note |
-| `catch_all(path)` function | 48–62 | `ANY /*` → text | PEP 257 docstring present | Full API reference in README; inline enhancement explaining dual-decorator pattern |
-| Dual-decorator pattern | 48–49 | Routing config | Block comment present (lines 40–47) | Enhanced inline explanation of why two decorators are needed |
-| Entry point guard | 71–72 | Server startup | Block comment present (lines 65–70) | Inline explanation of `__main__` guard and `app.run()` parameters |
+**Existing test file mapping:**
 
-**Configuration Options Requiring Documentation:**
+| Source File | Existing Test File | Test Categories Present |
+|---|---|---|
+| `app.py` | None | None — 0% automated coverage |
 
-| Config Element | Source | Documented in README | Documentation Needed |
-|----------------|--------|---------------------|---------------------|
-| `HOST = '127.0.0.1'` | `app.py` line 22 | Not explicitly | Add to Configuration section in README |
-| `PORT = 3000` | `app.py` line 23 | Mentioned in Usage section | Add to Configuration section with rationale |
-| `METHODS` list | `app.py` line 24 | Not mentioned | Document supported HTTP methods in API Reference |
-| `Flask==3.1.3` | `requirements.txt` | Listed in Tech Stack | Document pin strategy and transitive dependencies |
+**Dependencies requiring mocking:**
 
-**Endpoints Requiring API Documentation:**
+- **`app.run()`** — Must be mocked when testing the `__main__` startup path to prevent binding a real TCP port during test execution
+- **`subprocess` execution** — If testing `python app.py` as a subprocess, may require process management to validate startup banner output
+- **No external services to mock** — The application makes zero outbound connections
+- **No database interactions to stub** — The application has no persistence layer
+- **No file system operations to virtualize** — The application performs no file I/O
 
-| Endpoint | Method(s) | Handler | Response Type | Current API Docs | Docs Needed |
-|----------|-----------|---------|---------------|-----------------|-------------|
-| `/health` | GET | `health()` | `application/json` — `{"status": "ok"}` | None in README | Full API reference with curl example, response schema, status codes |
-| `/` and `/<path:path>` | GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS | `catch_all(path)` | `text/plain` — `Hello, World!\n` | One-line mention in README | Full API reference with multi-method examples, response format, routing behavior |
+### 0.3.2 Version Compatibility Research
 
-### 0.3.2 Documentation Gap Analysis
+Based on the project's Python 3.13.12 runtime and Flask 3.1.3 framework, the recommended and verified testing stack is:
 
-Given the requirements and repository analysis, documentation gaps include:
+| Tool | Package | Version | Compatibility Rationale |
+|---|---|---|---|
+| Testing framework | `pytest` | 9.0.2 | Python 3.13 support confirmed via changelog #12334; dropped Python 3.9 (aligns with Flask 3.1.x minimum) |
+| Coverage measurement | `pytest-cov` | 7.1.0 | Wraps `coverage` 7.13.5 which has confirmed Python 3.13 support |
+| Flask test client | `flask[test_client]` | 3.1.3 (built-in) | Native Flask feature; no additional dependency required |
+| Mocking library | `unittest.mock` | stdlib | Python 3.13 standard library; zero-dependency |
+| Subprocess testing | `subprocess` | stdlib | Python 3.13 standard library; used only for narrow lifecycle tests |
 
-**Critical Gaps (required by user):**
+**Version conflict analysis:** No conflicts detected. The pytest 9.0.x series requires Python ≥ 3.10, which is satisfied by the project's Python 3.13.12 runtime. Flask 3.1.3 requires Werkzeug ≥ 3.1, and the installed Werkzeug 3.1.7 satisfies this constraint. All components are mutually compatible at the verified versions.
 
-| Gap Category | Current State | Required State | Files Affected |
-|--------------|---------------|----------------|----------------|
-| Comprehensive README | 36-line minimal README with 5 sections | Full-featured README with 10+ sections | `README.md` |
-| Setup instructions | Basic 4-command install flow | Complete setup with prerequisites validation, verification, troubleshooting | `README.md` |
-| API documentation | Zero API docs in README | Full endpoint reference with examples for both routes | `README.md` |
-| Deployment guide | Single `python app.py` command | Complete deployment section with startup, verification, configuration, shutdown | `README.md` |
-| Inline code explanations | Docstrings and block comments only | Enhanced inline annotations at all key decision points | `app.py` |
+## 0.4 Test Implementation Design
 
-**Significant Gaps (inferred from analysis):**
+### 0.4.1 Test Strategy Selection
 
-| Gap Category | Current State | Required State | Files Affected |
-|--------------|---------------|----------------|----------------|
-| Project structure documentation | Not documented | File-by-file explanation of repository contents | `README.md` |
-| Legacy file explanation | No mention of empty Node.js files | Clear documentation of migration context and placeholder status | `README.md` |
-| Transitive dependency documentation | Only Flask mentioned | Full dependency tree with active vs. unused distinction | `README.md` |
-| Troubleshooting guide | Not present | Common issues (port conflict, missing Flask, Python version) and solutions | `README.md` |
-| Architecture overview | Not in README | Brief architecture description with routing flow | `README.md` |
+**Test types to implement:**
 
-**Undocumented Public APIs:** 2 of 2 endpoints lack README documentation (0% API coverage in user-facing docs)
+- **Integration-style HTTP contract tests:** Focus on exercising the Flask application through its `test_client()` as an in-process WSGI client. These form the core of the test suite and validate all externally visible HTTP behavior with real routing, real handlers, and real response generation — no mocking of Flask internals.
+- **Unit-style configuration tests:** Small, fast assertions on the hardcoded constants `HOST`, `PORT`, and `METHODS` to detect accidental value changes during future maintenance.
+- **Lifecycle/import tests:** Minimal tests that verify the `__main__` guard prevents server startup on import, and that `app.run()` is invoked with correct parameters when the module is executed directly. These use `unittest.mock.patch` to isolate the startup path.
 
-**Missing User Guides:** Setup verification steps, troubleshooting guide, and server operation guide are entirely absent.
+**Test types explicitly excluded per user instructions:**
 
-**Outdated Documentation:** None — the existing README content is accurate but incomplete.
+- Browser/UI tests — No frontend exists
+- Database tests — No persistence layer exists
+- External service tests — No outbound connections exist
+- Load/performance tests — No SLAs or concurrency requirements
+- Deployment/infrastructure tests — No CI/CD pipeline in scope
+- End-to-end tests requiring a running server — Flask test client provides in-process coverage
 
+### 0.4.2 Test Case Blueprint
 
-## 0.4 Documentation Implementation Design
-
-
-### 0.4.1 Documentation Structure Planning
-
-Since this is a minimal single-file Flask application, the documentation strategy consolidates all content within a significantly expanded `README.md` rather than introducing a dedicated `docs/` folder or documentation framework. This approach is appropriate because the project has a single source file, one dependency, and two endpoints — a multi-file documentation structure would introduce unnecessary complexity.
-
-**Planned README.md Structure:**
-
-| Section | Heading Level | Content Summary |
-|---------|---------------|-----------------|
-| Title and Description | `#` | Project name, badges, expanded one-paragraph description |
-| Overview | `##` | Purpose, Backprop integration context, capabilities |
-| Architecture | `##` | System design overview with Mermaid routing diagram |
-| Project Structure | `##` | File-by-file repository explanation including legacy placeholders |
-| Prerequisites | `##` | Python 3.13+, pip, venv — with verification commands |
-| Installation | `##` | Step-by-step setup with verification and expected output |
-| Running the Server | `##` | Startup command, expected output, endpoint verification |
-| API Reference | `##` | Complete endpoint documentation (two sub-sections) |
-| — Health Check Endpoint | `###` | GET /health — request, response, curl example |
-| — Catch-All Handler | `###` | ANY /* — request, response, multi-method examples |
-| Configuration | `##` | HOST, PORT, METHODS constants reference table |
-| Technology Stack | `##` | Expanded with full dependency tree and active/unused status |
-| Troubleshooting | `##` | Common issues (port conflict, missing Flask, Python version) |
-| License | `##` | License information if applicable |
-
-**Inline Code Enhancement Plan for `app.py`:**
-
-| Code Region | Lines | Current State | Enhancement |
-|-------------|-------|---------------|-------------|
-| Module docstring | 1–10 | Purpose and behavior described | Add migration context note |
-| Import statement | 12 | No inline comment | Inline comment for each imported symbol |
-| Application instance | 14–17 | Block comment present | Inline explanation of `Flask(__name__)` |
-| Configuration constants | 19–24 | Block comment present | Inline rationale for each value |
-| Health endpoint | 27–37 | Docstring present | Routing precedence note |
-| Catch-all handler | 40–62 | Docstring + block comment | Enhanced dual-decorator explanation |
-| Entry point guard | 65–72 | Block comment present | `__main__` pattern explanation |
-
-### 0.4.2 Content Generation Strategy
-
-**Information Extraction Approach:**
-
-- Extract API signatures and response formats from `app.py` lines 30–37 (health endpoint) and lines 48–62 (catch-all handler) using direct code inspection.
-- Generate curl command examples by referencing the 7 verified test scenarios documented in `blitzy/documentation/Project Guide.md` and the routing behavior matrix from `blitzy/documentation/Technical Specifications.md`.
-- Create the architecture overview diagram by mapping the component relationships identified in `app.py` (Flask instance → route handlers → Werkzeug server).
-- Derive troubleshooting scenarios from the startup failure modes documented in the Technical Specifications (ImportError, OSError for port conflict, Python version incompatibility).
-
-**Documentation Standards:**
-
-- Markdown formatting: GitHub-Flavored Markdown with ATX-style headers (`#`, `##`, `###`)
-- Code examples: Fenced code blocks with `bash` or `python` language identifiers for syntax highlighting
-- Mermaid diagram integration: Use fenced mermaid code blocks for the architecture diagram within README.md (GitHub natively renders Mermaid)
-- Curl examples: Complete, copy-paste-ready commands with expected output shown beneath
-- Source citations: Reference specific `app.py` line numbers in parenthetical annotations (e.g., "defined at `app.py:22`")
-- Tables: Used for API response documentation, configuration reference, and project structure
-
-### 0.4.3 Diagram and Visual Strategy
-
-**Mermaid Diagrams to Create:**
-
-| Diagram | Type | Location | Purpose |
-|---------|------|----------|---------|
-| Request Routing Flow | Flowchart | `README.md` — Architecture section | Visualize how incoming HTTP requests are routed to either the health handler or catch-all handler |
-
-**Diagram Specification — Request Routing Flow:**
-
-```mermaid
-flowchart LR
-    Request["HTTP Request"] --> Decision{"GET /health?"}
-    Decision -->|Yes| Health["200 OK JSON"]
-    Decision -->|No| CatchAll["200 OK Plain Text"]
+```
+Component: health() handler (app.py:42-48)
+Test Categories:
+- Happy path: GET /health returns {"status":"ok"}, HTTP 200, application/json
+- Edge cases: GET /health response JSON structure contains exactly one key "status"
+- Error cases: Non-GET methods on /health route to catch-all (not health handler)
 ```
 
-This single focused diagram is appropriate for the README context — it conveys the core routing logic without overwhelming developers with framework-level detail that belongs in the Technical Specifications.
+```
+Component: catch_all(path) handler (app.py:66-79)
+Test Categories:
+- Happy path: GET / returns "Hello, World!\n", HTTP 200, text/plain
+- Edge cases: Deeply nested paths (/a/b/c/d/e), paths with special chars, root vs sub-paths
+- Error cases: N/A — handler is unconditional; all requests return identical response
+- Multi-method: GET, POST, PUT, DELETE, PATCH produce identical catch-all response
+- Body precision: Exact 14-byte body with trailing newline
+```
 
+```
+Component: Route precedence (Flask routing specificity)
+Test Categories:
+- Happy path: GET /health resolves to health handler (JSON)
+- Edge cases: POST /health, DELETE /health resolve to catch-all (plain text)
+- Special: OPTIONS /health triggers Flask auto-OPTIONS (empty body, Allow header)
+- Special: HEAD behavior on catch-all paths
+```
 
-## 0.5 Documentation File Transformation Mapping
+```
+Component: Configuration constants (app.py:30-33)
+Test Categories:
+- Happy path: HOST == '127.0.0.1', PORT == 3000, METHODS == 7-item list
+- Edge cases: METHODS list contains exactly the expected method strings
+```
 
+```
+Component: __main__ guard and startup (app.py:92-93)
+Test Categories:
+- Happy path: import app does not call app.run()
+- Happy path: __main__ execution calls app.run(host='127.0.0.1', port=3000)
+- Edge cases: Module can be imported multiple times safely
+```
 
-### 0.5.1 File-by-File Documentation Plan
+### 0.4.3 Existing Test Extension Strategy
 
-The following table maps every documentation file to be created, updated, or used as reference material. The target documentation file is listed first in each row.
+Not applicable — no existing test files to extend, refactor, or fix. The entire test suite is created from scratch.
 
-| Target Documentation File | Transformation | Source Code/Docs | Content/Changes |
-|---------------------------|----------------|------------------|-----------------|
-| `README.md` | **UPDATE** | `README.md`, `app.py`, `requirements.txt` | Complete restructure and expansion: add Overview, Architecture (with Mermaid routing diagram), Project Structure, expanded Prerequisites with verification commands, expanded Installation with expected output, Running the Server (deployment guide with startup/verification/shutdown), API Reference with two sub-sections (GET /health and catch-all handler with curl examples and response tables), Configuration reference table for HOST/PORT/METHODS, expanded Technology Stack with transitive dependency tree, and Troubleshooting section for common issues |
-| `app.py` | **UPDATE** | `app.py` | Add enhanced inline code explanations: import line annotations for Flask/Response/jsonify, rationale comments for HOST (localhost-only binding), PORT (Node.js parity), METHODS (comprehensive HTTP method coverage), route registration ordering note before health endpoint, dual-decorator pattern explanation enhancement, and entry point guard pattern annotation. No functional logic changes. |
-| `blitzy/documentation/Technical Specifications.md` | **REFERENCE** | N/A | Use as authoritative source for API behavioral contract (routing precedence rules, response formats, endpoint specifications) and system architecture details when generating README content |
-| `blitzy/documentation/Project Guide.md` | **REFERENCE** | N/A | Use as source for validated curl test commands (7/7 scenarios), development workflow commands, and troubleshooting context when generating README content |
+### 0.4.4 Test Data and Fixtures Design
 
-### 0.5.2 New Documentation Sections Detail
+**Required test data structures:** None — all responses are static and deterministic. Expected values are inline constants within test assertions.
 
-No new standalone documentation files are being created. All new documentation is embedded within the expanded `README.md`. The following details the new sections:
+**Fixture organization strategy:**
 
-**File: `README.md` — Section: Overview**
-- Type: Project Description
-- Source Code: `app.py` lines 1–10 (module docstring), `README.md` line 3 (existing description)
-- Content:
-    - Expanded project description explaining purpose as Backprop integration test harness
-    - Capabilities summary (health check endpoint + universal catch-all)
-    - Migration context (Node.js → Python/Flask)
-    - Intended audience (developers, DevOps, automated pipelines)
-- Key Citations: `app.py:1-10`, `README.md`
+- A single shared `client` fixture in `tests/conftest.py` provides the Flask `test_client()` instance to all test functions
+- The fixture creates the client once per test function (function scope) for clean isolation
+- No complex setup/teardown, database seeding, or environment variable configuration is needed
 
-**File: `README.md` — Section: Architecture**
-- Type: System Overview
-- Source Code: `app.py` lines 17–62 (Flask instance, routes)
-- Content:
-    - Brief architectural description (single-file monolithic Flask microserver)
-    - Mermaid flowchart showing request routing decision
-    - Component summary (Flask instance, health handler, catch-all handler, Werkzeug server)
-- Key Citations: `app.py:17`, `app.py:30-37`, `app.py:48-62`
+**Mock object specifications:**
 
-**File: `README.md` — Section: Project Structure**
-- Type: Repository Guide
-- Source Code: All root files
-- Content:
-    - File tree with description of each file
-    - Explanation of active files (`app.py`, `requirements.txt`, `README.md`) vs. legacy placeholders (`server.js`, `package.json`, `package-lock.json`)
-    - Explanation of `blitzy/documentation/` purpose
-- Key Citations: Root directory listing
+- `unittest.mock.patch('app.app.run')` — Used in lifecycle tests to intercept `app.run()` and verify it receives `host='127.0.0.1'` and `port=3000` without actually starting a server
+- `unittest.mock.patch('app.app.run')` combined with `runpy.run_module` — Used to simulate `python app.py` execution within the test process
 
-**File: `README.md` — Section: API Reference**
-- Type: API Documentation
-- Source Code: `app.py` lines 30–37 (health endpoint), `app.py` lines 48–62 (catch-all)
-- Sections:
-    - Health Check Endpoint: method, path, response content-type, response body, status code, curl example with expected output
-    - Catch-All Handler: supported methods, path pattern, response content-type, response body, status code, multi-method curl examples
-    - Routing Behavior Matrix: table showing which handler serves each request pattern
-- Key Citations: `app.py:30-37`, `app.py:48-62`, `app.py:24`
+**Test database/state management approach:** Not applicable — the application is completely stateless with zero persistence.
 
-**File: `README.md` — Section: Running the Server (Deployment Guide)**
-- Type: Deployment/Operations
-- Source Code: `app.py` lines 71–72 (entry point), `app.py` lines 22–24 (config)
-- Content:
-    - Server startup command and expected terminal output
-    - Endpoint verification curl commands
-    - Configuration constants reference
-    - Server shutdown instructions (Ctrl+C)
-    - Important note: development server only, not production-intended
-- Key Citations: `app.py:22-24`, `app.py:71-72`
+## 0.5 Test File Transformation Mapping
 
-**File: `README.md` — Section: Troubleshooting**
-- Type: Operations Guide
-- Source Code: Derived from `blitzy/documentation/Technical Specifications.md` error analysis
-- Content:
-    - Port 3000 already in use (OSError resolution)
-    - Flask not installed (ImportError resolution)
-    - Python version incompatibility (SyntaxError resolution)
-    - Verification commands for each scenario
-- Key Citations: `app.py:12` (imports), `app.py:72` (app.run), `requirements.txt`
+### 0.5.1 File-by-File Test Plan
 
-### 0.5.3 Documentation Files to Update Detail
+| Target Test File | Transformation | Source File/Test | Purpose/Changes |
+|---|---|---|---|
+| `tests/__init__.py` | CREATE | N/A | Empty init file to make `tests/` a proper Python package for pytest discovery |
+| `tests/conftest.py` | CREATE | `app.py` | Shared pytest fixtures: Flask `test_client()` fixture providing the `client` object to all test functions |
+| `tests/test_http_contract.py` | CREATE | `app.py` | Comprehensive HTTP contract tests covering health check endpoint, catch-all handler, route precedence, multi-method behavior, content-type assertions, and body-byte precision |
+| `tests/test_lifecycle.py` | CREATE | `app.py` | Import safety tests, `__main__` guard verification, `app.run()` mock-based startup parameter validation, and configuration constant assertions |
 
-**`README.md` — Complete Restructure and Expansion**
+All files are **CREATE** mode — no existing test files to UPDATE, DELETE, or use as REFERENCE.
 
-| Existing Section | Action | Changes |
-|-----------------|--------|---------|
-| `# hao-backprop-test` (heading) | Retain | Keep project title |
-| One-line description | Expand | Extend into a full paragraph with purpose, capabilities, and context |
-| `## Prerequisites` | Expand | Add verification commands (`python3 --version`, `pip --version`), clarify Python 3.13+ requirement |
-| `## Installation` | Expand | Add expected output for each command, add post-install verification step, add virtual environment activation reminder for different shells |
-| `## Usage` | Replace | Rename to "Running the Server" and expand with startup output, verification curl commands, shutdown instructions |
-| `## Technology Stack` | Expand | Add transitive dependency tree table with active/unused status for each package |
-| (new) `## Overview` | Create | Add after title — expanded project description |
-| (new) `## Architecture` | Create | System design with Mermaid diagram |
-| (new) `## Project Structure` | Create | File tree with descriptions |
-| (new) `## API Reference` | Create | Complete endpoint documentation with examples |
-| (new) `## Configuration` | Create | Constants reference table |
-| (new) `## Troubleshooting` | Create | Common issues and solutions |
+### 0.5.2 New Test Files Detail
 
-**`app.py` — Inline Code Explanation Enhancements**
+**`tests/__init__.py`** — Package marker
 
-| Location | Current Comment | Enhancement |
-|----------|----------------|-------------|
-| Line 12 (imports) | None | Add `# Flask: web framework; Response: custom HTTP responses; jsonify: JSON helper` |
-| Lines 22–24 (constants) | Block comment: "match the original Node.js server.js values" | Add per-line annotations explaining localhost-only security rationale, Node.js port parity, and comprehensive method list purpose |
-| Before line 30 (health route) | Block comment about programmatic verification | Add note: this route is registered FIRST to ensure Flask routing precedence over the catch-all |
-| Lines 48–49 (dual decorator) | Block comment explaining the pattern | Enhance with concise explanation of why two decorators are required (root path vs. subpaths) |
-| Line 62 (Response construction) | Part of existing docstring | Add inline note about explicit trailing newline for Node.js behavioral parity |
-| Line 72 (app.run) | Block comment about equivalent to Node.js server.listen | Add inline note about Werkzeug development server limitations |
+- Purpose: Ensures `tests/` is recognized as a Python package for pytest's default test discovery
+- Content: Empty file (no code)
 
-### 0.5.4 Cross-Documentation Dependencies
+**`tests/conftest.py`** — Shared fixtures
 
-| Dependency Type | Source | Target | Impact |
-|-----------------|--------|--------|--------|
-| API contract | `app.py` route definitions | `README.md` API Reference | API docs must exactly match implemented routes |
-| Configuration values | `app.py` lines 22–24 | `README.md` Configuration section | Config docs must reflect hardcoded values |
-| Startup behavior | `app.py` lines 71–72 | `README.md` Running the Server section | Deployment docs must match actual startup |
-| Dependency version | `requirements.txt` | `README.md` Technology Stack | Version references must be synchronized |
-| Inline comments | `app.py` comments | `README.md` Architecture section | Architecture description must align with inline explanations |
+- Fixture: `client` — returns `app.test_client()` for in-process HTTP testing
+- Scope: Function-level (default) for clean per-test isolation
+- Dependencies: Imports `app` from `app.py`
+- No complex setup, teardown, or parameterization
 
+**`tests/test_http_contract.py`** — HTTP behavior tests
+
+- Test categories covered:
+  - **Health check happy path:** `GET /health` → JSON `{"status":"ok"}`, status 200, content-type `application/json`
+  - **Health check JSON structure:** Response contains exactly `{"status": "ok"}`
+  - **Catch-all root path:** `GET /` → `Hello, World!\n`, status 200, content-type `text/plain`
+  - **Catch-all arbitrary paths:** `GET /any/path`, `GET /a/b/c/d/e`, `GET /foo/bar`
+  - **Catch-all exact body:** 14 bytes, exact byte content `b'Hello, World!\n'`
+  - **Route precedence:** `GET /health` → health handler JSON; `POST /health` → catch-all plain text; `DELETE /health` → catch-all plain text
+  - **Multi-method catch-all:** `POST /`, `PUT /resource`, `DELETE /foo`, `PATCH /item` all return catch-all response
+  - **HEAD method behavior:** `HEAD /path` returns correct headers with empty body (HTTP HEAD semantics)
+  - **OPTIONS on /health:** Flask auto-OPTIONS returns empty body with `Allow` header listing supported methods
+  - **Content-type precision:** Health returns `application/json`; catch-all returns `text/plain` (with charset)
+- Mock dependencies: None — all tests use real Flask routing and response generation
+- Assertions focus: Status codes, response body bytes, content-type headers, JSON structure, `Allow` header presence
+
+**`tests/test_lifecycle.py`** — Import and startup behavior tests
+
+- Test categories covered:
+  - **Import safety:** `import app` succeeds without starting a server; `app.app` is a Flask instance
+  - **Configuration constants:** `app.HOST == '127.0.0.1'`, `app.PORT == 3000`, `app.METHODS` contains all 7 HTTP methods
+  - **`__main__` guard:** `app.run()` is NOT called on import; IS called with correct args when executed as `__main__`
+  - **Flask app identity:** `app.app.name` equals the expected module name
+- Mock dependencies: `unittest.mock.patch` on `app.app.run` for startup path testing
+- Assertions focus: Constant values, mock call arguments, type checks, absence of side effects on import
+
+### 0.5.3 Test Configuration Updates
+
+No existing test configuration files exist. The following minimal configuration approach is recommended:
+
+- **`pytest.ini` or `pyproject.toml` `[tool.pytest]` section:** Not strictly required — pytest's default discovery will find `tests/test_*.py` files automatically. May be added if custom settings are needed (e.g., `testpaths`, `addopts`).
+- **`.coveragerc`:** Not required — coverage configuration can be passed via command-line flags (`--cov=app --cov-report=term-missing`). May be added for convenience if persistent coverage settings are desired.
+- **No test runner config changes** — pytest operates with zero configuration for this project structure.
+
+### 0.5.4 Cross-File Test Dependencies
+
+- **Shared fixtures:** `tests/conftest.py` provides the `client` fixture consumed by `tests/test_http_contract.py`
+- **Direct imports from `app.py`:** Both `tests/test_http_contract.py` and `tests/test_lifecycle.py` import from `app` (the `app` Flask instance and configuration constants)
+- **No shared mock objects** — Mocking is limited to `tests/test_lifecycle.py` and uses standard library `unittest.mock`
+- **No test utilities or helper modules** — The test suite is small enough that a dedicated helpers module would be overengineering
+- **Import path:** Tests import `app` directly since `app.py` resides at the repository root and pytest adds the root to `sys.path` by default
 
 ## 0.6 Dependency Inventory
 
+### 0.6.1 Testing Dependencies
 
-### 0.6.1 Documentation Dependencies
+All testing packages are development-only dependencies. They are not required for production runtime and should not be added to `requirements.txt`.
 
-This documentation task does not require any additional documentation tooling or packages to be installed. The project uses plain Markdown (GitHub-Flavored Markdown) for all documentation, and Mermaid diagrams are rendered natively by GitHub. No documentation generator (mkdocs, Sphinx, Docusaurus) is needed or appropriate for this minimal project.
+| Registry | Package Name | Version | Purpose |
+|---|---|---|---|
+| PyPI | `pytest` | 9.0.2 | Testing framework — test discovery, execution, assertion introspection, fixtures |
+| PyPI | `pytest-cov` | 7.1.0 | Coverage measurement plugin — wraps `coverage` library for pytest integration |
+| PyPI | `coverage` | 7.13.5 | Line/branch coverage engine (transitive dependency of `pytest-cov`) |
+| stdlib | `unittest.mock` | (Python 3.13 stdlib) | Mock/patch utilities for isolating `app.run()` in lifecycle tests |
+| stdlib | `subprocess` | (Python 3.13 stdlib) | Process execution for optional startup banner verification |
+| stdlib | `runpy` | (Python 3.13 stdlib) | Module execution simulation for `__main__` guard testing |
+| stdlib | `json` | (Python 3.13 stdlib) | JSON parsing for health check response validation |
 
-**Runtime Dependencies (documented, not added):**
+**Existing production dependencies (unchanged):**
 
-The following table lists the project's actual runtime dependencies — these are the packages that must be accurately documented in the expanded README. Versions were verified by installing `Flask==3.1.3` in a Python 3.13.12 virtual environment.
+| Registry | Package Name | Version | Purpose |
+|---|---|---|---|
+| PyPI | `Flask` | 3.1.3 | Web framework — application core (pinned in `requirements.txt`) |
+| PyPI | `Werkzeug` | 3.1.7 | WSGI server and HTTP utilities (transitive dependency of Flask) |
+| PyPI | `Jinja2` | 3.1.6 | Template engine (transitive; unused by app) |
+| PyPI | `MarkupSafe` | 3.0.3 | HTML escaping (transitive; unused by app) |
+| PyPI | `itsdangerous` | 2.2.0 | Data signing (transitive; unused by app) |
+| PyPI | `click` | 8.3.1 | CLI framework (transitive; unused by app) |
+| PyPI | `blinker` | 1.9.0 | Signal dispatching (transitive; unused by app) |
 
-| Registry | Package Name | Version | Purpose | Active in Code |
-|----------|-------------|---------|---------|----------------|
-| PyPI | Flask | 3.1.3 | Web framework — application core | **Yes** — `app.py` line 12 |
-| PyPI | Werkzeug | 3.1.7 | WSGI server and HTTP utilities | **Yes** — powers `app.run()` |
-| PyPI | Jinja2 | 3.1.6 | Template rendering engine | No — no templates used |
-| PyPI | MarkupSafe | 3.0.3 | HTML/XML string escaping | No — no markup generation |
-| PyPI | itsdangerous | 2.2.0 | Cryptographic data signing | No — no sessions or tokens |
-| PyPI | click | 8.3.1 | CLI argument parsing framework | No — no CLI commands defined |
-| PyPI | blinker | 1.9.0 | Signal/event dispatching | No — no signal handlers |
+### 0.6.2 Import Updates
 
-**Documentation Tooling (native — no installation required):**
+**Test files requiring imports from `app.py`:**
 
-| Tool | Purpose | Status |
-|------|---------|--------|
-| GitHub-Flavored Markdown | README formatting, tables, code blocks | Built into GitHub rendering |
-| Mermaid (GitHub native) | Architecture and routing diagrams in README | Built into GitHub Markdown renderer |
-| Python inline comments/docstrings | Inline code explanations in `app.py` | Built into Python language |
+- `tests/conftest.py` — imports `app` (the Flask application instance) from the `app` module
+  - `from app import app`
+- `tests/test_http_contract.py` — uses the `client` fixture from `conftest.py`; no direct `app` import needed
+- `tests/test_lifecycle.py` — imports module-level constants and uses `unittest.mock.patch`
+  - `import app` (for constant access: `app.HOST`, `app.PORT`, `app.METHODS`)
+  - `from unittest.mock import patch`
+  - `import runpy` (for `__main__` simulation)
 
-### 0.6.2 Documentation Reference Updates
-
-No link transformation rules are required since the project has no existing cross-linked documentation files. The expanded `README.md` will be self-contained with all internal references using standard Markdown anchor links to sections within the same file.
-
-**Internal anchor links to be created:**
-
-| Link Source (in README.md) | Link Target (in README.md) | Purpose |
-|---------------------------|---------------------------|---------|
-| Table of Contents | All `##` sections | Navigation within comprehensive README |
-| API Reference intro | Configuration section | Reference to server binding details |
-| Troubleshooting items | Installation section | Link back to setup steps for resolution |
-| Architecture section | API Reference section | Cross-reference from design to endpoint details |
-
+**No import transformation rules required** — The application has a single module (`app.py`) at the repository root with no internal package structure to refactor. All imports follow the simple pattern `from app import <name>` or `import app`.
 
 ## 0.7 Coverage and Quality Targets
 
+### 0.7.1 Coverage Metrics
 
-### 0.7.1 Documentation Coverage Metrics
+- **Current automated coverage:** 0% (no test suite exists)
+- **Target coverage:** 90%+ line/function coverage of `app.py`, per user specification
+- **Practical achievable coverage:** 95–100% given the 93-line, fully deterministic, stateless application
 
-**Current Coverage Analysis:**
+**Coverage gaps to address:**
 
-| Coverage Dimension | Documented | Total | Coverage | Target |
-|--------------------|-----------|-------|----------|--------|
-| Public API endpoints documented in README | 0 | 2 | 0% | 100% |
-| Configuration options documented in README | 0 | 3 (HOST, PORT, METHODS) | 0% | 100% |
-| Source files with inline explanations | 0 (docstrings exist, inline explanations absent) | 1 (`app.py`) | 0% | 100% |
-| Repository files explained in Project Structure | 0 | 7 (app.py, README.md, requirements.txt, package.json, package-lock.json, server.js, blitzy/) | 0% | 100% |
-| Setup steps with verification | 0 | 4 (prerequisites, venv, install, run) | 0% | 100% |
-| Troubleshooting scenarios documented | 0 | 3 (port conflict, missing Flask, Python version) | 0% | 100% |
-| Dependency tree documented (direct + transitive) | 1 (Flask only in current README) | 7 | 14% | 100% |
+| Code Region | Lines | Current Coverage | Target Coverage | Test Strategy |
+|---|---|---|---|---|
+| Module imports and docstring | 1–18 | 0% | 100% (automatic on import) | Covered implicitly by any test that imports `app` |
+| Flask app instance creation | 25 | 0% | 100% | Covered implicitly by any test that imports `app` |
+| Configuration constants `HOST`, `PORT`, `METHODS` | 30–33 | 0% | 100% | Direct assertion tests in `test_lifecycle.py` |
+| `health()` handler | 42–48 | 0% | 100% | HTTP contract tests for `GET /health` |
+| `catch_all(path)` handler | 66–79 | 0% | 100% | HTTP contract tests for multiple methods/paths |
+| `if __name__ == '__main__'` block | 92–93 | 0% | 100% | Mock-based `__main__` guard test in `test_lifecycle.py` |
 
-**Coverage Gaps to Address:**
+**Focus areas for coverage:** The highest-priority coverage targets are the two route handlers (`health()` and `catch_all()`), which represent 100% of the application's externally visible HTTP behavior. The `__main__` block requires special handling via `runpy.run_module` or `unittest.mock.patch` since it only executes when the module is the entry point.
 
-| Area | Currently | Target | Action |
-|------|-----------|--------|--------|
-| API Reference | No endpoint documentation | 2/2 endpoints fully documented with curl examples | Create API Reference section in README |
-| Setup Guide | Basic 4-command flow | Complete flow with prerequisites check, verification, and expected output | Expand Installation section |
-| Deployment Guide | Single `python app.py` line | Full deployment section with config, verification, and operational notes | Create Running the Server section |
-| Inline Annotations | Block comments and docstrings only | Inline explanations at 6+ key decision points in `app.py` | Add inline comments in app.py |
-| Architecture Overview | Not in README | Mermaid diagram + prose description | Create Architecture section |
-| Project Structure | Not documented | All 7 root entries explained | Create Project Structure section |
-| Troubleshooting | Not present | 3+ common issue/solution pairs | Create Troubleshooting section |
+### 0.7.2 Test Quality Criteria
 
-### 0.7.2 Documentation Quality Criteria
-
-**Completeness Requirements:**
-
-- All public API endpoints (`GET /health` and catch-all) have: description, URL path, HTTP method(s), request format, response content-type, response body example, status codes, and at least one curl example with expected output
-- Setup guide includes: prerequisite version checks, virtual environment creation, dependency installation, and post-install verification
-- Deployment guide includes: startup command, expected terminal output, endpoint verification commands, and shutdown procedure
-- All inline code explanations reference the specific architectural decision being annotated
-- All configuration options (HOST, PORT, METHODS) have: name, value, purpose, and configurability status
-
-**Accuracy Validation:**
-
-- All curl examples must produce the exact output documented (verified against the 7/7 test scenarios in `blitzy/documentation/Project Guide.md`)
-- API response formats must exactly match the actual Flask handler implementations in `app.py`
-- Dependency versions must match the pinned version in `requirements.txt` and the resolved transitive versions from a fresh `pip install`
-- Configuration values in documentation must match the hardcoded constants in `app.py` lines 22–24
-
-**Clarity Standards:**
-
-- Technical accuracy with accessible language suitable for developers new to the project
-- Progressive disclosure: Overview → Architecture → Setup → Usage → API Reference → Advanced (Config, Troubleshooting)
-- Consistent terminology: "health check endpoint" (not "health route" or "health API"), "catch-all handler" (not "default route" or "fallback")
-- All code examples are copy-paste-ready with no manual substitution required
-
-**Maintainability:**
-
-- Source citations (`app.py:LineNumber`) embedded in documentation for traceability
-- Self-contained README requires no external documentation dependencies
-- Inline code comments in `app.py` are concise and will not become stale unless the code logic itself changes
-
-### 0.7.3 Example and Diagram Requirements
-
-| Requirement | Count | Details |
-|-------------|-------|---------|
-| Curl examples for `/health` endpoint | Minimum 1 | `curl -s http://127.0.0.1:3000/health` with JSON output |
-| Curl examples for catch-all handler | Minimum 2 | GET and POST to demonstrate method-agnostic behavior |
-| Routing behavior matrix | 1 table | 5+ rows showing request patterns and their matched handler |
-| Mermaid diagrams in README | 1 | Request routing flowchart |
-| Inline code annotations in `app.py` | Minimum 6 | One per key decision point (imports, config, health route, catch-all, dual-decorator, entry point) |
-| Configuration reference table | 1 | All 3 constants with values, types, and descriptions |
-| Dependency tree table | 1 | All 7 packages with version, purpose, and active status |
-| Troubleshooting entries | Minimum 3 | Port conflict, missing dependency, Python version |
-
+- **Assertion density:** Each test function should contain at least one explicit assertion, with HTTP contract tests typically asserting status code, content type, and response body together
+- **Test isolation:** Each test function operates independently using a fresh `test_client()` instance via the fixture; no shared state between tests; tests can run in any order
+- **Performance constraints:** The full test suite should execute in under 2 seconds — Flask's in-process `test_client()` requires no network I/O, and all responses are static
+- **Maintainability standards:**
+  - Test names clearly describe the behavior being verified (e.g., `test_get_health_returns_json_ok`)
+  - Tests verify stable external behavior (HTTP status, body, headers), not Flask internal implementation details
+  - Minimal mocking — only for the `__main__` startup path
+  - Parametrization used where it reduces duplication without harming readability (e.g., testing multiple HTTP methods against the catch-all)
+- **Repository pattern alignment:** Tests follow pytest idiomatic conventions with function-based tests, fixtures in `conftest.py`, and `assert` statements rather than `unittest.TestCase` class hierarchies
 
 ## 0.8 Scope Boundaries
 
-
 ### 0.8.1 Exhaustively In Scope
 
-**Documentation Files to Update:**
+**New test files:**
 
-| File Pattern | Action | Description |
-|-------------|--------|-------------|
-| `README.md` | UPDATE | Complete restructure and expansion with Overview, Architecture, Project Structure, Prerequisites, Installation, Running the Server, API Reference, Configuration, Technology Stack, Troubleshooting sections |
+- `tests/__init__.py` — Package marker for test discovery
+- `tests/conftest.py` — Shared Flask test client fixture
+- `tests/test_http_contract.py` — All HTTP endpoint and routing behavior tests
+- `tests/test_lifecycle.py` — Import safety, configuration constants, and startup behavior tests
 
-**Source Files to Update (inline documentation only):**
+**Test infrastructure files (if needed):**
 
-| File Pattern | Action | Description |
-|-------------|--------|-------------|
-| `app.py` | UPDATE (comments only) | Add enhanced inline code explanations at key decision points — import annotations, configuration rationale, routing precedence notes, dual-decorator explanation, entry point guard annotation. No functional logic changes. |
+- `pytest.ini` or equivalent section in `pyproject.toml` — Only if custom pytest configuration becomes necessary
+- `.coveragerc` — Only if persistent coverage settings are desired beyond CLI flags
 
-**Documentation Reference Sources:**
+**Source file under test:**
 
-| File Pattern | Action | Description |
-|-------------|--------|-------------|
-| `blitzy/documentation/Technical Specifications.md` | REFERENCE | Authoritative source for API behavioral contract, routing precedence rules, and system architecture |
-| `blitzy/documentation/Project Guide.md` | REFERENCE | Source for validated curl commands, development workflow, and troubleshooting scenarios |
-| `requirements.txt` | REFERENCE | Source for dependency version information |
+- `app.py` — Sole target of all test assertions (read-only; not modified)
 
-**Documentation Content Elements In Scope:**
+**Test execution commands:**
 
-- Comprehensive project overview with Backprop integration context
-- System architecture description with Mermaid routing diagram
-- Repository file structure documentation (all 7 root-level entries + blitzy/ subfolder)
-- Detailed prerequisites with version verification commands
-- Step-by-step installation guide with expected output for each step
-- Deployment/running guide with startup, verification, and shutdown procedures
-- Complete API reference for both endpoints (GET /health and catch-all)
-- Curl examples with expected output for all documented endpoints
-- Configuration constants reference (HOST, PORT, METHODS)
-- Full dependency tree table (1 direct + 6 transitive) with active/unused status
-- Troubleshooting section for common startup/runtime issues
-- Inline code annotations in `app.py` at 6+ key decision points
+- `pytest` — Run all tests
+- `pytest --cov=app --cov-report=term-missing` — Run with coverage measurement
+- `pytest -v` — Run with verbose output
 
 ### 0.8.2 Explicitly Out of Scope
 
-| Excluded Item | Category | Rationale |
-|---------------|----------|-----------|
-| Source code logic modifications in `app.py` | Code changes | This is a documentation-only task; functional behavior must remain identical |
-| New Python source files | Code changes | No new modules, tests, or configuration files are to be created |
-| New dependency additions | Dependencies | No documentation framework (mkdocs, Sphinx, etc.) to be added to `requirements.txt` |
-| CI/CD workflow modifications | DevOps | User rule: "Do not make any updates or changes in GitHub App to create or update a workflow" |
-| `.github/workflows/` files | DevOps | Explicitly excluded per user-specified rule |
-| Test file creation or modification | Testing | No pytest, unittest, or test files are part of this documentation task |
-| `package.json` / `package-lock.json` / `server.js` modifications | Legacy files | These are empty placeholders; documentation explains them but does not modify them |
-| `blitzy/documentation/` modifications | Reference docs | These files are used as reference only, not modified |
-| Documentation hosting or deployment setup | Infrastructure | No documentation site, GitHub Pages, or ReadTheDocs configuration |
-| Production deployment documentation | Operations | The server is explicitly not production-intended; deployment guide covers local development only |
-| API versioning or OpenAPI/Swagger specification | API docs | The project has no API versioning; a formal spec is inappropriate for a 2-endpoint test harness |
-| New `docs/` directory creation | Structure | All documentation is consolidated in `README.md` — no separate docs folder warranted for this project size |
-- Any items not explicitly listed in the "In Scope" section above
+**Source code modifications:**
 
+- `app.py` — Must NOT be modified; tests verify existing behavior as-is
+- `requirements.txt` — Must NOT be modified for production dependencies; testing dependencies are development-only
 
-## 0.9 Execution Parameters and Rules
+**Legacy/placeholder files:**
 
+- `server.js` — Empty Node.js placeholder; no testing relevance
+- `package.json` — Empty Node.js placeholder; no testing relevance
+- `package-lock.json` — Empty Node.js placeholder; no testing relevance
 
-### 0.9.1 Documentation-Specific Instructions
+**Documentation changes:**
 
-| Parameter | Value |
-|-----------|-------|
-| Documentation format | GitHub-Flavored Markdown (`.md`) |
-| Diagram format | Mermaid (rendered natively by GitHub) |
-| Documentation build command | N/A — no documentation generator; README renders directly on GitHub |
-| Documentation preview command | Open `README.md` in any Markdown previewer or push to GitHub |
-| Diagram generation command | N/A — Mermaid diagrams are embedded inline in Markdown |
-| Documentation deployment command | N/A — no separate documentation site |
-| Citation requirement | Every technical claim in README references source files with line numbers |
-| Style guide | Follow existing `README.md` conventions (GFM, ATX headers, fenced code blocks) |
-| Documentation validation | Manual review — verify all curl examples produce documented output |
-| Inline code style | PEP 8 inline comments (`# comment`), PEP 257 docstrings |
+- `README.md` — No modification required; minimal test-running instructions may be added only if explicitly requested
+- `blitzy/documentation/**` — Internal governance artifacts; not part of testing scope
 
-### 0.9.2 Rules for Documentation
+**Infrastructure and CI/CD:**
 
-The following rules and constraints govern this documentation task:
+- GitHub Actions or any CI/CD workflow creation/modification — Explicitly excluded per user rule ("Do not make any updates or changes in GitHub App to create or update a workflow")
+- Docker, containerization, or deployment configuration — Not in scope
+- Production WSGI server replacement — Not in scope
 
-**User-Specified Rules:**
+**Test categories excluded:**
 
-- **"Do not make any updates or changes in GitHub App to create or update a workflow."** — No CI/CD workflow files (`.github/workflows/`) may be created, modified, or referenced as targets. Documentation may describe the project's current state but must not include workflow configuration changes.
+- Browser/UI tests — No frontend exists
+- Database tests — No persistence layer exists
+- External service integration tests — No outbound connections exist
+- Load/performance/stress tests — No SLAs defined
+- Security/penetration tests — No security mechanisms to test
+- End-to-end tests requiring a real running server — Flask test client provides equivalent coverage
 
-**Inferred Documentation Rules (from project context):**
+**Out-of-scope enhancements:**
 
-- **No production claims:** All deployment documentation must explicitly state that the Flask development server (Werkzeug) is not suitable for production use. The README must not imply production readiness.
-- **Behavioral accuracy:** All API documentation (request patterns, response formats, status codes) must exactly match the implemented behavior in `app.py`. No aspirational or planned features may be documented as current capabilities.
-- **Version accuracy:** All dependency versions referenced in documentation must match `requirements.txt` (`Flask==3.1.3`) and the verified transitive dependency versions. No "latest" or approximate versions.
-- **No functional changes:** Inline code explanation enhancements to `app.py` must consist solely of comments and docstring updates. No changes to import statements, function signatures, route definitions, response construction, or control flow.
-- **Preserve existing conventions:** Enhanced inline comments in `app.py` must follow the established style: block comments using `# ---...---` separator lines, inline comments using `#`, and function docstrings using PEP 257 triple-quote format.
-- **Legacy file transparency:** Documentation must explain the presence of empty Node.js placeholder files (`server.js`, `package.json`, `package-lock.json`) to prevent developer confusion about the active technology stack.
-- **Self-contained README:** The comprehensive README must be fully self-contained — all essential information accessible without navigating to other files. The `blitzy/documentation/` files are internal references, not user-facing documentation.
+- Refactoring `app.py` architecture (e.g., splitting into multiple modules)
+- Adding new HTTP endpoints or modifying response behavior
+- Introducing environment variable configuration
+- Adding logging, monitoring, or observability features
+- Any functional code changes beyond test file creation
 
+## 0.9 Execution Parameters
 
-## 0.10 References
+### 0.9.1 Testing-Specific Instructions
 
+**Test execution command:**
 
-### 0.10.1 Repository Files and Folders Searched
+```bash
+pytest
+```
 
-The following files and folders were inspected during the analysis phase to derive the conclusions and mappings in this Agent Action Plan:
+**Coverage measurement command:**
 
-**Source Files Inspected (full content retrieved):**
+```bash
+pytest --cov=app --cov-report=term-missing
+```
 
-| File Path | Lines | Purpose in Analysis |
-|-----------|-------|---------------------|
-| `app.py` | 73 | Primary source file — analyzed for all code elements requiring documentation: routes, configuration constants, imports, docstrings, comments, entry point |
-| `README.md` | 36 | Existing documentation — analyzed for current coverage, structure, style conventions, and content gaps |
-| `requirements.txt` | 1 | Dependency manifest — verified pinned Flask version (`Flask==3.1.3`) for documentation accuracy |
-| `package.json` | 0 (empty) | Confirmed empty — documented as legacy Node.js placeholder requiring explanation in project structure |
-| `server.js` | 0 (empty) | Confirmed empty — documented as legacy Node.js placeholder requiring explanation in project structure |
+**Verbose execution (for debugging):**
 
-**Folders Inspected:**
+```bash
+pytest -v
+```
 
-| Folder Path | Children | Purpose in Analysis |
-|-------------|----------|---------------------|
-| Root (`/`) | 7 entries (4 files, 1 folder, 2 empty files) | Full repository structure discovery — identified all files requiring documentation |
-| `blitzy/` | 1 subfolder (`documentation/`) | Identified as documentation-only container — not user-facing |
-| `blitzy/documentation/` | 2 files | Identified reference documentation sources |
+**Single test execution pattern:**
 
-**Reference Documents Inspected (summary-level):**
+```bash
+pytest tests/test_http_contract.py::test_get_health_returns_json_ok
+```
 
-| File Path | Purpose in Analysis |
-|-----------|---------------------|
-| `blitzy/documentation/Technical Specifications.md` | Authoritative source for API behavioral contract, routing precedence rules, scope boundaries, architecture decisions, and constraint documentation |
-| `blitzy/documentation/Project Guide.md` | Source for validated test scenarios (7/7 curl tests), development commands, operational workflow, and troubleshooting context |
+**Run only HTTP contract tests:**
 
-### 0.10.2 Technical Specification Sections Consulted
+```bash
+pytest tests/test_http_contract.py
+```
 
-The following sections from the existing Technical Specification document were retrieved and analyzed:
+**Run only lifecycle tests:**
 
-| Section | Key Information Extracted |
-|---------|--------------------------|
-| 1.1 Executive Summary | Project purpose (Backprop integration test harness), stakeholders, value proposition, demo-level classification |
-| 1.2 System Overview | Migration history (Node.js → Flask), system capabilities (2 endpoints), component architecture, success criteria |
-| 1.3 Scope | In-scope features, out-of-scope items, future considerations including documentation updates |
-| 2.1 Feature Catalog | Feature details for F-001 (health check), F-002 (catch-all), F-003 (configuration), F-004 (server execution) |
-| 3.1 Technology Stack Overview | Complete stack inventory, migration context, transitive dependency identification |
-| 3.4 Open Source Dependencies | Direct dependency (Flask 3.1.3), transitive dependency tree (6 packages), pin strategy, management approach |
-| 4.2 Core Process Flows | Server startup sequence, HTTP request routing decision tree, endpoint process details |
-| 5.1 HIGH-LEVEL ARCHITECTURE | Monolithic single-file architecture, system boundaries, data flow, integration points |
-| 6.1 Core Services Architecture | Non-applicability assessment confirming minimal architecture, failure modes, recovery procedures |
-| 8.3 Deployment Environment | Local-only deployment, server configuration (hardcoded HOST/PORT), environment architecture |
+```bash
+pytest tests/test_lifecycle.py
+```
 
-### 0.10.3 External Research Conducted
+**Specific test patterns to follow in the repository:**
 
-| Search Query | Key Findings Applied |
-|-------------|---------------------|
-| "Flask README documentation best practices 2024" | Confirmed that comprehensive Flask READMEs should include 10+ sections; validated that embedding API docs directly in README is appropriate for single-file projects without requiring Swagger/Sphinx |
+- pytest function-based tests (no class hierarchy required given the project's minimal scope)
+- `conftest.py` for shared fixtures following pytest's automatic fixture discovery
+- Parametrization via `@pytest.mark.parametrize` where it reduces duplication for multi-method and multi-path scenarios
+- Standard `assert` statements with pytest's built-in assertion introspection for clear failure messages
 
-### 0.10.4 Attachments and External Resources
+**Excluded test categories per user instruction:**
 
-No user attachments (files, images, or Figma URLs) were provided for this task. All analysis was conducted against the repository codebase and the existing Technical Specification document.
+- No browser tests
+- No database tests
+- No external service tests
+- No load tests
+- No deployment/infrastructure tests
 
-### 0.10.5 Environment Verification
+**Environment setup requirements for tests:**
 
-| Component | Verified Version | Source |
-|-----------|-----------------|--------|
-| Python runtime | 3.13.12 | Installed via deadsnakes PPA per README "Python 3.13+" requirement |
-| Flask | 3.1.3 | Installed from PyPI per `requirements.txt` pin |
-| Werkzeug (transitive) | 3.1.7 | Resolved by pip during Flask installation |
-| Jinja2 (transitive) | 3.1.6 | Resolved by pip during Flask installation |
-| MarkupSafe (transitive) | 3.0.3 | Resolved by pip during Flask installation |
-| itsdangerous (transitive) | 2.2.0 | Resolved by pip during Flask installation |
-| click (transitive) | 8.3.1 | Resolved by pip during Flask installation |
-| blinker (transitive) | 1.9.0 | Resolved by pip during Flask installation |
+- Python 3.13+ virtual environment with `Flask==3.1.3`, `pytest`, and `pytest-cov` installed
+- Tests run from the repository root directory where `app.py` resides
+- No environment variables, secrets, or external services required
+- No database or file system state to initialize
 
+## 0.10 Special Instructions for Testing
+
+### 0.10.1 Testing-Specific Requirements
+
+The following directives are explicitly emphasized by the user and must govern all implementation decisions:
+
+- **Minimal change principle:** ONLY modify test files and test-related configurations. Do NOT modify `app.py`, `requirements.txt`, or any existing production file.
+- **Do NOT modify source code:** The application code in `app.py` must remain completely unchanged. Tests must verify existing behavior without requiring any refactoring, dependency injection adjustments, or visibility changes in the source.
+- **Follow real behavior over mocks:** Use the actual Flask `test_client()` for HTTP contract tests. Do not mock Flask routing or response generation — this would weaken contract confidence. Mocking is permitted only for isolating `app.run()` in the `__main__` startup path.
+- **Ensure tests run independently:** Each test function must be self-contained and produce the same result regardless of execution order. No shared mutable state between tests.
+- **Match existing code style and naming conventions:** Test files should follow Python/pytest conventions with descriptive function names (e.g., `test_get_health_returns_json_status_ok`), clear docstrings where helpful, and PEP 8 compliant formatting.
+- **Keep test infrastructure minimal:** The project is a 93-line single-file application. Test infrastructure (fixtures, helpers, configuration) should be proportionally minimal — no overengineered abstraction layers.
+- **Do NOT create or modify CI/CD workflows:** Per the user-specified implementation rule, no GitHub Actions workflow files or CI/CD pipeline definitions should be created, modified, or updated.
+- **Maintain backward compatibility:** The test suite must not alter any existing interface, API contract, or file. Running `pytest` should produce clean results without side effects on the application.
+- **Deterministic and fast:** All tests should be synchronous, deterministic, and complete in under 2 seconds total. No timing-dependent assertions, no real network calls, no flaky test patterns.
+
+### 0.10.2 Validation Process
+
+Testing implementation is considered complete and correct when all of the following criteria are satisfied:
+
+- All documented HTTP behaviors from the 7-test curl verification suite are covered by automated tests
+- Route precedence around `/health` is explicitly tested (GET → health handler; non-GET → catch-all)
+- Representative supported HTTP methods (`GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `HEAD`, `OPTIONS`) are tested against the catch-all
+- Import safety (`import app` does not start server) and startup behavior (`__main__` guard) are covered
+- All tests pass cleanly with `pytest` (exit code 0)
+- Coverage output from `pytest --cov=app --cov-report=term-missing` meets the 90%+ target
+- No production behavior has changed — `app.py` is byte-identical before and after test implementation
+- The test suite reproduces the existing manual curl validation logic in automated form
+- Intentionally changing a response body or route behavior in `app.py` causes at least one test to fail, confirming meaningful assertions
 
