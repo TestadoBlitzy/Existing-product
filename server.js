@@ -21,6 +21,8 @@
  * @module server
  */
 
+'use strict';
+
 // ---------------------------------------------------------------------------
 // 1. ENVIRONMENT SETUP — must be the very first require() call
 // ---------------------------------------------------------------------------
@@ -64,11 +66,14 @@ const gracefulShutdown = (signal) => {
     process.exit(0);
   });
 
-  // Force shutdown after 10 seconds to prevent hanging
+  // Force shutdown after 10 seconds to prevent hanging. The .unref() call
+  // allows the process to exit naturally once the server closes and all work
+  // completes, without waiting for this timeout to fire. If connections hang
+  // beyond 10 seconds, the timeout still triggers a forced exit.
   setTimeout(() => {
     logger.error('Could not close connections in time, forcefully shutting down');
     process.exit(1);
-  }, 10000);
+  }, 10000).unref();
 };
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
@@ -82,10 +87,14 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 // process terminates, providing diagnostic information for post-mortem
 // analysis in production environments.
 
-// Unhandled promise rejections — log but do not exit, as the rejection may
-// not be fatal. Node.js will emit a warning, and the application continues.
+// Unhandled promise rejections — log and initiate graceful shutdown. While
+// the rejection may not always be fatal, unhandled rejections indicate
+// unpredictable application state. Aligning with the uncaughtException handler
+// ensures consistent shutdown behavior. PM2 will automatically restart the
+// worker after the process exits.
 process.on('unhandledRejection', (reason, promise) => {
   logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  gracefulShutdown('UNHANDLED_REJECTION');
 });
 
 // Uncaught exceptions — log and exit immediately. The process is in an

@@ -81,6 +81,7 @@ npm run pm2:restart
 ├── .env.example           # Environment variable template
 ├── .gitignore             # Git ignore rules
 ├── package.json           # npm manifest
+├── package-lock.json      # Dependency lock file
 └── README.md              # This file
 ```
 
