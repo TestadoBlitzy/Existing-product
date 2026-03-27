@@ -15,6 +15,7 @@ app.get('/good-evening', (req, res) => {
   res.type('text').send('Good evening');
 });
 
+/* istanbul ignore next -- only executes when run directly via `node server.js` */
 if (require.main === module) {
   app.listen(port, hostname, () => {
     console.log(`Server running at http://${hostname}:${port}/`);
