@@ -1,4 +1,4 @@
-# Blitzy Project Guide — hao-backprop-test Documentation Overhaul
+# Blitzy Project Guide
 
 ---
 
@@ -6,54 +6,57 @@
 
 ### 1.1 Project Overview
 
-This project delivers a comprehensive documentation overhaul for the `hao-backprop-test` Flask HTTP microserver — a minimal 93-line Python application serving as a Backprop integration test harness. The scope is documentation-only: expanding the existing 36-line `README.md` into a 341-line comprehensive project document covering architecture, API reference, deployment guide, and troubleshooting, plus enhancing `app.py` with inline code explanations at 6 key decision points. No functional code changes were made. The target audience includes developers onboarding to the project, DevOps personnel, and automated pipelines interacting with the server's endpoints.
+This project delivers a **greenfield automated test suite** for a minimal 93-line Flask microserver (`app.py`) that serves as a Backprop integration test harness. The application had **zero automated test coverage** — all verification was performed manually via a 7-test curl suite. Blitzy agents created 4 test files (415 lines) containing 36 pytest assertions that automate and extend the manual verification, achieving 100% code coverage of `app.py`. No existing source code was modified. The test suite validates all HTTP contract behaviors, route precedence, multi-method support, content-type precision, configuration constants, import safety, and `__main__` guard lifecycle.
 
 ### 1.2 Completion Status
 
+| Metric | Value |
+|---|---|
+| **Total Project Hours** | 13 |
+| **Completed Hours (AI)** | 11 |
+| **Remaining Hours** | 2 |
+| **Completion Percentage** | 84.6% |
+
+**Calculation:** 11 completed hours / 13 total hours = **84.6% complete**
+
 ```mermaid
-pie title Project Completion
-    "Completed (AI)" : 14
-    "Remaining" : 2
+pie title Completion Status
+    "Completed (11h)" : 11
+    "Remaining (2h)" : 2
 ```
 
-| Metric | Value |
-|--------|-------|
-| **Total Project Hours** | 16 |
-| **Completed Hours (AI)** | 14 |
-| **Remaining Hours** | 2 |
-| **Completion Percentage** | **87.5%** |
-
-**Calculation:** 14 completed hours / (14 completed + 2 remaining) = 14 / 16 = **87.5% complete**
+> **Colors:** Completed = Dark Blue (#5B39F3), Remaining = White (#FFFFFF)
 
 ### 1.3 Key Accomplishments
 
-- [x] README.md expanded from 36 lines to 341 lines with 12 comprehensive sections
-- [x] API Reference created for both endpoints (`GET /health` and catch-all) with curl examples and routing behavior matrix
-- [x] Architecture section added with Mermaid request routing flowchart
-- [x] Deployment guide created with startup, verification, shutdown, and development-server-only warning
-- [x] Troubleshooting section added with 3 common issues (port conflict, missing Flask, Python version)
-- [x] Full dependency tree documented (7 packages with active/unused status)
-- [x] app.py enhanced with 6 inline code explanation points (imports, instance, config, health route, catch-all, entry point)
-- [x] All validation gates passed: zero compilation errors, zero PEP 8 violations, 7/7 runtime curl tests passing
-- [x] Configuration reference table created for HOST, PORT, METHODS constants
+- [x] Created complete pytest test infrastructure from scratch (4 files, 415 lines)
+- [x] **36/36 tests passing** — zero failures across all test categories
+- [x] **100% line coverage** of `app.py` (14/14 statements) — exceeds the 90%+ target
+- [x] All 7 manual curl verification tests automated as repeatable pytest assertions
+- [x] Route precedence validated: `GET /health` → health handler, non-GET → catch-all
+- [x] Multi-method coverage for all 7 HTTP methods (GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS)
+- [x] Import safety and `__main__` guard lifecycle fully tested with mock isolation
+- [x] Zero compilation errors and zero pycodestyle linting violations
+- [x] Source code integrity verified: `app.py` and `requirements.txt` are byte-identical to base branch
+- [x] Full test suite executes in ~0.2 seconds
 
 ### 1.4 Critical Unresolved Issues
 
 | Issue | Impact | Owner | ETA |
-|-------|--------|-------|-----|
-| No critical issues | N/A | N/A | N/A |
-
-All AAP-scoped documentation requirements have been implemented and validated. No blocking issues remain.
+|---|---|---|---|
+| No `requirements-dev.txt` for test dependencies | New developers must manually discover pytest/pytest-cov are needed | Human Developer | 0.5h |
+| No `pytest.ini` configuration file | Test commands work but aren't standardized for the team | Human Developer | 0.5h |
 
 ### 1.5 Access Issues
 
-No access issues identified. The project is a standalone Flask application with no external service dependencies, no API keys required, and no database connections. All documentation changes operate on local repository files only.
+No access issues identified. All testing operates in-process using Flask's built-in `test_client()` with no external service dependencies, API keys, database connections, or third-party credentials required.
 
 ### 1.6 Recommended Next Steps
 
-1. **[Medium]** Review documentation accuracy — human developer should read through the complete README.md to verify tone, accuracy, and completeness against project requirements
-2. **[Medium]** Verify GitHub rendering — push branch and confirm Mermaid diagram, Markdown tables, and code blocks render correctly on GitHub
-3. **[Low]** Polish documentation after review — address any feedback from human review on wording, formatting, or content gaps
+1. **[High]** Create `requirements-dev.txt` documenting `pytest==9.0.2` and `pytest-cov==7.1.0` as development dependencies
+2. **[Medium]** Add `pytest.ini` or `[tool.pytest.ini_options]` in a `pyproject.toml` to standardize test execution settings (e.g., `testpaths`, `addopts`)
+3. **[Medium]** Conduct human code review of all 4 test files for team style alignment and merge approval
+4. **[Low]** Consider adding a `.coveragerc` for persistent coverage settings if the team standardizes on coverage thresholds
 
 ---
 
@@ -62,61 +65,43 @@ No access issues identified. The project is a standalone Flask application with 
 ### 2.1 Completed Work Detail
 
 | Component | Hours | Description |
-|-----------|-------|-------------|
-| README Overview & Description | 1.0 | Expanded one-line description into comprehensive paragraph with Backprop context, migration history, and audience |
-| README Architecture Section | 1.5 | System design prose and Mermaid routing flowchart diagram |
-| README Project Structure | 0.5 | File-by-file repository documentation with legacy Node.js file explanation |
-| README Prerequisites Expansion | 0.5 | Added verification commands and venv module notes |
-| README Installation Expansion | 1.0 | Step-by-step numbered guide with expected output and post-install verification |
-| README Deployment Guide | 1.0 | Running the Server section with startup, endpoint verification, shutdown, dev-server warning |
-| README API Reference | 2.0 | Health check and catch-all endpoint docs with curl examples and routing behavior matrix (7 rows) |
-| README Configuration Section | 0.5 | HOST/PORT/METHODS constants reference table with types and descriptions |
-| README Technology Stack | 0.5 | Full dependency tree table (7 packages) with version, purpose, and active/unused status |
-| README Troubleshooting | 1.0 | Three common issues with symptoms, solutions, and verification commands |
-| app.py Inline Code Explanations | 2.0 | 6 decision points annotated: imports, Flask instance, configuration constants, health routing precedence, dual-decorator pattern, entry point guard |
-| Documentation Research & Analysis | 1.0 | Repository code analysis, Technical Specification review, dependency chain research |
-| Validation & Review Fix Cycles | 1.5 | PEP 8 compliance verification, line reference corrections, OPTIONS /health routing fix, runtime verification (7 curl tests) |
-| **Total** | **14.0** | |
+|---|---|---|
+| Test design and planning | 1.0 | Analyzed AAP requirements, mapped 7 manual curl tests to pytest cases, designed test categories and parametrization strategy |
+| Test infrastructure setup | 1.5 | Created `tests/__init__.py` package marker, `tests/conftest.py` with shared Flask `test_client()` fixture, installed and verified pytest 9.0.2 and pytest-cov 7.1.0 |
+| HTTP contract tests | 4.0 | Implemented 23 tests in `tests/test_http_contract.py` (233 lines) covering health check, catch-all, route precedence, multi-method parametrization, HEAD/OPTIONS semantics, and edge cases |
+| Lifecycle and config tests | 2.5 | Implemented 13 tests in `tests/test_lifecycle.py` (153 lines) covering import safety, re-import idempotency, HOST/PORT/METHODS constants, Flask app identity, and `__main__` guard with `runpy.run_module` |
+| Validation and bug fixing | 1.0 | Iterative validation of all 36 tests, diagnosed and fixed OPTIONS `/health` empty-body assertion (commit f3d052b), verified coverage meets 90%+ target |
+| Code quality and source integrity | 1.0 | Compilation verification for all 5 Python files, pycodestyle linting (zero violations), git diff confirmation that `app.py` and `requirements.txt` are unchanged |
+| **Total Completed** | **11** | |
 
 ### 2.2 Remaining Work Detail
 
 | Category | Hours | Priority |
-|----------|-------|----------|
-| Human Documentation Review & PR Merge | 1.0 | Medium |
-| GitHub Rendering Verification (Mermaid, tables, code blocks) | 0.5 | Medium |
-| Post-Review Documentation Polish | 0.5 | Low |
-| **Total** | **2.0** | |
-
-### 2.3 Hours Integrity Verification
-
-- Section 2.1 Total: **14.0 hours**
-- Section 2.2 Total: **2.0 hours**
-- Sum (2.1 + 2.2): **16.0 hours** = Total Project Hours in Section 1.2 ✓
-- Remaining Hours (Section 2.2): **2.0 hours** = Remaining Hours in Section 1.2 ✓
+|---|---|---|
+| Create `requirements-dev.txt` for test dependencies | 0.5 | High |
+| Add optional `pytest.ini` test runner configuration | 0.5 | Medium |
+| Human code review and merge approval | 1.0 | Medium |
+| **Total Remaining** | **2** | |
 
 ---
 
 ## 3. Test Results
 
+All tests were executed by Blitzy's autonomous validation systems using `python -m pytest -v --tb=short` and `python -m pytest --cov=app --cov-report=term-missing`.
+
 | Test Category | Framework | Total Tests | Passed | Failed | Coverage % | Notes |
-|---------------|-----------|-------------|--------|--------|------------|-------|
-| Compilation Check | `python -m py_compile` | 1 | 1 | 0 | 100% | `app.py` compiles with zero errors |
-| PEP 8 Style Check | `pycodestyle --max-line-length=120` | 1 | 1 | 0 | 100% | Zero violations in `app.py` |
-| Runtime Endpoint Verification | `curl` (manual) | 7 | 7 | 0 | 100% | All 7 HTTP scenarios verified against live server |
-
-**Runtime Test Details (7/7 passing):**
-
-| # | Scenario | Expected | Actual | Status |
-|---|----------|----------|--------|--------|
-| 1 | `GET /health` | `{"status":"ok"}` (JSON, 200) | `{"status":"ok"}` | ✅ Pass |
-| 2 | `POST /health` | `Hello, World!\n` (text, 200) | `Hello, World!\n` | ✅ Pass |
-| 3 | `GET /` | `Hello, World!\n` (text, 200) | `Hello, World!\n` | ✅ Pass |
-| 4 | `GET /any/path` | `Hello, World!\n` (text, 200) | `Hello, World!\n` | ✅ Pass |
-| 5 | `DELETE /foo/bar` | `Hello, World!\n` (text, 200) | `Hello, World!\n` | ✅ Pass |
-| 6 | `PUT /some/resource` | `Hello, World!\n` (text, 200) | `Hello, World!\n` | ✅ Pass |
-| 7 | `OPTIONS /health` | Empty body with `Allow` header (200) | Empty body with `Allow` header | ✅ Pass |
-
-> **Note:** No automated test suite (pytest, unittest) exists for this project — this is a documentation-only task on a minimal test harness. All tests listed above originate from Blitzy's autonomous validation process using compilation checks, linting, and runtime curl verification.
+|---|---|---|---|---|---|---|
+| HTTP Contract — Health Check | pytest 9.0.2 + Flask test_client | 2 | 2 | 0 | 100% | JSON response, single-key structure |
+| HTTP Contract — Catch-All Handler | pytest 9.0.2 + Flask test_client | 4 | 4 | 0 | 100% | Root path, arbitrary paths, body length, content-type |
+| HTTP Contract — Route Precedence | pytest 9.0.2 + Flask test_client | 3 | 3 | 0 | 100% | GET→JSON, POST→catch-all, DELETE→catch-all |
+| HTTP Contract — Multi-Method (parametrized) | pytest 9.0.2 + Flask test_client | 10 | 10 | 0 | 100% | 5 methods × 2 paths (/ and /foo/bar) |
+| HTTP Contract — HEAD/OPTIONS Semantics | pytest 9.0.2 + Flask test_client | 2 | 2 | 0 | 100% | HEAD empty body, OPTIONS Allow header |
+| HTTP Contract — Edge Cases | pytest 9.0.2 + Flask test_client | 2 | 2 | 0 | 100% | Deeply nested paths, root vs subpath |
+| Lifecycle — Import Safety | pytest 9.0.2 + unittest.mock | 2 | 2 | 0 | 100% | No server start on import, reentrant import |
+| Lifecycle — Configuration Constants | pytest 9.0.2 | 7 | 7 | 0 | 100% | HOST, PORT, METHODS values and types |
+| Lifecycle — Flask App Identity | pytest 9.0.2 | 2 | 2 | 0 | 100% | Instance type, app name |
+| Lifecycle — __main__ Guard | pytest 9.0.2 + unittest.mock + runpy | 2 | 2 | 0 | 100% | Startup invocation, import non-invocation |
+| **Totals** | | **36** | **36** | **0** | **100%** | **0.2s execution time** |
 
 ---
 
@@ -124,86 +109,74 @@ No access issues identified. The project is a standalone Flask application with 
 
 ### Runtime Health
 
-- ✅ `python -m py_compile app.py` — Compilation successful, zero errors
-- ✅ `pycodestyle --max-line-length=120 app.py` — Zero PEP 8 violations
-- ✅ Flask development server starts on `http://127.0.0.1:3000` without errors
-- ✅ Server binds to configured HOST (127.0.0.1) and PORT (3000) correctly
-- ✅ Server shuts down cleanly on SIGINT (Ctrl+C)
+- ✅ `python -m py_compile app.py` — Clean compilation
+- ✅ `python -m py_compile tests/__init__.py` — Clean compilation
+- ✅ `python -m py_compile tests/conftest.py` — Clean compilation
+- ✅ `python -m py_compile tests/test_http_contract.py` — Clean compilation
+- ✅ `python -m py_compile tests/test_lifecycle.py` — Clean compilation
+- ✅ `pycodestyle tests/conftest.py tests/test_http_contract.py tests/test_lifecycle.py` — Zero violations
 
-### API Verification
+### Application Server Verification
 
-- ✅ `GET /health` → Returns `{"status":"ok"}` with `Content-Type: application/json` and status 200
-- ✅ `GET /` → Returns `Hello, World!\n` with `Content-Type: text/plain` and status 200
-- ✅ `POST /any/path` → Catch-all handler responds with `Hello, World!\n` (method-agnostic)
-- ✅ `DELETE /foo/bar` → Catch-all handler responds with `Hello, World!\n` (path-agnostic)
-- ✅ `PUT /some/resource` → Catch-all handler responds with `Hello, World!\n`
-- ✅ `OPTIONS /health` → Flask auto-OPTIONS returns empty body with `Allow` header
+- ✅ `python app.py` starts Flask development server on `http://127.0.0.1:3000`
+- ✅ `curl -s http://127.0.0.1:3000/health` → `{"status":"ok"}` (HTTP 200, application/json)
+- ✅ `curl -s http://127.0.0.1:3000/` → `Hello, World!\n` (HTTP 200, text/plain)
 
-### Documentation Verification
+### Test Suite Verification
 
-- ✅ README.md contains all 12 required sections (Overview through Troubleshooting)
-- ✅ Mermaid routing diagram present and syntactically valid
-- ✅ All curl examples produce the documented expected output when run against live server
-- ✅ Configuration values in README match hardcoded constants in `app.py` (HOST=127.0.0.1, PORT=3000)
-- ✅ Dependency versions in README match installed packages (Flask 3.1.3, Werkzeug 3.1.7, etc.)
-- ✅ Line number references in README are consistent with `app.py` (93 lines)
-- ⚠️ GitHub Mermaid rendering not yet verified on remote (requires push to GitHub)
+- ✅ `python -m pytest -v` — 36/36 passed in 0.19 seconds
+- ✅ `python -m pytest --cov=app --cov-report=term-missing` — 100% coverage (14/14 statements, 0 missing)
+- ✅ Tests execute independently in any order with clean isolation
+
+### Source Integrity
+
+- ✅ `git diff origin/ABK-3138-test...blitzy-bb42310f-df78-4e24-8fff-5adfaa6e38b9 -- app.py` — No changes (byte-identical)
+- ✅ `git diff origin/ABK-3138-test...blitzy-bb42310f-df78-4e24-8fff-5adfaa6e38b9 -- requirements.txt` — No changes (byte-identical)
+
+### UI Verification
+
+- ⚠ Not applicable — No frontend UI exists in this project. The application is a headless HTTP API microserver.
 
 ---
 
 ## 5. Compliance & Quality Review
 
-| AAP Requirement | Status | Evidence |
-|----------------|--------|----------|
-| Comprehensive README restructure (36→341 lines) | ✅ Pass | README.md: 341 lines, 12 sections |
-| Overview section with Backprop context | ✅ Pass | README.md lines 5–14 |
-| Architecture section with Mermaid diagram | ✅ Pass | README.md lines 16–33, flowchart present |
-| Project Structure documentation | ✅ Pass | README.md lines 35–53, all 7 entries documented |
-| Prerequisites with verification commands | ✅ Pass | README.md lines 55–71 |
-| Installation with expected output and verification | ✅ Pass | README.md lines 73–126, 5 numbered steps |
-| Running the Server (deployment guide) | ✅ Pass | README.md lines 128–164, startup/verify/shutdown |
-| API Reference — Health Check Endpoint | ✅ Pass | README.md lines 168–191, curl example + response table |
-| API Reference — Catch-All Handler | ✅ Pass | README.md lines 193–221, multi-method curl examples |
-| Routing Behavior Matrix | ✅ Pass | README.md lines 223–237, 7-row table |
-| Configuration reference table (HOST, PORT, METHODS) | ✅ Pass | README.md lines 239–249 |
-| Technology Stack with dependency tree | ✅ Pass | README.md lines 251–271, 7 packages documented |
-| Troubleshooting (3+ issues) | ✅ Pass | README.md lines 273–341, 3 issues with solutions |
-| app.py import annotations | ✅ Pass | app.py lines 15–17 |
-| app.py Flask instance `__name__` explanation | ✅ Pass | app.py lines 23–24 |
-| app.py configuration constants rationale | ✅ Pass | app.py lines 30–33 |
-| app.py health endpoint routing precedence | ✅ Pass | app.py lines 38–39 |
-| app.py dual-decorator pattern enhancement | ✅ Pass | app.py lines 59–62 |
-| app.py entry point guard annotation | ✅ Pass | app.py lines 85–86, 93 |
-| No functional code changes in app.py | ✅ Pass | All executable code identical to source; only comments added |
-| PEP 8 compliance maintained | ✅ Pass | pycodestyle reports zero violations |
-| Development-server-only warning included | ✅ Pass | README.md line 164 — explicit Werkzeug warning |
-| No CI/CD workflow modifications | ✅ Pass | No .github/workflows/ files created or modified |
-| GitHub-Flavored Markdown conventions | ✅ Pass | ATX headers, fenced code blocks, GFM tables throughout |
-
-### Fixes Applied During Autonomous Validation
-
-| Fix | Commit | Description |
-|-----|--------|-------------|
-| PEP 8 line lengths | `91f4901` | Corrected inline comments exceeding 120-character max line length |
-| Routing precedence comment | `91f4901` | Fixed inaccurate routing precedence description in health endpoint block |
-| METHODS annotation precision | `91f4901` | Improved accuracy of METHODS list inline comment |
-| Stale line references | `1f78c33` | Updated README line references to match new 93-line app.py |
-| Project structure accuracy | `1f78c33` | Fixed project structure section to reflect actual file tree |
-| JSON formatting standardization | `1f78c33` | Standardized JSON output formatting in curl examples |
-| OPTIONS /health routing row | `9e0121d` | Corrected routing matrix to show Flask auto-OPTIONS behavior for OPTIONS /health |
+| AAP Requirement | Deliverable | Status | Evidence |
+|---|---|---|---|
+| Create `tests/__init__.py` | Package marker for pytest discovery | ✅ Pass | File exists, compiles clean |
+| Create `tests/conftest.py` | Shared Flask test client fixture | ✅ Pass | 28 lines, `client` fixture functional |
+| Create `tests/test_http_contract.py` | HTTP contract integration tests | ✅ Pass | 233 lines, 23/23 tests pass |
+| Create `tests/test_lifecycle.py` | Import/config/startup tests | ✅ Pass | 153 lines, 13/13 tests pass |
+| Achieve 90%+ line coverage | Coverage measurement | ✅ Pass | 100% achieved (14/14 stmts) |
+| Health check endpoint tests | `GET /health` → JSON | ✅ Pass | 2 tests verify status, content-type, JSON body |
+| Catch-all handler tests | All methods/paths → plain text | ✅ Pass | 4+ tests verify body, length, content-type |
+| Route precedence validation | GET→health vs non-GET→catch-all | ✅ Pass | 3 tests verify routing specificity |
+| Multi-method coverage (7 methods) | All HTTP methods tested | ✅ Pass | Parametrized for GET/POST/PUT/DELETE/PATCH + HEAD + OPTIONS |
+| Content-type and body precision | Exact bytes and headers | ✅ Pass | 14-byte body, `b'Hello, World!\n'` exact match |
+| Configuration constant assertions | HOST, PORT, METHODS values | ✅ Pass | 7 tests for values, types, and order |
+| Module import safety | `import app` no side effects | ✅ Pass | 2 tests verify no server startup |
+| Startup lifecycle validation | `__main__` guard behavior | ✅ Pass | Mock-based `runpy.run_module` test |
+| Do NOT modify `app.py` | Source integrity | ✅ Pass | `git diff` confirms zero changes |
+| Do NOT modify `requirements.txt` | Dependency integrity | ✅ Pass | `git diff` confirms zero changes |
+| Do NOT create CI/CD workflows | No GitHub Actions changes | ✅ Pass | No workflow files created |
+| Zero compilation errors | All files compile | ✅ Pass | 5/5 `py_compile` clean |
+| Zero linting violations | PEP 8 compliance | ✅ Pass | `pycodestyle` reports zero issues |
+| Deterministic and fast tests | < 2 second execution | ✅ Pass | 0.19s total execution time |
+| Dev requirements documentation | `requirements-dev.txt` | ⬜ Not Started | Path-to-production gap |
+| Test runner configuration | `pytest.ini` | ⬜ Not Started | Optional per AAP §0.5.3 |
 
 ---
 
 ## 6. Risk Assessment
 
 | Risk | Category | Severity | Probability | Mitigation | Status |
-|------|----------|----------|-------------|------------|--------|
-| Line number references in README become stale if app.py is modified | Technical | Low | Medium | References use range notation (e.g., `app.py:41–48`); comments note source locations for easy updating | Documented |
-| Mermaid diagram may render differently across GitHub versions/browsers | Technical | Low | Low | Diagram uses basic `flowchart LR` syntax with wide compatibility; fallback is code block display | Accepted |
-| Flask `__version__` deprecation warning in verification command | Technical | Low | High | README verification uses `python -c "import flask; print(flask.__version__)"` which triggers a deprecation warning in Flask 3.1.3; cosmetic only, does not affect functionality | Documented |
-| Transitive dependency versions may drift on fresh install | Technical | Low | Medium | README documents specific verified versions; `pip freeze` can confirm actual versions | Documented |
-| No automated documentation testing (link validation, example verification) | Operational | Low | Low | All curl examples were manually verified against running server during validation | Accepted |
-| Development server mistakenly used in production | Operational | Medium | Low | README contains explicit ⚠️ warning that Werkzeug is not production-suitable | Mitigated |
+|---|---|---|---|---|---|
+| Missing `requirements-dev.txt` | Operational | Low | High | Create file listing pytest==9.0.2 and pytest-cov==7.1.0 | Open |
+| Python version discrepancy (3.12.10 runtime vs 3.13+ in AAP prerequisite) | Technical | Low | Medium | Tests are compatible with both; verify on target 3.13+ environment before deployment | Open |
+| No standardized `pytest.ini` config | Operational | Low | Medium | Add `pytest.ini` with `testpaths` and `addopts` for team consistency | Open |
+| Flask test_client behavioral changes on major version upgrade | Technical | Low | Low | Pin Flask==3.1.3 in requirements.txt (already done); test on upgrade | Mitigated |
+| Implicit test dependency on module-level import order | Technical | Low | Low | Tests are stateless and order-independent; `conftest.py` fixture provides isolation | Mitigated |
+| No integration with CI/CD pipeline | Operational | Medium | High | Out of scope per AAP constraint; team should add pytest step to existing CI when ready | Accepted |
 
 ---
 
@@ -211,44 +184,51 @@ No access issues identified. The project is a standalone Flask application with 
 
 ```mermaid
 pie title Project Hours Breakdown
-    "Completed Work" : 14
+    "Completed Work" : 11
     "Remaining Work" : 2
 ```
 
-**Breakdown:** 14 hours of AAP-scoped work completed autonomously by Blitzy agents. 2 hours of remaining work require human developer action (documentation review, GitHub rendering verification, and polish).
+> **Colors:** Completed Work = Dark Blue (#5B39F3) | Remaining Work = White (#FFFFFF)
+>
+> **Completion:** 11 hours completed / 13 total hours = **84.6%**
 
-**Completion: 87.5%** (14 completed / 16 total hours)
+**Remaining Hours by Category:**
+
+| Category | Hours | Priority |
+|---|---|---|
+| Create `requirements-dev.txt` | 0.5 | High |
+| Add `pytest.ini` configuration | 0.5 | Medium |
+| Human code review and merge | 1.0 | Medium |
+| **Total Remaining** | **2** | |
 
 ---
 
 ## 8. Summary & Recommendations
 
-### Achievements
+### Achievement Summary
 
-All 18 discrete AAP requirements have been fully implemented and validated. The project is **87.5% complete** (14 hours completed out of 16 total hours). The README.md has been transformed from a minimal 36-line document into a comprehensive 341-line project reference covering 12 sections: Overview, Architecture, Project Structure, Prerequisites, Installation, Running the Server, API Reference, Routing Behavior Matrix, Configuration, Technology Stack, and Troubleshooting. The `app.py` file has been enhanced with inline code explanations at all 6 required decision points while maintaining zero functional code changes.
+The project successfully delivered a comprehensive greenfield pytest test suite for the `app.py` Flask microserver. Starting from **zero automated coverage**, Blitzy agents created 4 test files containing **36 tests that all pass**, achieving **100% line coverage** — exceeding the 90%+ target. The full test suite executes in approximately 0.2 seconds, and all code adheres to PEP 8 standards with zero compilation errors and zero linting violations.
 
-### Validation Results
-
-All autonomous validation gates passed:
-- **Compilation:** Zero errors (`python -m py_compile`)
-- **Style:** Zero PEP 8 violations (`pycodestyle --max-line-length=120`)
-- **Runtime:** 7/7 endpoint curl tests passing against live server
-- **Accuracy:** All line references, version numbers, and configuration values in README verified against source code
-
-### Remaining Gaps
-
-The remaining 2 hours (12.5% of total project) consist entirely of human review activities:
-1. **Documentation review** (1.0h) — A developer should read through the complete README to verify accuracy and tone
-2. **GitHub rendering verification** (0.5h) — Push to remote and confirm Mermaid diagram, tables, and code blocks render correctly
-3. **Post-review polish** (0.5h) — Address any feedback from review
+The project is **84.6% complete** (11 of 13 total hours delivered). All AAP-specified deliverables — the 4 test files, coverage target, source integrity constraints, and all test categories — have been fully implemented and validated. The remaining 2 hours consist of path-to-production tasks: creating a development requirements file, adding optional test configuration, and human code review.
 
 ### Critical Path to Production
 
-This is a documentation-only project with no production deployment. The critical path is: human review → merge PR → verify GitHub rendering. No infrastructure, deployment, or configuration changes are needed.
+1. **Create `requirements-dev.txt`** (0.5h) — Document `pytest==9.0.2` and `pytest-cov==7.1.0` so new team members can reproduce the test environment
+2. **Human code review** (1.0h) — Review test assertions, naming conventions, and parametrization for team alignment, then approve and merge
 
 ### Production Readiness Assessment
 
-The documentation deliverables are complete and ready for human review and merge. The underlying Flask application continues to function identically — zero functional changes were made. The documentation explicitly notes that the Flask built-in server is for development use only and is not production-intended, which aligns with the project's scope as a test harness.
+| Criterion | Status |
+|---|---|
+| All tests passing | ✅ 36/36 |
+| Coverage target met | ✅ 100% (target: 90%+) |
+| Source code unchanged | ✅ Verified via git diff |
+| Zero compilation errors | ✅ 5/5 files clean |
+| Zero linting violations | ✅ pycodestyle clean |
+| Deterministic execution | ✅ < 0.2s, order-independent |
+| No CI/CD modifications | ✅ Compliant with constraint |
+
+**Recommendation:** The test suite is production-ready for merge after human code review. The two remaining path-to-production items (dev requirements file and pytest config) are low-effort housekeeping tasks that do not block functionality.
 
 ---
 
@@ -256,122 +236,119 @@ The documentation deliverables are complete and ready for human review and merge
 
 ### System Prerequisites
 
-| Requirement | Version | Verification Command |
-|-------------|---------|---------------------|
-| Python | 3.13+ | `python3 --version` |
-| pip | Latest | `pip --version` |
-| venv | Included with Python 3.13+ | `python3 -m venv --help` |
+| Prerequisite | Version | Purpose |
+|---|---|---|
+| Python | 3.12+ (tested on 3.12.10) | Runtime for Flask app and pytest |
+| pip | Latest | Python package installer |
+| venv | stdlib | Virtual environment isolation |
+| Git | Any recent | Version control |
 
 ### Environment Setup
 
 ```bash
-# 1. Clone the repository
+# Clone the repository and switch to the feature branch
 git clone <repository-url>
-cd hao-backprop-test
+cd <repository-root>
+git checkout blitzy-bb42310f-df78-4e24-8fff-5adfaa6e38b9
 
-# 2. Create virtual environment
+# Create and activate a virtual environment
 python -m venv venv
 
-# 3. Activate virtual environment
-# Linux/macOS:
+# On Linux/macOS:
 source venv/bin/activate
-# Windows:
-# venv\Scripts\activate
 
-# 4. Install dependencies
-pip install -r requirements.txt
+# On Windows:
+source venv/Scripts/activate
 ```
 
-**Expected output after install:**
-```
-Successfully installed Flask-3.1.3 Jinja2-3.1.6 MarkupSafe-3.0.3 Werkzeug-3.1.7 blinker-1.9.0 click-8.3.1 itsdangerous-2.2.0
-```
-
-### Dependency Installation Verification
+### Dependency Installation
 
 ```bash
-# Verify Flask is installed
-python -c "import flask; print(flask.__version__)"
-# Expected: 3.1.3
+# Install production dependency
+pip install -r requirements.txt
 
-# Verify all dependencies
-pip list | grep -E "Flask|Werkzeug|Jinja2|MarkupSafe|itsdangerous|click|blinker"
+# Install testing dependencies (development only)
+pip install pytest==9.0.2 pytest-cov==7.1.0
 ```
 
-### Application Startup
+**Verify installation:**
+```bash
+python -c "import flask; print(f'Flask {flask.__version__}')"
+# Expected: Flask 3.1.3
+
+python -m pytest --version
+# Expected: pytest 9.0.2
+```
+
+### Running the Application
 
 ```bash
 # Start the Flask development server
 python app.py
-```
+# Expected: * Running on http://127.0.0.1:3000
 
-**Expected terminal output:**
-```
- * Serving Flask app 'app'
- * Debug mode: off
-WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
- * Running on http://127.0.0.1:3000
-Press CTRL+C to quit
-```
-
-### Verification Steps
-
-Open a separate terminal and run:
-
-```bash
-# Test health endpoint
+# In a separate terminal, verify endpoints:
 curl -s http://127.0.0.1:3000/health
 # Expected: {"status":"ok"}
 
-# Test catch-all (GET)
 curl -s http://127.0.0.1:3000/
-# Expected: Hello, World!
-
-# Test catch-all (POST, arbitrary path)
-curl -s -X POST http://127.0.0.1:3000/any/path
-# Expected: Hello, World!
-
-# Test catch-all (DELETE)
-curl -s -X DELETE http://127.0.0.1:3000/foo/bar
 # Expected: Hello, World!
 ```
 
-### Shutdown
-
-Press `Ctrl+C` in the terminal where the server is running.
-
-### Compilation and Linting
+### Running Tests
 
 ```bash
-# Verify app.py compiles without errors
-python -m py_compile app.py
+# Run all 36 tests with verbose output
+python -m pytest -v --tb=short
 
-# Check PEP 8 compliance (requires pycodestyle)
-pip install pycodestyle
-pycodestyle --max-line-length=120 app.py
+# Run with coverage measurement
+python -m pytest --cov=app --cov-report=term-missing
+
+# Run only HTTP contract tests (23 tests)
+python -m pytest tests/test_http_contract.py -v
+
+# Run only lifecycle tests (13 tests)
+python -m pytest tests/test_lifecycle.py -v
+
+# Run a single specific test
+python -m pytest tests/test_http_contract.py::test_get_health_returns_json_status_ok -v
+```
+
+**Expected output for full test run:**
+```
+36 passed in 0.19s
+```
+
+**Expected coverage output:**
+```
+Name     Stmts   Miss  Cover   Missing
+--------------------------------------
+app.py      14      0   100%
+--------------------------------------
+TOTAL       14      0   100%
+```
+
+### Static Analysis
+
+```bash
+# Compile-check all Python files
+python -m py_compile app.py
+python -m py_compile tests/conftest.py
+python -m py_compile tests/test_http_contract.py
+python -m py_compile tests/test_lifecycle.py
+
+# PEP 8 style check
+pycodestyle tests/conftest.py tests/test_http_contract.py tests/test_lifecycle.py
 ```
 
 ### Troubleshooting
 
-**Port 3000 in use:**
-```bash
-# Find process using port 3000
-lsof -i :3000          # Linux/macOS
-netstat -tlnp | grep 3000  # Linux
-# Kill the process, then retry
-```
-
-**Flask not found (ModuleNotFoundError):**
-```bash
-# Ensure virtual environment is activated, then:
-pip install -r requirements.txt
-```
-
-**Python version too old:**
-```bash
-python3 --version
-# Must be 3.13.x or higher
-```
+| Problem | Cause | Solution |
+|---|---|---|
+| `ModuleNotFoundError: No module named 'flask'` | Virtual environment not activated or Flask not installed | Activate venv and run `pip install -r requirements.txt` |
+| `ModuleNotFoundError: No module named 'pytest'` | Testing dependencies not installed | Run `pip install pytest==9.0.2 pytest-cov==7.1.0` |
+| Port 3000 already in use | Another process bound to port 3000 | Kill the other process or stop the Flask server before running tests |
+| Tests show 0 collected | Running from wrong directory | Run pytest from the repository root where `app.py` resides |
 
 ---
 
@@ -379,65 +356,78 @@ python3 --version
 
 ### A. Command Reference
 
-| Command | Purpose | Working Directory |
-|---------|---------|-------------------|
-| `python -m venv venv` | Create virtual environment | Repository root |
-| `source venv/bin/activate` | Activate virtual environment (Linux/macOS) | Repository root |
-| `venv\Scripts\activate` | Activate virtual environment (Windows) | Repository root |
-| `pip install -r requirements.txt` | Install Flask and transitive dependencies | Repository root |
-| `python app.py` | Start Flask development server on 127.0.0.1:3000 | Repository root |
-| `python -m py_compile app.py` | Verify app.py compiles without syntax errors | Repository root |
-| `pycodestyle --max-line-length=120 app.py` | Check PEP 8 style compliance | Repository root |
-| `curl -s http://127.0.0.1:3000/health` | Test health check endpoint | Any directory |
-| `curl -s http://127.0.0.1:3000/` | Test catch-all handler | Any directory |
+| Command | Purpose |
+|---|---|
+| `python app.py` | Start the Flask development server on 127.0.0.1:3000 |
+| `python -m pytest -v` | Run all tests with verbose output |
+| `python -m pytest --cov=app --cov-report=term-missing` | Run tests with coverage measurement |
+| `python -m pytest tests/test_http_contract.py` | Run HTTP contract tests only |
+| `python -m pytest tests/test_lifecycle.py` | Run lifecycle tests only |
+| `python -m py_compile <file>` | Compile-check a Python file |
+| `pycodestyle <file>` | PEP 8 style check |
+| `curl -s http://127.0.0.1:3000/health` | Test health check endpoint |
+| `curl -s http://127.0.0.1:3000/` | Test catch-all endpoint |
 
 ### B. Port Reference
 
-| Port | Service | Protocol | Binding |
-|------|---------|----------|---------|
-| 3000 | Flask development server (Werkzeug) | HTTP | 127.0.0.1 (localhost only) |
+| Service | Port | Host | Protocol |
+|---|---|---|---|
+| Flask development server | 3000 | 127.0.0.1 | HTTP |
 
 ### C. Key File Locations
 
-| File | Path | Purpose |
-|------|------|---------|
-| Flask application | `app.py` | Server entry point — routes, configuration, startup (93 lines) |
-| Dependencies | `requirements.txt` | Pins `Flask==3.1.3` |
-| Documentation | `README.md` | Comprehensive project documentation (341 lines) |
-| Technical Spec | `blitzy/documentation/Technical Specifications.md` | Internal Blitzy-generated specification (reference only) |
-| Project Guide | `blitzy/documentation/Project Guide.md` | Internal Blitzy-generated delivery report (reference only) |
+| File | Purpose |
+|---|---|
+| `app.py` | Flask microserver application (93 lines) — sole production source |
+| `requirements.txt` | Production dependency: `Flask==3.1.3` |
+| `tests/__init__.py` | Package marker for pytest test discovery |
+| `tests/conftest.py` | Shared pytest fixture: Flask `test_client()` |
+| `tests/test_http_contract.py` | 23 HTTP contract integration tests (233 lines) |
+| `tests/test_lifecycle.py` | 13 import/config/startup lifecycle tests (153 lines) |
+| `README.md` | Project documentation and operational guide |
 
 ### D. Technology Versions
 
-| Technology | Version | Source |
-|------------|---------|--------|
-| Python | 3.13+ (required) | README prerequisites |
-| Flask | 3.1.3 | `requirements.txt` |
-| Werkzeug | 3.1.7 | Transitive dependency of Flask |
-| Jinja2 | 3.1.6 | Transitive dependency of Flask |
-| MarkupSafe | 3.0.3 | Transitive dependency of Flask |
-| itsdangerous | 2.2.0 | Transitive dependency of Flask |
-| click | 8.3.1 | Transitive dependency of Flask |
-| blinker | 1.9.0 | Transitive dependency of Flask |
+| Technology | Version | Purpose |
+|---|---|---|
+| Python | 3.12.10 | Runtime |
+| Flask | 3.1.3 | Web framework |
+| Werkzeug | 3.1.7 | WSGI utilities (Flask dependency) |
+| pytest | 9.0.2 | Test framework |
+| pytest-cov | 7.1.0 | Coverage plugin |
+| coverage | 7.13.5 | Coverage engine (pytest-cov dependency) |
+| Jinja2 | 3.1.6 | Template engine (Flask dependency, unused) |
+| MarkupSafe | 3.0.3 | HTML escaping (Flask dependency, unused) |
+| itsdangerous | 2.2.0 | Data signing (Flask dependency, unused) |
+| click | 8.3.1 | CLI framework (Flask dependency, unused) |
+| blinker | 1.9.0 | Signal dispatching (Flask dependency, unused) |
 
 ### E. Environment Variable Reference
 
-This project does not use environment variables. All configuration is defined as hardcoded constants in `app.py`:
+No environment variables are required. The application uses hardcoded configuration constants:
 
-| Constant | Value | Description |
-|----------|-------|-------------|
-| `HOST` | `'127.0.0.1'` | Server bind address (localhost only) |
-| `PORT` | `3000` | Server listen port |
-| `METHODS` | `['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS']` | HTTP methods for catch-all handler |
+| Constant | Value | Location |
+|---|---|---|
+| `HOST` | `'127.0.0.1'` | `app.py` line 30 |
+| `PORT` | `3000` | `app.py` line 31 |
+| `METHODS` | `['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS']` | `app.py` line 33 |
+
+### F. Developer Tools Guide
+
+| Tool | Usage | Installation |
+|---|---|---|
+| pytest | `python -m pytest -v` | `pip install pytest==9.0.2` |
+| pytest-cov | `python -m pytest --cov=app` | `pip install pytest-cov==7.1.0` |
+| pycodestyle | `pycodestyle <file>` | `pip install pycodestyle` |
+| py_compile | `python -m py_compile <file>` | Built-in (Python stdlib) |
 
 ### G. Glossary
 
 | Term | Definition |
-|------|------------|
-| Backprop | Integration testing platform that this microserver is designed to serve as a test harness for |
-| Catch-all handler | A Flask route that matches any HTTP method and any URL path not matched by a more specific route |
-| Health check endpoint | A dedicated `GET /health` API endpoint returning JSON status for programmatic monitoring |
-| Dual-decorator pattern | Flask technique using two `@app.route()` decorators on one function to handle both root `/` and subpaths `/<path:path>` |
-| Werkzeug | Python WSGI utility library that powers Flask's built-in development server |
-| WSGI | Web Server Gateway Interface — the Python standard for web server/application communication |
-| Mermaid | Markdown-compatible diagramming language rendered natively by GitHub |
+|---|---|
+| Catch-all handler | Flask route that matches any HTTP method and any URL path, returning a fixed plain-text response |
+| conftest.py | Pytest convention file for shared fixtures, automatically discovered without explicit imports |
+| Flask test_client | In-process WSGI client provided by Flask for testing HTTP endpoints without network I/O |
+| `__main__` guard | Python `if __name__ == '__main__'` pattern preventing code execution when the module is imported vs executed directly |
+| Route precedence | Flask's behavior of matching more specific routes (e.g., `/health`) before generic catch-all patterns |
+| Parametrization | pytest feature (`@pytest.mark.parametrize`) for running the same test logic with multiple input values |
