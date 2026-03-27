@@ -1,4 +1,4 @@
-# Blitzy Project Guide — hello_world (Node.js → Python/Flask Migration)
+# Blitzy Project Guide
 
 ---
 
@@ -6,61 +6,60 @@
 
 ### 1.1 Project Overview
 
-This project performs a full technology stack migration of the `hello_world` HTTP server from Node.js/Express 5.x to Python/Flask 3.1.3. The application serves as a deterministic, minimal integration test harness for Backprop and CI/CD validation, providing two plain-text endpoints (`GET /` and `GET /evening`). The migration replaces all JavaScript source code, test infrastructure (Jest/Supertest → pytest), configuration (npm → pip), and documentation while preserving every externally observable behavior — including HTTP contracts, lifecycle semantics, error handling, and the 43-test behavioral specification.
+This project extends and strengthens the existing pytest-based test suite for a Python/Flask HTTP server that serves as a behavioral parity implementation of an original Node.js/Express application. The objective is to close remaining coverage gaps in `app.py` (normalize_path middleware, application factory, error handlers) and `main.py` (module-level constants), adding 19 new tests across 2 new test classes and 4 extended test classes — bringing the suite from 43 to 62 tests — while preserving the existing 100% pass rate and zero-mocking discipline. All work is confined to test files; no production code was modified.
 
 ### 1.2 Completion Status
 
-**Completion: 88.2%** (33.5 hours completed out of 38 total hours)
-
 ```mermaid
-pie title Completion Status
-    "Completed (33.5h)" : 33.5
-    "Remaining (4.5h)" : 4.5
+pie title Project Completion
+    "Completed (18h)" : 18
+    "Remaining (4h)" : 4
 ```
 
 | Metric | Value |
-|---|---|
-| **Total Project Hours** | 38 |
-| **Completed Hours (AI)** | 33.5 |
-| **Remaining Hours (Human)** | 4.5 |
-| **Completion Percentage** | 88.2% |
-| **Tests Passing** | 43/43 (100%) |
-| **Compilation Errors** | 0 |
-| **Lint Violations** | 0 |
+|--------|-------|
+| **Total Project Hours** | 22 |
+| **Completed Hours (AI)** | 18 |
+| **Remaining Hours** | 4 |
+| **Completion Percentage** | 81.8% |
+
+**Calculation:** 18 completed hours / (18 + 4 remaining hours) = 18 / 22 = 81.8% complete.
 
 ### 1.3 Key Accomplishments
 
-- ✅ Created Flask application factory (`app.py`, 167 lines) with `create_app()` pattern and Express 5.x behavioral parity middleware
-- ✅ Created startup entry point (`main.py`, 94 lines) with import-safe `__main__` guard, socket error handling, and environment variable support
-- ✅ Implemented 5 Express-to-Flask behavioral parity adjustments: case-insensitive routing, trailing-slash tolerance, 405→404 conversion, double-slash normalization, and X-Powered-By absence verification
-- ✅ Created 33-test HTTP contract test suite (`test_http_contract.py`, 512 lines) covering routes, 404s, unsupported methods, edge cases, and header suppression
-- ✅ Created 10-test lifecycle test suite (`test_lifecycle.py`, 504 lines) with subprocess management, port conflict verification, and import safety
-- ✅ All 43 tests passing (100%) — exact parity with original Jest test suite
-- ✅ Removed all Node.js artifacts: `server.js`, `package.json`, `package-lock.json`, `jest.config.js`, `__tests__/` directory
-- ✅ Created Python configuration: `requirements.txt` (flask==3.1.3, pytest==9.0.2), `pyproject.toml`
-- ✅ Updated `README.md` with Python prerequisites, setup commands, and endpoint documentation
-- ✅ Zero compilation errors across all 5 Python source files
-- ✅ Zero lint violations (pyflakes verified)
-- ✅ Runtime validation confirmed: all endpoints, error handling, and edge cases working correctly
+- ✅ All 19 new tests implemented and passing (62/62 total — 100% pass rate)
+- ✅ `app.py` statement coverage: 90% → **100%** (all 3 previously-missed lines now covered)
+- ✅ `app.py` branch coverage: 88% → **100%** (all partial branches now fully exercised)
+- ✅ Overall project coverage improved: 86% → **90%**
+- ✅ Closed normalize_path exception fallback gap (app.py lines 103–107)
+- ✅ Closed double-slash `while` loop body gap (app.py line 89)
+- ✅ New `TestApplicationFactory` class validates `create_app()` factory behavior (4 tests)
+- ✅ New `TestNormalizationMiddleware` class covers all normalization code paths (5 tests)
+- ✅ Extended 4 existing test classes with 7 additional edge case and suppression tests
+- ✅ 3 new lifecycle tests validate `main.py` module-level constants via subprocess
+- ✅ Zero production code changes — all modifications confined to `tests/` directory
+- ✅ Zero-mocking discipline maintained — all tests use real Flask test client or subprocess
+- ✅ All 43 original tests preserved and passing without modification
 
 ### 1.4 Critical Unresolved Issues
 
 | Issue | Impact | Owner | ETA |
-|---|---|---|---|
-| No `.gitignore` for Python artifacts (`venv/`, `__pycache__/`, `.pytest_cache/`) | `venv/` and cache directories may be accidentally committed | Human Developer | 0.5 hours |
-| Flask development server used (not production WSGI) | Not suitable for production traffic; AAP explicitly excludes production features | Human Developer | 1 hour (documentation only) |
+|-------|--------|-------|-----|
+| `pytest-cov` not in `requirements.txt` | Other developers cannot run coverage reports without manually installing pytest-cov | Human Developer | 0.5h |
+| No CI/CD pipeline for automated test execution | Tests must be run manually; no automated regression protection on PRs | Human Developer | 2h |
+| No formal coverage configuration | Coverage runs use default settings; no exclusion patterns or minimum thresholds configured | Human Developer | 0.5h |
 
 ### 1.5 Access Issues
 
-No access issues identified. All dependencies (Flask 3.1.3, pytest 9.0.2) are available from the public PyPI registry. No external API keys, service credentials, or restricted resources are required.
+No access issues identified. All test execution, coverage measurement, and compilation validation completed successfully within the local development environment. No external services, API keys, or third-party credentials are required for the test suite.
 
 ### 1.6 Recommended Next Steps
 
-1. **[High]** Add a `.gitignore` file with Python-standard exclusions (`venv/`, `__pycache__/`, `*.pyc`, `.pytest_cache/`)
-2. **[High]** Conduct human code review of the Flask parity middleware in `app.py` (case-insensitive routing, 405→404 conversion, double-slash normalization)
-3. **[Medium]** Verify test suite passes on Python 3.11 and 3.13 (currently validated on Python 3.12.10)
-4. **[Low]** Add production deployment documentation noting that `python main.py` uses Flask's development server and a WSGI server (e.g., gunicorn) should be used for production
-5. **[Low]** Review and approve the PR for merge into the main branch
+1. **[High]** Add `pytest-cov>=7.1.0` to `requirements.txt` so coverage tooling is formally declared as a project dependency
+2. **[High]** Conduct human code review of the 19 new tests to validate assertion correctness and docstring accuracy
+3. **[Medium]** Add `[tool.coverage.run]` configuration to `pyproject.toml` to formalize source paths and set minimum coverage thresholds
+4. **[Medium]** Create a GitHub Actions CI/CD workflow for automated pytest execution and coverage reporting on pull requests
+5. **[Low]** Consider adding coverage badge to `README.md` to surface test health metrics
 
 ---
 
@@ -69,142 +68,126 @@ No access issues identified. All dependencies (Flask 3.1.3, pytest 9.0.2) are av
 ### 2.1 Completed Work Detail
 
 | Component | Hours | Description |
-|---|---|---|
-| Flask Application Factory (`app.py`) | 6 | `create_app()` factory pattern, 2 GET route handlers (`/`, `/evening`), Express parity middleware: `before_request` hook for case-insensitive routing and double-slash normalization, `strict_slashes=False`, `errorhandler(405)` for 404 conversion — 167 lines |
-| Startup Entry Point (`main.py`) | 3 | Environment config via `os.environ.get()`, socket pre-check for port conflicts, startup success log to stdout, failure log to stderr + `sys.exit(1)`, import-safe `__main__` guard — 94 lines |
-| HTTP Contract Test Suite (`tests/test_http_contract.py`) | 8 | 33 tests across 7 test classes: TestGetRoot (4), TestGetEvening (4), TestNotFoundResponses (4), TestUnsupportedMethodsOnRoot (4), TestUnsupportedMethodsOnEvening (4), TestEdgeCases (8), TestXPoweredBySuppression (5) — 512 lines |
-| Lifecycle Test Suite (`tests/test_lifecycle.py`) | 8 | 10 tests across 4 test classes: TestServerStartup (4), TestServerShutdown (2), TestPortConflict (2), TestAppExport (2); uses subprocess management, socket connectivity, ephemeral port allocation — 504 lines |
-| Test Infrastructure (`tests/conftest.py`, `tests/__init__.py`) | 1 | Shared `app` and `client` pytest fixtures via `create_app()` factory, empty `__init__.py` package marker — 48 lines |
-| Python Configuration (`requirements.txt`, `pyproject.toml`) | 0.5 | Pinned dependencies (flask==3.1.3, pytest==9.0.2), pytest testpaths and pythonpath config, project metadata — 11 lines |
-| README Documentation Update | 1 | Replaced Node.js 18+ prerequisite with Python 3.11+, npm commands with pip/pytest, endpoint table preserved, license section unchanged — 40 lines |
-| Node.js Artifact Removal | 1 | Removed 6 files: `server.js`, `package.json`, `package-lock.json`, `jest.config.js`, `__tests__/server.test.js`, `__tests__/server.lifecycle.test.js` |
-| Express-to-Flask Behavioral Parity Research | 3 | Live verification of 5 behavioral differences (case sensitivity, trailing slashes, method handling, double slashes, headers), design of parity strategies |
-| Validation, Debugging, and Lint Fixes | 2 | Fixed subprocess cleanup in lifecycle tests (commit 251c34c), removed unused `import pytest` lint violation (commit f8e08dd), full compilation and runtime verification |
-| **Total** | **33.5** | **All AAP-scoped deliverables implemented and validated** |
+|-----------|-------|-------------|
+| Test Discovery & Coverage Analysis | 2 | Analyzed existing 43 tests, ran coverage reports (statement + branch), identified uncovered lines in app.py (line 89, lines 103–107), researched Werkzeug double-slash behavior |
+| TestApplicationFactory Class (4 tests) | 3 | Implemented factory return type, instance independence, route registration, and strict_slashes validation tests; added Flask and create_app imports |
+| TestNormalizationMiddleware Class (5 tests) | 4 | Implemented double-slash while loop body, exception fallback, combined case+slash, unsupported method on case-insensitive path, and triple-slash normalization tests |
+| TestEdgeCases Extension (3 tests) | 1.5 | Added HEAD on case-insensitive path, HEAD on undefined route, query params on case-insensitive path tests |
+| TestXPoweredBySuppression Extension (2 tests) | 1 | Added suppression verification on double-slash normalized response and case-insensitive error response |
+| TestNotFoundResponses Extension (1 test) | 0.5 | Added case-insensitive uppercase undefined route returns 404 test |
+| TestUnsupportedMethodsOnEvening Extension (1 test) | 0.5 | Added POST on case-insensitive /Evening returns 404 test |
+| TestAppExport Extension (3 lifecycle tests) | 2 | Implemented subprocess-based default host, default port, and port integer type validation tests with clean environment management |
+| Test Quality & Documentation | 2 | Wrote detailed docstrings for all 19 new tests, updated module-level docstrings, fixed 4 docstring inaccuracies |
+| Validation & Integration Testing | 1.5 | Full suite execution (62 tests), coverage verification, compilation checks, runtime validation |
+| **Total Completed** | **18** | |
 
 ### 2.2 Remaining Work Detail
 
 | Category | Hours | Priority |
-|---|---|---|
-| Add `.gitignore` for Python artifacts (`venv/`, `__pycache__/`, `.pytest_cache/`, `*.pyc`) | 0.5 | High |
-| Human code review and PR approval | 2 | High |
-| Python version compatibility testing (3.11, 3.12, 3.13) | 1 | Medium |
-| Production deployment documentation (WSGI server guidance) | 1 | Low |
-| **Total** | **4.5** | |
+|----------|-------|----------|
+| Add pytest-cov to requirements.txt | 0.5 | High |
+| Coverage configuration in pyproject.toml | 0.5 | Medium |
+| Human code review of 19 new tests | 1 | High |
+| CI/CD pipeline for automated test execution | 2 | Medium |
+| **Total Remaining** | **4** | |
 
 ---
 
 ## 3. Test Results
 
-All tests were executed by Blitzy's autonomous validation system using `python -m pytest tests/ -v --tb=short`.
-
 | Test Category | Framework | Total Tests | Passed | Failed | Coverage % | Notes |
-|---|---|---|---|---|---|---|
-| HTTP Contract (routes, 404s, methods, headers) | pytest 9.0.2 + Flask test client | 33 | 33 | 0 | 100% of routes | 7 test classes: GetRoot, GetEvening, NotFound, UnsupportedMethods (×2), EdgeCases, XPoweredBy |
-| Lifecycle (startup, shutdown, port conflict, import) | pytest 9.0.2 + subprocess | 10 | 10 | 0 | 100% of lifecycle | 4 test classes: ServerStartup, ServerShutdown, PortConflict, AppExport |
-| **Total** | **pytest 9.0.2** | **43** | **43** | **0** | **100%** | **All tests passing — exact parity with original 43-test Jest suite** |
-
-**Test Execution Details:**
-- Platform: Python 3.12.10 on Windows
-- Execution time: ~13.5 seconds
-- Test discovery: pyproject.toml `testpaths = ["tests"]`
-- Fixtures: `conftest.py` provides `app` and `client` fixtures per test function
+|---------------|-----------|-------------|--------|--------|------------|-------|
+| HTTP Contract (GET routes) | pytest 9.0.2 / Flask test client | 8 | 8 | 0 | 100% | TestGetRoot (4) + TestGetEvening (4) |
+| HTTP Contract (404 handling) | pytest 9.0.2 / Flask test client | 5 | 5 | 0 | 100% | TestNotFoundResponses — includes new case-insensitive undefined route test |
+| HTTP Contract (Unsupported methods) | pytest 9.0.2 / Flask test client | 9 | 9 | 0 | 100% | TestUnsupportedMethodsOnRoot (4) + TestUnsupportedMethodsOnEvening (5) |
+| HTTP Contract (Edge cases) | pytest 9.0.2 / Flask test client | 11 | 11 | 0 | 100% | TestEdgeCases — includes 3 new tests (HEAD, query params) |
+| HTTP Contract (X-Powered-By) | pytest 9.0.2 / Flask test client | 7 | 7 | 0 | 100% | TestXPoweredBySuppression — includes 2 new suppression tests |
+| Application Factory | pytest 9.0.2 / Flask test client | 4 | 4 | 0 | 100% | NEW: TestApplicationFactory — create_app() validation |
+| Normalization Middleware | pytest 9.0.2 / Flask test client | 5 | 5 | 0 | 100% | NEW: TestNormalizationMiddleware — code path coverage |
+| Server Lifecycle (Startup/Shutdown) | pytest 9.0.2 / subprocess | 6 | 6 | 0 | 90% | TestServerStartup (4) + TestServerShutdown (2) |
+| Server Lifecycle (Port Conflict) | pytest 9.0.2 / subprocess | 2 | 2 | 0 | 90% | TestPortConflict — socket blocking for EADDRINUSE simulation |
+| Server Lifecycle (App Export) | pytest 9.0.2 / subprocess | 5 | 5 | 0 | 90% | TestAppExport — includes 3 new module constant tests |
+| **Total** | | **62** | **62** | **0** | **90%** | **100% pass rate — all tests from Blitzy autonomous validation** |
 
 ---
 
 ## 4. Runtime Validation & UI Verification
 
-### Server Startup
-- ✅ `python main.py` starts Flask development server on default `http://127.0.0.1:3000/`
-- ✅ `PORT=3457 python main.py` starts on custom port successfully
-- ✅ Startup log message format: `Server running at http://127.0.0.1:3457/`
-- ✅ Port conflict detection: exits with code 1 and prints error to stderr
+### Runtime Health
 
-### HTTP Endpoint Responses
-- ✅ `GET /` → 200, body `Hello, World!\n`, Content-Type `text/plain`
-- ✅ `GET /evening` → 200, body `Good evening`, Content-Type `text/plain`
-- ✅ `GET /nonexistent` → 404 Not Found
-- ✅ `POST /` → 404 Not Found (405→404 parity working)
-- ✅ `HEAD /` → 200, Content-Type `text/plain`, no body
+- ✅ **Flask application factory:** `create_app()` returns properly configured Flask instance
+- ✅ **Route responses:** `GET /` → 200 `Hello, World!\n`, `GET /evening` → 200 `Good evening`
+- ✅ **Case-insensitive normalization:** `GET /Evening` → 200, `GET /EVENING` → 200
+- ✅ **Double-slash normalization:** `GET /evening//` → 200 `Good evening`
+- ✅ **405→404 error handler:** `POST /` → 404, `POST /evening` → 404
+- ✅ **X-Powered-By suppression:** Absent on all response types (GET, HEAD, 404, normalized)
+- ✅ **HEAD requests:** Return correct status codes with empty body per HTTP spec
+- ✅ **Trailing slash tolerance:** `GET /evening/` → 200 (strict_slashes=False)
 
-### Edge Case Behavior
-- ✅ `GET /Evening` → 200 (case-insensitive routing working)
-- ✅ `GET /EVENING` → 200 (case-insensitive routing working)
-- ✅ `GET /evening/` → 200 (trailing slash tolerance working)
-- ✅ `GET /?key=value` → 200 (query parameter transparency)
-- ✅ `X-Powered-By` header absent on all responses
+### Compilation Status
 
-### Error Handling
-- ✅ Port conflict → `Failed to start server: [Errno 98] Address already in use` on stderr, exit code 1
-- ✅ Import safety → `from app import create_app` does not start server
+- ✅ `app.py` — compiles cleanly (0 errors)
+- ✅ `main.py` — compiles cleanly (0 errors)
+- ✅ `tests/conftest.py` — compiles cleanly (0 errors)
+- ✅ `tests/test_http_contract.py` — compiles cleanly (0 errors)
+- ✅ `tests/test_lifecycle.py` — compiles cleanly (0 errors)
 
-### Compilation Verification
-- ✅ `app.py` — compiles cleanly (py_compile)
-- ✅ `main.py` — compiles cleanly (py_compile)
-- ✅ `tests/conftest.py` — compiles cleanly (py_compile)
-- ✅ `tests/test_http_contract.py` — compiles cleanly (py_compile)
-- ✅ `tests/test_lifecycle.py` — compiles cleanly (py_compile)
+### Coverage Verification
 
-### Lint Verification
-- ✅ pyflakes: 0 violations across all 5 source files
+- ✅ `app.py`: 29/29 statements covered (100%), 4/4 branches covered (100%)
+- ✅ `tests/conftest.py`: 10/10 statements (100%)
+- ✅ `tests/test_http_contract.py`: 178/178 statements (100%)
+- ⚠ `main.py`: 0/21 statements in-process (expected — `if __name__ == '__main__':` guard; tested via subprocess)
+- ⚠ `tests/test_lifecycle.py`: 163/179 statements (90%) — defensive `proc.kill()` fallbacks in `finally` blocks are accepted gaps
+
+### UI Verification
+
+Not applicable — this is a headless HTTP server with no frontend UI. All behavioral verification is conducted through the Flask test client and subprocess execution.
 
 ---
 
 ## 5. Compliance & Quality Review
 
 | AAP Requirement | Status | Evidence |
-|---|---|---|
-| Replace `server.js` with `app.py` + `main.py` | ✅ Pass | `app.py` (167 lines), `main.py` (94 lines) created; `server.js` deleted |
-| Flask `create_app()` factory pattern | ✅ Pass | `app.py` exports `create_app()`, used by `conftest.py` and `main.py` |
-| `GET /` → `Hello, World!\n`, 200, text/plain | ✅ Pass | 4 tests + runtime curl verification |
-| `GET /evening` → `Good evening`, 200, text/plain | ✅ Pass | 4 tests + runtime curl verification |
-| Case-insensitive routing (`/Evening`, `/EVENING`) | ✅ Pass | `before_request` hook in `app.py`; 2 edge case tests |
-| Trailing slash tolerance (`/evening/`) | ✅ Pass | `strict_slashes=False` in `app.py`; 1 edge case test |
-| 405→404 conversion for unsupported methods | ✅ Pass | `errorhandler(405)` in `app.py`; 8 method tests |
-| Double-slash normalization (`//` → `/`) | ✅ Pass | `before_request` hook in `app.py`; 1 edge case test |
-| X-Powered-By header absence | ✅ Pass | Flask default; 5 header suppression tests |
-| HEAD request handling | ✅ Pass | Flask automatic HEAD for GET; 2 edge case tests |
-| Query parameter transparency | ✅ Pass | 2 edge case tests verify params don't affect routing |
-| Import safety (no auto-start on import) | ✅ Pass | `__main__` guard in `main.py`; 2 app export tests |
-| Startup success log format | ✅ Pass | `Server running at http://{host}:{port}/`; 1 lifecycle test |
-| Port conflict → stderr + exit code 1 | ✅ Pass | Socket pre-check in `main.py`; 2 lifecycle tests |
-| Default HOST=127.0.0.1, PORT=3000 | ✅ Pass | `os.environ.get()` defaults in `main.py`; runtime verification |
-| Environment variable overrides | ✅ Pass | `HOST`/`PORT` env vars; lifecycle tests use custom ports |
-| 33 HTTP contract tests (pytest) | ✅ Pass | `test_http_contract.py` — 33/33 pass |
-| 10 lifecycle tests (pytest) | ✅ Pass | `test_lifecycle.py` — 10/10 pass |
-| `requirements.txt` with pinned versions | ✅ Pass | flask==3.1.3, pytest==9.0.2 |
-| `pyproject.toml` with pytest config | ✅ Pass | testpaths, pythonpath, project metadata |
-| README.md updated for Python | ✅ Pass | Python 3.11+ prereq, pip/pytest commands |
-| Remove Node.js artifacts | ✅ Pass | server.js, package.json, package-lock.json, jest.config.js, __tests__/ removed |
-| No GitHub workflow changes | ✅ Pass | No `.github/` files created or modified |
-| No production features added | ✅ Pass | No databases, auth, TLS, workers, or extra routes |
-| No `blitzy/` documentation changes | ✅ Pass | Only auto-generated Project Guide and Technical Specifications |
-| Technology-specific comments in source | ✅ Pass | All Python files include Express→Flask mapping comments |
-| Minimal change — only migration-necessary | ✅ Pass | No feature expansion, no optimization beyond parity |
-| Zero compilation errors | ✅ Pass | py_compile clean on all 5 files |
-| Zero lint violations | ✅ Pass | pyflakes clean after lint fix (commit f8e08dd) |
+|----------------|--------|----------|
+| Add TestApplicationFactory class (4 tests) | ✅ Pass | tests/test_http_contract.py lines 602–651: 4 methods implemented and passing |
+| Add TestNormalizationMiddleware class (5 tests) | ✅ Pass | tests/test_http_contract.py lines 663–739: 5 methods implemented and passing |
+| Extend TestEdgeCases (+3 tests) | ✅ Pass | tests/test_http_contract.py lines 475–505: HEAD case-insensitive, HEAD undefined, query params case-insensitive |
+| Extend TestXPoweredBySuppression (+2 tests) | ✅ Pass | tests/test_http_contract.py lines 575–593: double-slash and case-insensitive error suppression |
+| Extend TestNotFoundResponses (+1 test) | ✅ Pass | tests/test_http_contract.py lines 217–226: case-insensitive undefined route |
+| Extend TestUnsupportedMethodsOnEvening (+1 test) | ✅ Pass | tests/test_http_contract.py lines 330–339: POST on case-insensitive /Evening |
+| Extend TestAppExport (+3 lifecycle tests) | ✅ Pass | tests/test_lifecycle.py lines 506–567: default host, port, port type via subprocess |
+| Cover app.py line 89 (double-slash loop body) | ✅ Pass | Coverage report: 100% statement coverage, line 89 now hit by GET /evening// test |
+| Cover app.py lines 103–107 (exception fallback) | ✅ Pass | Coverage report: 100% branch coverage, exception path hit by GET /NONEXISTENT and POST /Evening |
+| app.py statement coverage ≥97% | ✅ Pass | Achieved 100% (target was 97%+) |
+| app.py branch coverage ≥95% | ✅ Pass | Achieved 100% (target was 95%+) |
+| Total test count = 62 | ✅ Pass | 62 collected, 62 passed |
+| 100% pass rate maintained | ✅ Pass | 62/62 passed (0 failures) |
+| All 43 existing tests preserved | ✅ Pass | No existing test methods modified or removed |
+| No production code modifications | ✅ Pass | git diff shows changes only in tests/ directory |
+| No conftest.py modifications | ✅ Pass | tests/conftest.py unchanged (48 lines) |
+| No requirements.txt modifications | ✅ Pass | requirements.txt unchanged (2 lines) |
+| No pyproject.toml modifications | ✅ Pass | pyproject.toml unchanged (9 lines) |
+| Zero-mocking discipline | ✅ Pass | No mock imports or mock objects in any test file |
+| Class-based test organization | ✅ Pass | All new tests organized in classes per existing pattern |
+| Docstrings on all new test methods | ✅ Pass | All 19 new methods have descriptive docstrings |
+| No CI/CD workflow creation | ✅ Pass | No workflow files created or modified |
+| Import updates (Flask, create_app) | ✅ Pass | tests/test_http_contract.py lines 45–46: both imports added |
 
-**Compliance Summary:** 28/28 AAP requirements verified as compliant. All behavioral contracts preserved. All constraints honored.
-
-### Fixes Applied During Autonomous Validation
-| Fix | Commit | Description |
-|---|---|---|
-| Subprocess cleanup in lifecycle tests | `251c34c` | Added robust `finally` blocks to ensure test subprocess cleanup |
-| Unused import removal | `f8e08dd` | Removed unused `import pytest` from `test_lifecycle.py` to resolve pyflakes lint violation |
+**Compliance Score: 22/22 requirements met (100%)**
 
 ---
 
 ## 6. Risk Assessment
 
 | Risk | Category | Severity | Probability | Mitigation | Status |
-|---|---|---|---|---|---|
-| No `.gitignore` — `venv/`, `__pycache__/` may be committed | Technical | Medium | High | Add standard Python `.gitignore` before merge | Open |
-| Flask dev server used for runtime (not production WSGI) | Operational | Low | N/A | Expected per AAP ("no production features"); document for future reference | Accepted |
-| No CI/CD pipeline for Python test execution | Integration | Medium | High | AAP explicitly excludes GitHub workflow changes; human must add if needed | Accepted |
-| Socket pre-check race condition in `main.py` | Technical | Low | Very Low | Port may become occupied between pre-check and `app.run()`; secondary try/except catches this | Mitigated |
-| `before_request` path normalization performance | Technical | Low | Low | Manual URL re-matching on every normalized request adds minimal overhead; acceptable for tutorial-grade app | Accepted |
-| Werkzeug `Server` header present in responses | Security | Low | Low | Flask/Werkzeug emits `Server: Werkzeug/3.1.7 Python/3.12.10` — reveals framework version; not suppressed per AAP scope | Accepted |
-| Python 3.11 minimum not verified | Technical | Low | Medium | Tested on 3.12.10; pyproject.toml declares `>=3.11`; should verify on 3.11 and 3.13 | Open |
+|------|----------|----------|-------------|------------|--------|
+| `pytest-cov` not in requirements.txt — developers may not have coverage tooling | Technical | Low | Medium | Add `pytest-cov>=7.1.0` to requirements.txt | Open |
+| No CI/CD pipeline — test regressions may go undetected in PRs | Operational | Medium | High | Create GitHub Actions workflow with pytest and coverage gates | Open |
+| `main.py` 0% in-process coverage may mislead coverage reports | Technical | Low | Low | Add coverage exclusion config for `if __name__ == '__main__':` blocks; subprocess tests cover this code | Accepted |
+| Lifecycle test timing (2s sleep for server startup) may cause flaky tests on slow CI runners | Technical | Low | Low | Increase timeout or add retry logic if CI flakiness is observed | Monitored |
+| Defensive proc.kill() paths in test_lifecycle.py never exercised | Technical | Low | Very Low | Accepted per AAP — these are fallback safety nets that only trigger on process unkillability | Accepted |
+| No formal coverage threshold enforced | Operational | Low | Medium | Add `--cov-fail-under=90` to pytest configuration or CI pipeline | Open |
 
 ---
 
@@ -212,59 +195,42 @@ All tests were executed by Blitzy's autonomous validation system using `python -
 
 ```mermaid
 pie title Project Hours Breakdown
-    "Completed Work" : 33.5
-    "Remaining Work" : 4.5
+    "Completed Work" : 18
+    "Remaining Work" : 4
 ```
 
-**Hours Breakdown:**
-- Completed Work: 33.5 hours (88.2%)
-- Remaining Work: 4.5 hours (11.8%)
-- Total: 38 hours
+**Completed: 18 hours (81.8%) | Remaining: 4 hours (18.2%)**
 
-**Remaining Work by Priority:**
+### Remaining Hours by Category
 
-| Priority | Hours | Categories |
-|---|---|---|
-| High | 2.5 | `.gitignore` setup (0.5h), Code review and PR approval (2h) |
-| Medium | 1 | Python version compatibility testing (1h) |
-| Low | 1 | Production deployment documentation (1h) |
+| Category | Hours | Priority |
+|----------|-------|----------|
+| CI/CD Pipeline Setup | 2 | Medium |
+| Human Code Review | 1 | High |
+| pytest-cov Dependency Formalization | 0.5 | High |
+| Coverage Configuration | 0.5 | Medium |
+| **Total** | **4** | |
 
 ---
 
 ## 8. Summary & Recommendations
 
-### Achievements
+### Achievement Summary
 
-The Node.js-to-Python technology stack migration is 88.2% complete (33.5 hours completed out of 38 total hours). All core AAP deliverables have been implemented, validated, and committed:
+The Blitzy autonomous agent successfully delivered all 19 new tests specified in the Agent Action Plan, bringing the test suite from 43 to 62 tests with a 100% pass rate. The primary coverage objective — closing the `app.py` statement and branch coverage gaps — was achieved with `app.py` reaching 100% on both metrics (up from 90% statement / 88% branch). Overall project coverage improved from 86% to 90%.
 
-- **Complete source code migration**: Express 5.x `server.js` (37 lines) replaced by Flask `app.py` (167 lines) + `main.py` (94 lines) with full behavioral parity
-- **Complete test suite migration**: 43 Jest/Supertest tests (360 lines) replaced by 43 pytest tests (1,016 lines) — all passing at 100%
-- **Complete tooling migration**: npm/package.json replaced by pip/requirements.txt, Jest config replaced by pyproject.toml
-- **5 Express-to-Flask behavioral parity adjustments** implemented and verified: case-insensitive routing, trailing-slash tolerance, 405→404 conversion, double-slash normalization, header suppression
-- **Zero defects**: 0 compilation errors, 0 lint violations, 0 test failures
-
-### Remaining Gaps
-
-The 4.5 remaining hours consist of standard path-to-production tasks:
-1. **`.gitignore` file** (0.5h) — Python artifacts (`venv/`, `__pycache__/`, `.pytest_cache/`) are not git-ignored
-2. **Human code review** (2h) — The Flask parity middleware in `app.py` (especially the `before_request` normalization logic) warrants careful review
-3. **Cross-version testing** (1h) — Currently validated on Python 3.12.10; should verify on 3.11 and 3.13
-4. **Deployment docs** (1h) — A note about production WSGI server usage (e.g., gunicorn) would be responsible
+The project is **81.8% complete** (18 completed hours out of 22 total project hours). All AAP-scoped test implementation work is fully delivered. The remaining 4 hours consist of path-to-production activities: dependency formalization (0.5h), coverage configuration (0.5h), human code review (1h), and CI/CD pipeline setup (2h).
 
 ### Production Readiness Assessment
 
-The project is **ready for human review and merge** with minor path-to-production items remaining. The application functions exactly as specified in the AAP, all behavioral contracts are preserved, and the test suite provides comprehensive regression coverage. The remaining 4.5 hours of work are routine tasks that do not block functionality or correctness.
+The test suite itself is production-ready. All 62 tests pass reliably, all code compiles cleanly, and the zero-mocking discipline ensures tests validate real application behavior. The remaining work is operational infrastructure (CI/CD, dependency manifest) rather than code quality gaps.
 
-### Success Metrics
+### Recommendations
 
-| Metric | Target | Actual | Status |
-|---|---|---|---|
-| Test pass rate | 100% (43/43) | 100% (43/43) | ✅ Met |
-| Compilation errors | 0 | 0 | ✅ Met |
-| Lint violations | 0 | 0 | ✅ Met |
-| Behavioral contracts preserved | 14/14 | 14/14 | ✅ Met |
-| Node.js artifacts removed | 6 files | 6 files | ✅ Met |
-| Python files created | 8 files | 8 files | ✅ Met |
+1. **Merge this PR** — all AAP deliverables are complete, all tests pass, and no production code was modified
+2. **Immediately formalize pytest-cov** in `requirements.txt` to ensure consistent coverage tooling across all developer environments
+3. **Set up CI/CD** with `python -m pytest -v --cov=. --cov-branch --cov-fail-under=90` to enforce the coverage baseline achieved by this work
+4. **Human-review the 19 new tests** to validate docstring accuracy and assertion correctness before the next release cycle
 
 ---
 
@@ -273,117 +239,117 @@ The project is **ready for human review and merge** with minor path-to-productio
 ### System Prerequisites
 
 | Software | Version | Purpose |
-|---|---|---|
-| Python | >= 3.11 (tested on 3.12.10) | Runtime and development |
-| pip | >= 21.0 | Package installation |
-| git | Any recent version | Version control |
+|----------|---------|---------|
+| Python | ≥ 3.11 | Runtime (project requires `>=3.11` per pyproject.toml) |
+| pip | Latest | Package manager for installing dependencies |
 
 ### Environment Setup
 
 ```bash
-# 1. Clone the repository and switch to the feature branch
-git clone <repository-url>
-cd hao-backprop-test
-git checkout blitzy-9d963f03-2d07-4049-be17-7d3777be25ec
+# 1. Clone the repository and navigate to the project root
+cd /path/to/project
 
 # 2. Create and activate a virtual environment
 python -m venv venv
-
 # On Linux/macOS:
 source venv/bin/activate
-
 # On Windows:
 venv\Scripts\activate
 
-# 3. Verify Python version
-python --version
-# Expected: Python 3.11.x or higher
+# 3. Install production and test dependencies
+pip install -r requirements.txt
+
+# 4. (Recommended) Install coverage tooling
+pip install pytest-cov
 ```
 
 ### Dependency Installation
 
 ```bash
-# Install all dependencies (Flask 3.1.3 + pytest 9.0.2)
+# Install all dependencies from requirements.txt
 pip install -r requirements.txt
 
 # Verify installations
-python -c "from importlib.metadata import version; print('flask:', version('flask')); print('pytest:', version('pytest'))"
-# Expected output:
-# flask: 3.1.3
-# pytest: 9.0.2
+python -c "import flask; print(f'Flask {flask.__version__}')"
+python -c "import pytest; print(f'pytest {pytest.__version__}')"
 ```
 
-### Compilation Verification
-
-```bash
-# Verify all Python files compile cleanly
-python -m py_compile app.py
-python -m py_compile main.py
-python -m py_compile tests/conftest.py
-python -m py_compile tests/test_http_contract.py
-python -m py_compile tests/test_lifecycle.py
-# No output = success
+**Expected output:**
+```
+Flask 3.1.3
+pytest 9.0.2
 ```
 
-### Running Tests
+### Running the Test Suite
 
 ```bash
-# Run full test suite with verbose output
-python -m pytest tests/ -v --tb=short
+# Run all tests with verbose output
+python -m pytest -v --tb=short
 
-# Expected: 43 passed
-# - tests/test_http_contract.py: 33 tests
-# - tests/test_lifecycle.py: 10 tests
+# Run tests with coverage reporting
+python -m pytest -v --cov=. --cov-report=term-missing --cov-branch
+
+# Run a specific test class
+python -m pytest tests/test_http_contract.py::TestApplicationFactory -v
+
+# Run a specific test method
+python -m pytest tests/test_http_contract.py::TestNormalizationMiddleware::test_internal_double_slash_path_normalized_to_route -v
+
+# Run only HTTP contract tests
+python -m pytest tests/test_http_contract.py -v
+
+# Run only lifecycle tests
+python -m pytest tests/test_lifecycle.py -v
 ```
 
-### Starting the Server
+**Expected test output:**
+```
+62 passed in ~15s
+```
+
+### Running the Application
 
 ```bash
-# Start with defaults (127.0.0.1:3000)
+# Start the Flask development server (default: http://127.0.0.1:3000/)
 python main.py
-# Output: Server running at http://127.0.0.1:3000/
 
-# Start with custom host and port
+# Start with custom host/port
 HOST=0.0.0.0 PORT=8080 python main.py
-# Output: Server running at http://0.0.0.0:8080/
 ```
 
 ### Verification Steps
 
 ```bash
-# In a separate terminal, verify endpoints:
+# 1. Verify all tests pass
+python -m pytest -v --tb=short
+# Expected: 62 passed
 
-# Test root endpoint
+# 2. Verify coverage targets
+python -m pytest --cov=app --cov-report=term-missing --cov-branch
+# Expected: app.py at 100% statement and 100% branch coverage
+
+# 3. Verify compilation
+python -m py_compile app.py && echo "OK"
+python -m py_compile main.py && echo "OK"
+
+# 4. Test the server manually
+python main.py &
 curl http://127.0.0.1:3000/
 # Expected: Hello, World!
-
-# Test evening endpoint
 curl http://127.0.0.1:3000/evening
 # Expected: Good evening
-
-# Test 404 handling
-curl -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/nonexistent
-# Expected: 404
-
-# Test case-insensitive routing
-curl http://127.0.0.1:3000/Evening
-# Expected: Good evening
-
-# Test HEAD request
-curl -I http://127.0.0.1:3000/
-# Expected: HTTP/1.1 200 OK with Content-Type: text/plain
-
-# Stop the server with Ctrl+C
+kill %1
 ```
 
 ### Troubleshooting
 
-| Issue | Cause | Resolution |
-|---|---|---|
-| `ModuleNotFoundError: No module named 'flask'` | Virtual environment not activated or dependencies not installed | Run `source venv/bin/activate` then `pip install -r requirements.txt` |
-| `Failed to start server: [Errno 98] Address already in use` | Port 3000 already occupied | Use a different port: `PORT=3001 python main.py` |
-| `python: command not found` | Python not installed or not on PATH | Install Python 3.11+ from python.org |
-| Tests fail with `ImportError: cannot import name 'create_app'` | Running pytest from wrong directory | Run `python -m pytest tests/ -v` from the project root directory |
+| Issue | Resolution |
+|-------|------------|
+| `ModuleNotFoundError: No module named 'flask'` | Run `pip install -r requirements.txt` to install dependencies |
+| `ModuleNotFoundError: No module named 'pytest_cov'` | Run `pip install pytest-cov` (not in requirements.txt yet) |
+| Lifecycle tests timeout | Increase `time.sleep()` values in test_lifecycle.py if running on slow hardware |
+| Port conflict on test execution | Lifecycle tests use ephemeral ports via `_find_free_port()`; ensure no firewall blocks localhost |
+| `main.py` shows 0% coverage | Expected behavior — code is inside `if __name__ == '__main__':` guard; tested via subprocess |
 
 ---
 
@@ -392,87 +358,62 @@ curl -I http://127.0.0.1:3000/
 ### A. Command Reference
 
 | Command | Purpose |
-|---|---|
-| `python -m venv venv` | Create virtual environment |
-| `source venv/bin/activate` | Activate virtual environment (Linux/macOS) |
-| `venv\Scripts\activate` | Activate virtual environment (Windows) |
-| `pip install -r requirements.txt` | Install dependencies |
-| `python main.py` | Start the server (default 127.0.0.1:3000) |
-| `HOST=0.0.0.0 PORT=8080 python main.py` | Start with custom host/port |
-| `python -m pytest tests/ -v` | Run all tests with verbose output |
-| `python -m pytest tests/ -v --tb=short` | Run tests with short tracebacks |
+|---------|---------|
+| `python -m pytest -v` | Run all tests with verbose output |
+| `python -m pytest -v --cov=. --cov-report=term-missing --cov-branch` | Run tests with full coverage report |
 | `python -m pytest tests/test_http_contract.py -v` | Run HTTP contract tests only |
 | `python -m pytest tests/test_lifecycle.py -v` | Run lifecycle tests only |
-| `python -m py_compile <file>` | Compile-check a Python file |
+| `python -m pytest -k "TestApplicationFactory" -v` | Run a specific test class by name |
+| `python -m py_compile <file>` | Check file for syntax errors |
+| `python main.py` | Start the Flask development server |
+| `pip install -r requirements.txt` | Install project dependencies |
 
 ### B. Port Reference
 
-| Port | Service | Default | Configurable Via |
-|---|---|---|---|
-| 3000 | Flask HTTP server | Yes | `PORT` environment variable |
+| Port | Service | Configuration |
+|------|---------|---------------|
+| 3000 (default) | Flask development server | `PORT` env var or default in main.py |
+| Ephemeral (dynamic) | Lifecycle test servers | Allocated by `_find_free_port()` in test_lifecycle.py |
 
 ### C. Key File Locations
 
-| File | Purpose | Lines |
-|---|---|---|
-| `app.py` | Flask application factory with routes and Express parity middleware | 167 |
-| `main.py` | Server startup entry point with error handling | 94 |
-| `requirements.txt` | Python dependency manifest | 2 |
-| `pyproject.toml` | Project metadata and pytest configuration | 9 |
-| `README.md` | Developer documentation | 40 |
-| `tests/__init__.py` | Python package marker for test discovery | 0 |
-| `tests/conftest.py` | Shared pytest fixtures (app, client) | 48 |
-| `tests/test_http_contract.py` | 33 HTTP contract tests | 512 |
-| `tests/test_lifecycle.py` | 10 lifecycle tests | 504 |
+| File | Purpose |
+|------|---------|
+| `app.py` | Flask application factory — routes, middleware, error handlers (167 lines) |
+| `main.py` | Startup entry point — env config, port check, server launch (94 lines) |
+| `tests/conftest.py` | Shared pytest fixtures — `app()` and `client()` (48 lines) |
+| `tests/test_http_contract.py` | HTTP behavioral contract tests — 49 tests in 9 classes (739 lines) |
+| `tests/test_lifecycle.py` | Server lifecycle tests — 13 tests in 4 classes (568 lines) |
+| `tests/__init__.py` | Empty package marker for pytest discovery |
+| `pyproject.toml` | Project metadata and pytest configuration (9 lines) |
+| `requirements.txt` | Python dependency manifest — Flask 3.1.3, pytest 9.0.2 (2 lines) |
 
 ### D. Technology Versions
 
 | Technology | Version | Role |
-|---|---|---|
-| Python | 3.12.10 (requires >= 3.11) | Runtime |
+|------------|---------|------|
+| Python | 3.12.10 (requires ≥3.11) | Runtime |
 | Flask | 3.1.3 | Web framework |
-| Werkzeug | 3.1.7 | WSGI utility (Flask dependency) |
-| Jinja2 | 3.1.6 | Template engine (Flask dependency, unused) |
-| MarkupSafe | 3.0.3 | String escaping (Jinja2 dependency) |
-| itsdangerous | 2.2.0 | Data signing (Flask dependency) |
-| Click | 8.3.1 | CLI framework (Flask dependency) |
-| Blinker | 1.9.0 | Signal support (Flask dependency) |
+| Werkzeug | 3.1.7 | WSGI toolkit (Flask dependency) |
 | pytest | 9.0.2 | Test framework |
+| pytest-cov | 7.1.0 | Coverage plugin (not in requirements.txt) |
+| coverage | 7.13.5 | Coverage measurement engine |
 
 ### E. Environment Variable Reference
 
-| Variable | Default | Description |
-|---|---|---|
-| `HOST` | `127.0.0.1` | Server bind address |
-| `PORT` | `3000` | Server listen port |
-
-### F. Developer Tools Guide
-
-**Linting:**
-```bash
-# Install pyflakes for static analysis
-pip install pyflakes
-
-# Check all source files
-pyflakes app.py main.py tests/conftest.py tests/test_http_contract.py tests/test_lifecycle.py
-```
-
-**Testing individual test classes:**
-```bash
-# Run a specific test class
-python -m pytest tests/test_http_contract.py::TestGetRoot -v
-
-# Run a specific test
-python -m pytest tests/test_http_contract.py::TestGetRoot::test_should_return_status_200 -v
-```
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `HOST` | `127.0.0.1` | Server bind address (main.py line 35) |
+| `PORT` | `3000` | Server listen port (main.py line 38) |
+| `PYTHONUNBUFFERED` | Not set | Set to `1` in lifecycle tests for immediate stdout flushing |
 
 ### G. Glossary
 
 | Term | Definition |
-|---|---|
-| **App Factory** | Design pattern where the Flask app is created inside a function (`create_app()`) rather than at module level, enabling isolated test instances |
-| **Behavioral Parity** | Ensuring the Python/Flask implementation produces identical externally observable behavior to the Node.js/Express original |
-| **EADDRINUSE** | Socket error indicating the target port is already in use by another process |
-| **Strict Slashes** | Flask URL routing setting that controls whether `/path` and `/path/` are treated as the same route |
-| **WSGI** | Web Server Gateway Interface — Python standard for web server ↔ web application communication |
-| **Test Client** | Flask's built-in HTTP testing facility (`app.test_client()`) that simulates requests without starting a real server |
+|------|------------|
+| **Application Factory** | The `create_app()` function in app.py that produces configured Flask instances |
+| **Behavioral Parity** | Ensuring the Python/Flask server matches the original Node.js/Express behavior exactly |
+| **normalize_path** | The `before_request` hook in app.py that lowercases paths and collapses double-slashes |
+| **405→404 Conversion** | Error handler that converts Flask's Method Not Allowed to Not Found for Express parity |
+| **strict_slashes** | Flask URL map setting; disabled (`False`) to match Express trailing-slash tolerance |
+| **Zero-Mocking Discipline** | Testing strategy using real Flask test client and subprocess instead of mock objects |

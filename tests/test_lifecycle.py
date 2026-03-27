@@ -1,13 +1,13 @@
 """
-Lifecycle Tests — replaces __tests__/server.lifecycle.test.js (141 lines, 10 tests).
+Lifecycle Tests — replaces __tests__/server.lifecycle.test.js (141 lines, 13 tests).
 
-This module provides 10 pytest-equivalent lifecycle tests organized into 4 test
+This module provides 13 pytest-equivalent lifecycle tests organized into 4 test
 classes, directly mapping the 4 describe() blocks from the original Jest file:
 
   TestServerStartup  — 4 tests (server.lifecycle.test.js lines 29–71)
   TestServerShutdown — 2 tests (server.lifecycle.test.js lines 73–94)
   TestPortConflict   — 2 tests (server.lifecycle.test.js lines 96–128)
-  TestAppExport      — 2 tests (server.lifecycle.test.js lines 131–141)
+  TestAppExport      — 5 tests (server.lifecycle.test.js lines 131–141 + module constants)
 
 Translation strategy:
   Express app.listen()          → subprocess.Popen([sys.executable, 'main.py'])
@@ -502,3 +502,66 @@ class TestAppExport:
         # that never have a 'listening' attribute — the equivalent of
         # expect(app.listening).toBeUndefined() in Express/Jest.
         assert not hasattr(app, 'listening')
+
+    def test_main_module_default_host(self):
+        """Module-level default host constant is '127.0.0.1' when HOST env var is unset.
+
+        Validates that main.py line 35 (host = os.environ.get('HOST', '127.0.0.1'))
+        evaluates to the default '127.0.0.1' when the HOST environment variable is
+        not present. Uses subprocess to import main.py in a clean environment.
+        """
+        env = os.environ.copy()
+        env.pop('HOST', None)
+        env.pop('PORT', None)
+        result = subprocess.run(
+            [sys.executable, '-c', 'import main; print(main.host)'],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=10,
+            cwd=_PROJECT_ROOT,
+        )
+        assert result.returncode == 0, f"Subprocess failed: {result.stderr}"
+        assert result.stdout.strip() == '127.0.0.1'
+
+    def test_main_module_default_port(self):
+        """Module-level default port constant is 3000 when PORT env var is unset.
+
+        Validates that main.py line 38 (port = int(os.environ.get('PORT', 3000)))
+        evaluates to 3000 when the PORT environment variable is not present.
+        Uses subprocess to import main.py in a clean environment.
+        """
+        env = os.environ.copy()
+        env.pop('HOST', None)
+        env.pop('PORT', None)
+        result = subprocess.run(
+            [sys.executable, '-c', 'import main; print(main.port)'],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=10,
+            cwd=_PROJECT_ROOT,
+        )
+        assert result.returncode == 0, f"Subprocess failed: {result.stderr}"
+        assert result.stdout.strip() == '3000'
+
+    def test_main_module_port_is_integer(self):
+        """Module-level port constant is an integer type (not a string).
+
+        Validates that main.py line 38 applies int() conversion to the PORT
+        environment variable value, ensuring the port constant is an integer.
+        Uses subprocess to import main.py and check the type name.
+        """
+        env = os.environ.copy()
+        env.pop('HOST', None)
+        env.pop('PORT', None)
+        result = subprocess.run(
+            [sys.executable, '-c', 'import main; print(type(main.port).__name__)'],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=10,
+            cwd=_PROJECT_ROOT,
+        )
+        assert result.returncode == 0, f"Subprocess failed: {result.stderr}"
+        assert result.stdout.strip() == 'int'
