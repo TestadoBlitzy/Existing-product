@@ -34,6 +34,13 @@ const errorHandler = (err, req, res, next) => {
     method: req.method,
   });
 
+  // Guard: if a prior middleware or route handler already started sending
+  // the response, attempting to set status / send JSON would throw.
+  // Delegate to Express's default error handler in that scenario.
+  if (res.headersSent) {
+    return next(err);
+  }
+
   // Build the JSON response payload.
   const response = {
     status: statusCode,
