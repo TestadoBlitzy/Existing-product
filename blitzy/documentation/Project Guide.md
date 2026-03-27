@@ -6,56 +6,53 @@
 
 ### 1.1 Project Overview
 
-This project introduces a complete automated test suite from scratch for `hello_world` v1.0.0 — a minimal, zero-dependency Node.js HTTP server (`server.js`) serving as a Backprop integration test harness. The 14-line single-file application previously had 0% test coverage. Blitzy agents implemented 15 comprehensive Jest test cases achieving 100% coverage across all metrics (lines, functions, branches, statements), added test infrastructure (Jest 29.7.0 + supertest 7.2.2 as devDependencies), and made a single-line production change to enable testability — all while preserving the project's zero-dependency, minimal design philosophy.
+This project addresses a **package metadata bug** in the `hello_world` Node.js HTTP server package. The `"main"` field in `package.json` declared `"index.js"` as the package entrypoint, but no such file exists — the actual entrypoint is `server.js`. This caused deterministic `MODULE_NOT_FOUND` errors for any consumer relying on Node.js module resolution (`require('.')` or `require('hello_world')`). The fix is a single-field correction in `package.json`, restoring correct entrypoint metadata with zero impact on runtime behavior, HTTP response contracts, or the existing 15-test suite.
 
 ### 1.2 Completion Status
 
-**Completion: 80.0%** — 6 hours completed out of 7.5 total hours
-
 ```mermaid
 pie title Completion Status
-    "Completed (AI)" : 6
-    "Remaining (Human)" : 1.5
+    "Completed (AI)" : 3
+    "Remaining" : 1
 ```
 
 | Metric | Value |
 |--------|-------|
-| Total Project Hours | 7.5 |
-| Completed Hours (AI) | 6 |
-| Remaining Hours (Human) | 1.5 |
-| Completion Percentage | 80.0% |
+| **Total Project Hours** | 4 |
+| **Completed Hours (AI)** | 3 |
+| **Remaining Hours** | 1 |
+| **Completion Percentage** | **75%** |
+
+**Calculation:** 3 completed hours / (3 completed + 1 remaining) = 3 / 4 = **75% complete**
 
 ### 1.3 Key Accomplishments
 
-- [x] Created comprehensive test suite (`tests/server.test.js`) with 15 test cases covering all AAP-specified test categories
-- [x] Achieved 100% code coverage across all four metrics: Statements, Branches, Functions, and Lines
-- [x] HTTP method matrix fully covered: GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD — all 7 methods validated
-- [x] Multi-path validation complete: `/`, `/test`, `/nonexistent`, `/a/b/c/d`, `/path?query=value`
-- [x] Response contract enforcement: status 200, Content-Type `text/plain`, exact body `Hello, World!\n` verified
-- [x] Console startup message verification via `jest.spyOn(console, 'log')`
-- [x] Server lifecycle management with `beforeAll`/`afterAll` hooks and EADDRINUSE error handling
-- [x] Zero-dependency production design preserved — jest and supertest are devDependencies only
-- [x] Single-line production change (`module.exports = server;`) with zero behavioral impact
-- [x] All changes committed (4 commits) with no uncommitted in-scope changes
+- [x] Root cause definitively identified: `"main": "index.js"` in `package.json` line 5 references a non-existent file
+- [x] Fix applied: `"main"` field corrected from `"index.js"` to `"server.js"`
+- [x] Bug elimination verified: `node -e "require('.')"` loads successfully (previously threw `MODULE_NOT_FOUND`)
+- [x] Full regression suite passed: 15/15 tests, 0 failures
+- [x] 100% code coverage maintained across statements, branches, functions, and lines
+- [x] Runtime verified: server starts on `127.0.0.1:3000`, responds `200 OK` with `Hello, World!\n`
+- [x] Metadata consistency confirmed: `main: server.js | exists: true`
+- [x] Scope compliance enforced: only `package.json` modified, no other files touched
 
 ### 1.4 Critical Unresolved Issues
 
 | Issue | Impact | Owner | ETA |
 |-------|--------|-------|-----|
-| No critical issues | N/A | N/A | N/A |
+| No critical unresolved issues | N/A | N/A | N/A |
 
-All AAP-scoped autonomous work has been completed successfully with zero test failures, zero compilation errors, and zero runtime issues.
+All in-scope AAP work is complete with zero errors. The bug fix is fully validated and ready for human review.
 
 ### 1.5 Access Issues
 
-No access issues identified. The project is fully self-contained with no external service dependencies, API keys, or third-party credentials required.
+No access issues identified. All dependencies installed successfully via `npm ci`, and all validation commands executed without permission or credential errors.
 
 ### 1.6 Recommended Next Steps
 
-1. **[High]** Conduct human code review of the 4 changed files to verify minimal-change compliance and test quality
-2. **[High]** Approve and merge the PR into the `main` branch
-3. **[Medium]** Add `.gitignore` file to exclude `node_modules/` and `coverage/` directories from version control
-4. **[Low]** Run negative validation: temporarily modify `server.js` response string, confirm tests fail, then revert — to verify test sensitivity
+1. **[High]** Review and merge the pull request — verify the single-line `package.json` change
+2. **[Medium]** Post-merge verification — run `node -e "require('.')"` in the target/integration environment to confirm fix propagates
+3. **[Low]** Consider adding a CI check that validates `"main"` field points to an existing file to prevent recurrence
 
 ---
 
@@ -65,41 +62,36 @@ No access issues identified. The project is fully self-contained with no externa
 
 | Component | Hours | Description |
 |-----------|-------|-------------|
-| Test infrastructure setup | 1.5 | Updated `package.json` with Jest test scripts (`test`, `test:coverage`), added `devDependencies` section with jest@29.7.0 and supertest@7.2.2, resolved 304 packages via `npm install` |
-| Server testability modification | 0.5 | Added `module.exports = server;` to `server.js`, verified zero behavioral impact on production execution |
-| Test suite design and implementation | 3.0 | Created `tests/server.test.js` (163 lines) with 15 test cases across 5 categories: HTTP method matrix (7 tests), multi-path validation (4 tests), response contract enforcement (2 tests), console startup verification (1 test), server lifecycle management (1 test) |
-| Validation and bug fixing | 1.0 | Ran test execution and coverage validation, fixed EADDRINUSE error handling in `beforeAll` hook, corrected test naming conventions, iterated through 4 commits to achieve green build |
-| **Total Completed** | **6.0** | |
+| Root Cause Diagnosis | 1.0 | Analyzed `package.json`, `server.js`, `tests/server.test.js`; confirmed `index.js` does not exist; reproduced `MODULE_NOT_FOUND` error via `node -e "require('.')"` (AAP §0.2–0.3) |
+| Fix Implementation | 0.5 | Changed `"main": "index.js"` to `"main": "server.js"` in `package.json` line 5; committed as `108bcf6` (AAP §0.4) |
+| Verification & Validation | 1.5 | Executed bug elimination test, full regression suite (15/15 pass), 100% coverage check, runtime server verification, metadata consistency check, and scope compliance audit (AAP §0.6) |
+| **Total** | **3.0** | |
 
 ### 2.2 Remaining Work Detail
 
 | Category | Hours | Priority |
 |----------|-------|----------|
-| Human code review and PR approval | 0.5 | High |
-| PR merge to main branch and integration verification | 0.5 | High |
-| Add .gitignore for coverage/ and node_modules/ directories | 0.5 | Medium |
-| **Total Remaining** | **1.5** | |
+| PR Review & Merge | 0.5 | High |
+| Post-Merge Integration Verification | 0.5 | Medium |
+| **Total** | **1.0** | |
+
+**Integrity check:** Section 2.1 (3.0h) + Section 2.2 (1.0h) = 4.0h = Total Project Hours in Section 1.2 ✓
 
 ---
 
 ## 3. Test Results
 
-All tests listed originate from Blitzy's autonomous validation execution on this project.
-
 | Test Category | Framework | Total Tests | Passed | Failed | Coverage % | Notes |
 |---------------|-----------|-------------|--------|--------|------------|-------|
-| HTTP Method Matrix (Unit/Integration) | Jest 29.7.0 + supertest 7.2.2 | 7 | 7 | 0 | 100% | GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD on root path `/` |
-| Multi-Path Validation (Integration) | Jest 29.7.0 + supertest 7.2.2 | 4 | 4 | 0 | 100% | `/test`, `/nonexistent`, `/a/b/c/d`, `/path?query=value` |
-| Response Contract Enforcement (Unit) | Jest 29.7.0 | 2 | 2 | 0 | 100% | Exact body with trailing newline, consecutive request consistency |
-| Console Startup Verification (Unit) | Jest 29.7.0 | 1 | 1 | 0 | 100% | `jest.spyOn(console, 'log')` validates startup message format |
-| Server Lifecycle (Integration) | Jest 29.7.0 | 1 | 1 | 0 | 100% | Address binding verification (host + port) |
-| **Totals** | | **15** | **15** | **0** | **100%** | **0 failures, 0 skipped** |
+| Unit / Integration | Jest 29.7.0 + Supertest 7.2.2 | 15 | 15 | 0 | 100% | HTTP method coverage (GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD), multi-path validation, response contract enforcement, startup message verification, server lifecycle checks |
 
-**Coverage Breakdown (Istanbul via Jest `--coverage`):**
+**Summary:** All 15 tests executed by Blitzy's autonomous validation pipeline passed with 100% code coverage across statements, branches, functions, and lines for `server.js`. Zero test failures, zero regressions introduced by the fix.
 
-| File | Statements | Branches | Functions | Lines | Uncovered Lines |
-|------|-----------|----------|-----------|-------|-----------------|
-| server.js | 100% | 100% | 100% | 100% | None |
+**Coverage Breakdown:**
+
+| File | Statements | Branches | Functions | Lines |
+|------|-----------|----------|-----------|-------|
+| server.js | 100% | 100% | 100% | 100% |
 
 ---
 
@@ -107,48 +99,37 @@ All tests listed originate from Blitzy's autonomous validation execution on this
 
 **Runtime Health:**
 
-- ✅ `npm install` — 304 packages installed, 0 vulnerabilities
-- ✅ `npm test` — 15/15 tests passing in 1.24s (under 5s target)
-- ✅ `npm run test:coverage` — 100% coverage confirmed across all four metrics
-- ✅ `node server.js` — Server starts and logs `Server running at http://127.0.0.1:3000/`
-- ✅ `curl http://127.0.0.1:3000/` — Returns HTTP 200, Content-Type: text/plain, body: `Hello, World!\n`
-- ✅ Multiple HTTP methods (GET, POST, PUT, DELETE) — All return identical 200 response
-- ✅ Multiple paths (`/`, `/test`, `/nonexistent`) — All return identical 200 response
-- ✅ Server shuts down cleanly via `server.close()` with no resource leaks
+- ✅ **Server startup:** `node server.js` starts successfully, logs `Server running at http://127.0.0.1:3000/`
+- ✅ **HTTP response contract:** `curl http://127.0.0.1:3000/` returns `Hello, World!` with `200 OK`, `Content-Type: text/plain`
+- ✅ **Package entrypoint resolution:** `node -e "require('.')"` loads `server.js` without error (previously threw `MODULE_NOT_FOUND`)
+- ✅ **Metadata consistency:** `main: server.js | exists: true`
+- ✅ **Module export:** `require('.')` returns an `http.Server` object with `listening` property
 
-**UI Verification:**
+**Bug Fix Verification:**
 
-- N/A — No user interface exists; this is a headless HTTP server
+- ✅ **Before fix:** `node -e "require('.')"` threw `Error: Cannot find module '.../index.js'`
+- ✅ **After fix:** `node -e "require('.')"` loads successfully, returns `Loaded: SUCCESS`
+
+**UI Verification:** N/A — this is a backend-only Node.js HTTP server with no UI component.
 
 ---
 
 ## 5. Compliance & Quality Review
 
-| AAP Requirement | Status | Evidence |
-|----------------|--------|----------|
-| Create `tests/server.test.js` with comprehensive test suite | ✅ Pass | 163-line test file created with 15 test cases |
-| HTTP method coverage: GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD | ✅ Pass | 7 dedicated tests, all passing |
-| Multi-path validation: /, /test, /nonexistent, /a/b/c/d, /path?query=value | ✅ Pass | 4 dedicated tests plus root path coverage in method tests |
-| Response contract enforcement: status 200, text/plain, exact body | ✅ Pass | Assertions in every HTTP test + 2 dedicated contract tests |
-| Console startup message verification | ✅ Pass | jest.spyOn captures and validates exact message format |
-| Server lifecycle management | ✅ Pass | beforeAll/afterAll hooks with EADDRINUSE error handling |
-| Update `server.js` with `module.exports = server;` | ✅ Pass | Single line added, zero behavioral change confirmed |
-| Update `package.json` with test scripts and devDependencies | ✅ Pass | test + test:coverage scripts, jest + supertest in devDependencies |
-| 100% line coverage | ✅ Pass | Istanbul reports 100% |
-| 100% function coverage | ✅ Pass | Istanbul reports 100% |
-| 100% branch coverage | ✅ Pass | Istanbul reports 100% |
-| 100% statement coverage | ✅ Pass | Istanbul reports 100% |
-| Zero production dependency impact | ✅ Pass | No `dependencies` section; jest/supertest are devDependencies only |
-| Minimal change clause compliance | ✅ Pass | Only 1 line added to server.js; all other changes are test/config |
-| No CI/CD workflow modifications | ✅ Pass | No .github/workflows files created or modified |
-| Test isolation in /tests directory | ✅ Pass | All test code resides in tests/server.test.js |
-| Jest naming conventions (*.test.js) | ✅ Pass | File named server.test.js |
-| Descriptive test names (should [behavior]) | ✅ Pass | All 15 tests follow pattern |
+| Compliance Area | Status | Details |
+|-----------------|--------|---------|
+| AAP Fix Specification (§0.4) | ✅ Pass | `"main"` field changed from `"index.js"` to `"server.js"` exactly as specified |
+| Scope Boundaries (§0.5) | ✅ Pass | Only `package.json` modified; no other files created, deleted, or changed |
+| Excluded Files (§0.5.2) | ✅ Pass | `server.js`, `tests/server.test.js`, `package-lock.json`, `README.md`, `blitzy/` all untouched |
+| User Rules (§0.7.1) | ✅ Pass | No GitHub Actions workflow files created or modified |
+| Bug Fix Discipline (§0.7.2) | ✅ Pass | Zero modifications outside the bug fix; all existing contracts preserved |
+| Test Regression (§0.6.2) | ✅ Pass | 15/15 tests pass, 100% coverage maintained, response contract unchanged |
+| Node.js v20.x Compatibility | ✅ Pass | Validated on Node.js v20.19.5, npm 10.8.2 |
+| CommonJS Module System | ✅ Pass | No ES Module syntax introduced; `require()`/`module.exports` preserved |
+| Dependency Security | ✅ Pass | `npm ci` reports 0 vulnerabilities |
+| Package Identity | ✅ Pass | `name`, `version`, `description`, `author`, `license`, `scripts`, `devDependencies` all unchanged |
 
-**Autonomous Validation Fixes Applied:**
-
-- EADDRINUSE error handling added to `beforeAll` hook to prevent port conflict failures
-- Test naming conventions corrected for consistency
+**Autonomous Fixes Applied:** The prior coding agent applied the single-line fix to `package.json` (commit `108bcf6`). The Final Validator confirmed the fix and ran the complete verification protocol with zero issues found.
 
 ---
 
@@ -156,11 +137,12 @@ All tests listed originate from Blitzy's autonomous validation execution on this
 
 | Risk | Category | Severity | Probability | Mitigation | Status |
 |------|----------|----------|-------------|------------|--------|
-| Port 3000 conflict during test execution | Technical | Low | Low | EADDRINUSE handling in beforeAll hook; `--forceExit` flag in Jest command | Mitigated |
-| Jest 29.x end-of-life (30.x is latest) | Technical | Low | Low | Jest 29.7.0 is stable and widely supported; migration to 30.x is straightforward when desired | Accepted |
-| `node_modules/` and `coverage/` tracked in git | Operational | Low | Medium | Add `.gitignore` file (remaining human task) | Open |
-| `package.json` main field points to non-existent `index.js` | Technical | Low | Low | Pre-existing issue unrelated to AAP scope; does not affect server.js or test execution | Accepted |
-| Server binds to hardcoded 127.0.0.1:3000 | Operational | Low | Low | By design for this minimal test harness; not a production deployment concern | Accepted |
+| External cache of old `main` value | Integration | Low | Low | Clear npm/Node.js module caches after deployment; run `node -e "require('.')"` to verify | Open — requires post-merge verification |
+| No CI gate for `main` field validity | Operational | Low | Low | Add a CI check that validates `package.json` `main` points to an existing file | Open — enhancement for future |
+| Server binds to localhost only | Technical | Info | N/A | Intentional design for Backprop test harness; not a production web server | Accepted |
+| No HTTPS/TLS support | Security | Info | N/A | Out of scope — this is a minimal test harness, not a production service | Accepted |
+
+**Risk Summary:** No high or medium severity risks identified. The fix is a single-field metadata correction with no behavioral side effects. The two open items are low-severity post-deployment hygiene tasks.
 
 ---
 
@@ -168,12 +150,12 @@ All tests listed originate from Blitzy's autonomous validation execution on this
 
 ```mermaid
 pie title Project Hours Breakdown
-    "Completed Work" : 6
-    "Remaining Work" : 1.5
+    "Completed Work" : 3
+    "Remaining Work" : 1
 ```
 
-**Completed: 6 hours (80.0%)** — All AAP-scoped autonomous work delivered
-**Remaining: 1.5 hours (20.0%)** — Human review, merge, and minor cleanup
+**Integrity check:** Completed Work (3h) + Remaining Work (1h) = 4h = Total Project Hours ✓
+**Remaining Work (1h) matches:** Section 1.2 Remaining Hours (1h) ✓ and Section 2.2 Total (1h) ✓
 
 ---
 
@@ -181,42 +163,21 @@ pie title Project Hours Breakdown
 
 ### Achievements
 
-The project is 80.0% complete with 6 hours of AAP-scoped work delivered autonomously out of 7.5 total project hours. All core deliverables specified in the Agent Action Plan have been implemented successfully:
+The Blitzy autonomous pipeline successfully diagnosed, fixed, and verified a package metadata bug in the `hello_world` Node.js project. The root cause — a `"main"` field in `package.json` pointing to a non-existent `index.js` — was identified through systematic file analysis and reproduction. The fix (a single-field change to `"server.js"`) was applied, committed, and validated through a comprehensive verification protocol including all 15 regression tests (100% pass rate), 100% code coverage confirmation, runtime server verification, and metadata consistency checks.
 
-- A comprehensive 15-test suite was created from scratch, taking the project from 0% to 100% automated test coverage
-- All five test categories mandated by the AAP are covered: HTTP method matrix, multi-path validation, response contract enforcement, console startup verification, and server lifecycle management
-- The minimal change philosophy was strictly followed — only a single line was added to production code
-- Zero production dependency impact — the project maintains its zero-dependency design
-- All 15 tests pass consistently with execution time well under the 5-second target
+### Completion
 
-### Remaining Gaps
+The project is **75% complete** (3 hours completed out of 4 total hours). All AAP-scoped autonomous deliverables are finished. The remaining 1 hour consists of human-required activities: PR review/merge (0.5h) and post-merge integration verification (0.5h).
 
-The remaining 1.5 hours consist entirely of standard path-to-production human activities:
+### Critical Path to Production
 
-1. **Code review** (0.5h) — Human reviewer should verify minimal-change compliance and test quality
-2. **PR merge** (0.5h) — Merge to main branch after approval
-3. **Gitignore cleanup** (0.5h) — Add `.gitignore` for `node_modules/` and `coverage/` directories
+1. A human developer reviews and approves the single-line change in `package.json`
+2. The PR is merged to the target branch
+3. Post-merge verification confirms `require('.')` resolves correctly in the integration environment
 
 ### Production Readiness Assessment
 
-The test suite is **production-ready** for merge. All validation gates passed:
-- Dependencies: 0 vulnerabilities
-- Tests: 15/15 passing
-- Coverage: 100% across all metrics
-- Runtime: Server behavior unchanged
-
-### Success Metrics Achieved
-
-| Metric | Target | Actual | Status |
-|--------|--------|--------|--------|
-| Test cases | 15+ | 15 | ✅ Met |
-| Line coverage | 100% | 100% | ✅ Met |
-| Function coverage | 100% | 100% | ✅ Met |
-| Branch coverage | 100% | 100% | ✅ Met |
-| Statement coverage | 100% | 100% | ✅ Met |
-| Test execution time | < 5s | 1.24s | ✅ Met |
-| Production behavior change | None | None | ✅ Met |
-| Production dependencies added | 0 | 0 | ✅ Met |
+The fix is production-ready from a code perspective. All tests pass, coverage is 100%, the runtime behaves identically, and no scope violations were introduced. The only gate to production is human PR review and merge.
 
 ---
 
@@ -224,122 +185,78 @@ The test suite is **production-ready** for merge. All validation gates passed:
 
 ### System Prerequisites
 
-| Software | Required Version | Verification Command |
-|----------|-----------------|---------------------|
-| Node.js | v20.x (tested with v20.19.5) | `node -v` |
-| npm | v9+ (tested with v10.8.2) | `npm -v` |
-
-No external services, databases, or API keys are required. The project is fully self-contained.
+| Software | Version | Purpose |
+|----------|---------|---------|
+| Node.js | v20.x (validated on v20.19.5) | JavaScript runtime |
+| npm | v10.x (validated on v10.8.2) | Package manager |
+| Git | 2.x+ | Version control |
 
 ### Environment Setup
 
 ```bash
-# Clone the repository and switch to the feature branch
+# Clone the repository
 git clone <repository-url>
-cd hello_world
-git checkout blitzy-708fc0c8-cfa4-46d8-ae46-fe232292e207
+cd <repository-directory>
+
+# Checkout the fix branch
+git checkout blitzy-ef4baa44-8b2e-4b08-acc6-60ec5e23d172
 ```
 
-No environment variables are needed. The server uses hardcoded configuration:
-- Hostname: `127.0.0.1`
-- Port: `3000`
+No environment variables are required. The server uses hardcoded defaults (`127.0.0.1:3000`).
 
 ### Dependency Installation
 
 ```bash
-# Install all dependencies (jest and supertest as devDependencies)
-npm install
+# Install dependencies from lockfile (recommended for reproducibility)
+npm ci
 ```
 
-Expected output: `added 304 packages ... found 0 vulnerabilities`
+**Expected output:** `found 0 vulnerabilities`
 
-Verify installed packages:
-
-```bash
-npm ls --depth=0
-```
-
-Expected output:
-```
-hello_world@1.0.0
-├── jest@29.7.0
-└── supertest@7.2.2
-```
-
-### Running Tests
-
-```bash
-# Run all tests
-npm test
-
-# Run tests with verbose output
-npx jest --verbose --forceExit --detectOpenHandles
-
-# Run tests with coverage report
-npm run test:coverage
-
-# Run a specific test file
-npx jest tests/server.test.js --forceExit
-```
-
-Expected output for `npm test`:
-```
-PASS tests/server.test.js
-  Server
-    ✓ should return 200 with "Hello, World!\n" for GET /
-    ✓ should return 200 with "Hello, World!\n" for POST /
-    ... (15 tests total)
-
-Test Suites: 1 passed, 1 total
-Tests:       15 passed, 15 total
-```
-
-Expected coverage output (`npm run test:coverage`):
-```
------------|---------|----------|---------|---------|
-File       | % Stmts | % Branch | % Funcs | % Lines |
------------|---------|----------|---------|---------|
-All files  |     100 |      100 |     100 |     100 |
- server.js |     100 |      100 |     100 |     100 |
------------|---------|----------|---------|---------|
-```
-
-### Running the Server
+### Running the Application
 
 ```bash
 # Start the server
 node server.js
 ```
 
-Expected console output: `Server running at http://127.0.0.1:3000/`
+**Expected output:** `Server running at http://127.0.0.1:3000/`
 
 ### Verification Steps
 
 ```bash
-# Verify server responds correctly
+# 1. Verify the server responds correctly
 curl http://127.0.0.1:3000/
-
 # Expected: Hello, World!
 
-# Verify HTTP status code
-curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/
+# 2. Verify the bug fix — package entrypoint resolution
+node -e "const s = require('.'); console.log('Type:', typeof s); console.log('Listening:', s.listening !== undefined); s.close();"
+# Expected: Type: object / Listening: true
 
-# Expected: 200
+# 3. Verify metadata consistency
+node -e "const p=require('./package.json'); const fs=require('fs'); console.log('main:', p.main, '| exists:', fs.existsSync(p.main));"
+# Expected: main: server.js | exists: true
+```
 
-# Verify response headers
-curl -sI http://127.0.0.1:3000/
+### Running Tests
 
-# Expected: Content-Type: text/plain
+```bash
+# Run full test suite
+CI=true npx jest --forceExit --detectOpenHandles --watchAll=false
+# Expected: 15 passed, 0 failed
+
+# Run tests with coverage report
+CI=true npx jest --coverage --forceExit --detectOpenHandles --watchAll=false
+# Expected: 100% across all metrics
 ```
 
 ### Troubleshooting
 
 | Issue | Cause | Resolution |
 |-------|-------|------------|
-| `EADDRINUSE: port 3000` | Another process is using port 3000 | Kill the process: `lsof -ti:3000 \| xargs kill -9` (Linux/Mac) or restart terminal |
-| `npm test` enters watch mode | Missing `--forceExit` flag | Use `CI=true npm test -- --watchAll=false --ci` |
-| `Cannot find module 'supertest'` | Dependencies not installed | Run `npm install` |
-| `Cannot find module '../server'` | Test run from wrong directory | Ensure you are in the project root directory |
+| `EADDRINUSE: address already in use :::3000` | Port 3000 already occupied | Kill the existing process: `lsof -ti:3000 \| xargs kill -9` |
+| `MODULE_NOT_FOUND: Cannot find module './index.js'` | Fix not applied; `main` field still points to `index.js` | Verify `package.json` has `"main": "server.js"` |
+| Tests hang in watch mode | Missing `--watchAll=false` flag | Use `CI=true npx jest --forceExit --detectOpenHandles --watchAll=false` |
 
 ---
 
@@ -349,56 +266,52 @@ curl -sI http://127.0.0.1:3000/
 
 | Command | Purpose |
 |---------|---------|
-| `npm install` | Install all dependencies |
-| `npm test` | Run Jest test suite (15 tests) |
-| `npm run test:coverage` | Run tests with Istanbul coverage report |
 | `node server.js` | Start the HTTP server |
-| `npx jest --verbose --forceExit --detectOpenHandles` | Run tests with detailed output |
+| `npm ci` | Install dependencies from lockfile |
+| `CI=true npx jest --forceExit --detectOpenHandles --watchAll=false` | Run test suite |
+| `CI=true npx jest --coverage --forceExit --detectOpenHandles --watchAll=false` | Run tests with coverage |
+| `node -e "require('.')"` | Verify package entrypoint resolution |
 | `curl http://127.0.0.1:3000/` | Test server HTTP response |
 
 ### B. Port Reference
 
-| Service | Port | Host | Protocol |
+| Service | Host | Port | Protocol |
 |---------|------|------|----------|
-| HTTP Server | 3000 | 127.0.0.1 | HTTP |
+| HTTP Server | 127.0.0.1 | 3000 | HTTP |
 
 ### C. Key File Locations
 
 | File | Purpose |
 |------|---------|
-| `server.js` | Production HTTP server (16 lines) |
+| `package.json` | npm package manifest (contains the fixed `main` field) |
+| `server.js` | HTTP server entrypoint (16 lines, `http.createServer`) |
 | `tests/server.test.js` | Jest test suite (163 lines, 15 tests) |
-| `package.json` | npm manifest with test scripts and devDependencies |
-| `package-lock.json` | npm lockfile for deterministic installs |
-| `README.md` | Repository documentation |
-| `coverage/` | Istanbul coverage reports (generated at runtime, not committed) |
+| `package-lock.json` | Dependency lockfile (v3) |
+| `README.md` | Project documentation |
 
 ### D. Technology Versions
 
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| Node.js | v20.19.5 | JavaScript runtime |
-| npm | v10.8.2 | Package manager |
-| Jest | 29.7.0 | Testing framework and coverage tool |
-| supertest | 7.2.2 | HTTP assertion library for in-process testing |
-| http (built-in) | Node.js native | HTTP server module (zero external dependencies) |
+| Technology | Version | Role |
+|------------|---------|------|
+| Node.js | v20.19.5 | Runtime |
+| npm | 10.8.2 | Package manager |
+| Jest | ^29.7.0 | Test framework (devDependency) |
+| Supertest | ^7.2.2 | HTTP assertion library (devDependency) |
 
 ### E. Environment Variable Reference
 
-No environment variables are required. All configuration is hardcoded in `server.js`:
+No environment variables are required. The server uses hardcoded configuration:
 
-| Constant | Value | Location |
-|----------|-------|----------|
-| `hostname` | `127.0.0.1` | `server.js` line 3 |
-| `port` | `3000` | `server.js` line 4 |
+| Setting | Value | Location |
+|---------|-------|----------|
+| Hostname | `127.0.0.1` | `server.js` line 3 |
+| Port | `3000` | `server.js` line 4 |
 
 ### G. Glossary
 
 | Term | Definition |
-|------|-----------|
-| AAP | Agent Action Plan — the comprehensive specification of all project requirements |
-| devDependencies | npm packages required only for development/testing, not included in production |
-| Istanbul | JavaScript code coverage tool bundled with Jest |
-| supertest | Library for testing HTTP servers by sending in-process requests without network binding |
-| EADDRINUSE | Node.js error indicating a port is already in use by another process |
-| `--forceExit` | Jest flag that forces the process to exit after tests complete, even with open handles |
+|------|------------|
+| `main` field | The `package.json` property that defines the default module loaded when a package is required by name or directory path |
+| `MODULE_NOT_FOUND` | Node.js error thrown when `require()` cannot locate the specified module file |
+| CommonJS | Node.js module system using `require()` and `module.exports` |
+| Backprop | The integration/testing platform this `hello_world` package serves as a test harness for |

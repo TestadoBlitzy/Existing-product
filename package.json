@@ -2,7 +2,7 @@
     "name": "hello_world",
     "version": "1.0.0",
     "description": "Hello world in Node.js",
-    "main": "index.js",
+    "main": "server.js",
     "scripts": {
         "test": "jest --forceExit --detectOpenHandles",
         "test:coverage": "jest --coverage --forceExit --detectOpenHandles"
