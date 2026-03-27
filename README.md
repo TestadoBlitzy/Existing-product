@@ -58,7 +58,7 @@ npm run pm2:restart
 |--------|------|-------------|----------|
 | GET | `/` | Hello World (backward compatible) | `Hello, World!\n` (text/plain) |
 | GET | `/health` | Health check | JSON: `{ status, uptime, timestamp }` |
-| GET | `/api/info` | Application info | JSON: `{ name, version, environment }` |
+| GET | `/info` | Application info | JSON: `{ name, version, environment }` |
 
 ## Project Structure
 

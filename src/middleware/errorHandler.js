@@ -20,6 +20,7 @@
 
 'use strict';
 
+const config = require('../config');
 const logger = require('../config/logger');
 
 /**
@@ -65,7 +66,7 @@ const errorHandler = (err, req, res, next) => {
   // for developer debugging. In production, stack traces are omitted to prevent
   // exposing internal file paths, dependency versions, or other implementation
   // details to end users — a security best practice.
-  if (process.env.NODE_ENV !== 'production') {
+  if (config.nodeEnv !== 'production') {
     response.error.stack = err.stack;
   }
 
