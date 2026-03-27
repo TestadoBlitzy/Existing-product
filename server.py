@@ -18,6 +18,16 @@ def evening_post():
     return "Good evening", 201, {"Content-Type": "text/plain; charset=utf-8"}
 
 
+@app.route("/morning", methods=["GET"])
+def morning_get():
+    return "Good morning", 200, {"Content-Type": "text/plain; charset=utf-8"}
+
+
+@app.route("/morning", methods=["POST"])
+def morning_post():
+    return "Good morning", 201, {"Content-Type": "text/plain; charset=utf-8"}
+
+
 if __name__ == "__main__":
     from werkzeug.serving import WSGIRequestHandler
 

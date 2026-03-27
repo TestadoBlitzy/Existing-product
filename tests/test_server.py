@@ -52,12 +52,50 @@ def test_post_evening_content_type(client):
     assert response.content_type == "text/plain; charset=utf-8"
 
 
+def test_get_morning_status_code(client):
+    response = client.get("/morning")
+    assert response.status_code == 200
+
+
+def test_get_morning_response_body(client):
+    response = client.get("/morning")
+    assert response.data == b"Good morning"
+
+
+def test_get_morning_content_type(client):
+    response = client.get("/morning")
+    assert response.content_type == "text/plain; charset=utf-8"
+
+
+def test_post_morning_status_code(client):
+    response = client.post("/morning")
+    assert response.status_code == 201
+
+
+def test_post_morning_response_body(client):
+    response = client.post("/morning")
+    assert response.data == b"Good morning"
+
+
+def test_post_morning_content_type(client):
+    response = client.post("/morning")
+    assert response.content_type == "text/plain; charset=utf-8"
+
+
 # --- Edge Case Tests ---
 
 
 def test_evening_get_vs_post_status_differentiation(client):
     get_response = client.get("/evening")
     post_response = client.post("/evening")
+    assert get_response.status_code == 200
+    assert post_response.status_code == 201
+    assert get_response.status_code != post_response.status_code
+
+
+def test_morning_get_vs_post_status_differentiation(client):
+    get_response = client.get("/morning")
+    post_response = client.post("/morning")
     assert get_response.status_code == 200
     assert post_response.status_code == 201
     assert get_response.status_code != post_response.status_code
@@ -86,6 +124,11 @@ def test_post_root_not_allowed(client):
 
 def test_unsupported_method_on_evening(client):
     response = client.delete("/evening")
+    assert response.status_code == 405
+
+
+def test_unsupported_method_on_morning(client):
+    response = client.delete("/morning")
     assert response.status_code == 405
 
 
