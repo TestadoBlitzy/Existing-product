@@ -93,9 +93,19 @@ const logger = winston.createLogger({
 // Morgan middleware calls stream.write(message) for every HTTP request.
 // We pipe those messages through Winston's 'http' log level (priority 3,
 // between 'info' and 'verbose') and trim the trailing newline Morgan appends.
+//
+// Morgan's 'dev' format embeds ANSI colour escape codes (e.g. \u001b[32m for
+// green status codes).  These are desirable in the terminal but corrupt the
+// JSON entries in file transports (combined.log, error.log).  We strip all
+// ANSI sequences here so that every transport receives a clean plain-text
+// message.  Winston's own Console transport re-applies colourisation through
+// its format pipeline, so terminal output remains colourful.
+// eslint-disable-next-line no-control-regex
+const ANSI_REGEX = /\u001b\[[0-9;]*m/g;
+
 logger.stream = {
   write: (message) => {
-    logger.http(message.trim());
+    logger.http(message.replace(ANSI_REGEX, '').trim());
   },
 };
 
