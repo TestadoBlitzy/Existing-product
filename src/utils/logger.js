@@ -4,7 +4,7 @@
  * Provides a production-grade, multi-transport logger that replaces all
  * console.log usage throughout the application.  Configures three transports:
  *   1. Console  — colorized, human-readable output (always active)
- *   2. File     — logs/combined.log  (info level and above, JSON format)
+ *   2. File     — logs/combined.log  (http level and above, JSON format)
  *   3. File     — logs/error.log     (error level only, JSON format)
  *
  * Also exposes a Morgan-compatible write stream at logger.stream for HTTP
@@ -69,10 +69,10 @@ const logger = winston.createLogger({
       ),
     }),
 
-    // 2. Combined file transport — captures info level and above
+    // 2. Combined file transport — captures http level and above
     new winston.transports.File({
       filename: path.join(logDir, 'combined.log'),
-      level: 'info',
+      level: 'http',
       maxsize: 5242880, // 5 MB per file
       maxFiles: 5,      // keep up to 5 rotated files
     }),
