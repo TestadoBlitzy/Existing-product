@@ -13,8 +13,7 @@ Test inventory:
     test_main_calls_print_before_run    — call ordering guarantee
 """
 
-from unittest.mock import patch, MagicMock
-import importlib
+from unittest.mock import patch
 import runpy
 
 from flask import Flask
