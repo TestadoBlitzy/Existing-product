@@ -15,6 +15,9 @@ app.get('/good-evening', (req, res) => {
   res.type('text').send('Good evening');
 });
 
-app.listen(port, hostname, () => {
-  console.log(`Server running at http://${hostname}:${port}/`);
-});
+if (require.main === module) {
+  app.listen(port, hostname, () => {
+    console.log(`Server running at http://${hostname}:${port}/`);
+  });
+}
+module.exports = app;
