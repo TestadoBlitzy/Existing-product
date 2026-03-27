@@ -1,11 +1,30 @@
 {
-    "name": "hello_world",
-    "version": "1.0.0",
-    "description": "Hello world in Node.js",
-    "main": "index.js",
-    "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1"
-    },
-    "author": "hxu",
-    "license": "MIT"
+  "name": "hello_world",
+  "version": "1.0.0",
+  "description": "Express.js HTTP server with middleware, logging, and PM2 deployment",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "npx nodemon server.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "pm2:start": "npx pm2 start ecosystem.config.js",
+    "pm2:stop": "npx pm2 stop ecosystem.config.js",
+    "pm2:restart": "npx pm2 restart ecosystem.config.js"
+  },
+  "author": "hxu",
+  "license": "MIT",
+  "dependencies": {
+    "compression": "^1.8.1",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.3.1",
+    "helmet": "^8.1.0",
+    "morgan": "^1.10.1",
+    "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9",
+    "pm2": "^6.0.14"
+  }
 }
