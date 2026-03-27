@@ -9,7 +9,7 @@
  * rejection for unexpected query parameters and HEAD method support.
  *
  * Covers:
- *   - GET / happy path with exact JSON response body verification
+ *   - GET / happy path with exact plain-text response body verification
  *   - HEAD / automatic handling by Express router.get()
  *   - 405 Method Not Allowed for POST, PUT, PATCH, DELETE with Allow header
  *   - 400 Validation rejection for unexpected query parameters via Zod strict()
@@ -67,7 +67,7 @@ describe('Root Route', () => {
       expect(res.text).toBe('Hello, World!\n');
     });
 
-    test('response body is plain text, not JSON object', async () => {
+    test('response body is exact plain text with no JSON structure', async () => {
       const res = await request(app).get('/');
       expect(res.text).toBe('Hello, World!\n');
       // Verify response is not parsed as JSON with status/message keys
