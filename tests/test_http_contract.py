@@ -210,6 +210,8 @@ def test_options_health_returns_allow_header(client):
 
     assert response.status_code == 200
     assert 'Allow' in response.headers
+    assert 'GET' in response.headers['Allow']
+    assert response.data == b''
 
 
 # ---------------------------------------------------------------------------
