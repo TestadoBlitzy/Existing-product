@@ -50,34 +50,29 @@ describe('Root Route', () => {
       expect(res.status).toBe(200);
     });
 
-    test('returns JSON content type', async () => {
+    test('returns text/plain content type', async () => {
       const res = await request(app).get('/');
       expect(res.headers['content-type']).toEqual(
-        expect.stringContaining('application/json')
+        expect.stringContaining('text/plain')
       );
     });
 
-    test('returns response with status "success"', async () => {
+    test('returns correct plain text body', async () => {
       const res = await request(app).get('/');
-      expect(res.body.status).toBe('success');
+      expect(res.text).toBe('Hello, World!\n');
     });
 
-    test('returns response with correct welcome message', async () => {
+    test('returns exact Hello, World! body with newline', async () => {
       const res = await request(app).get('/');
-      expect(res.body.message).toBe(
-        'Hello, World! Welcome to the Express server.'
-      );
+      expect(res.text).toBe('Hello, World!\n');
     });
 
-    test('response body has exact shape { status, message }', async () => {
+    test('response body is plain text, not JSON object', async () => {
       const res = await request(app).get('/');
-      expect(res.body).toEqual({
-        status: 'success',
-        message: 'Hello, World! Welcome to the Express server.'
-      });
-      // Verify no extra properties beyond status and message
-      expect(Object.keys(res.body)).toHaveLength(2);
-      expect(Object.keys(res.body).sort()).toEqual(['message', 'status']);
+      expect(res.text).toBe('Hello, World!\n');
+      // Verify response is not parsed as JSON with status/message keys
+      expect(res.body).not.toHaveProperty('status');
+      expect(res.body).not.toHaveProperty('message');
     });
   });
 
@@ -90,10 +85,10 @@ describe('Root Route', () => {
       expect(res.status).toBe(200);
     });
 
-    test('returns JSON content type header', async () => {
+    test('returns text/plain content type header', async () => {
       const res = await request(app).head('/');
       expect(res.headers['content-type']).toEqual(
-        expect.stringContaining('application/json')
+        expect.stringContaining('text/plain')
       );
     });
 
