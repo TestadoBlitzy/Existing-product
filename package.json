@@ -1,14 +1,15 @@
 {
     "name": "hello_world",
     "version": "1.0.0",
-    "description": "Hello world in Node.js",
-    "main": "index.js",
+    "description": "Express.js server with Hello World and Good Evening endpoints",
+    "main": "server.js",
     "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1"
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "start": "node server.js"
     },
-    "author": "hxu",
-    "license": "MIT",
     "dependencies": {
         "express": "^5.2.1"
-    }
+    },
+    "author": "hxu",
+    "license": "MIT"
 }
