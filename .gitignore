@@ -1,0 +1,64 @@
+# ======================
+# Node.js Dependencies
+# ======================
+node_modules/
+
+# ======================
+# Environment Files
+# ======================
+# .env contains sensitive environment variables (secrets, API keys, database URLs)
+# NOTE: .env.example is NOT ignored — it serves as the committed template
+.env
+.env.local
+.env.*.local
+
+# ======================
+# Log Files
+# ======================
+# Winston and PM2 log output directory
+logs/
+# Stray log files at any level
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ======================
+# PM2 Files
+# ======================
+# PM2 local state directory
+.pm2/
+# PM2 pid and log files
+pids/
+
+# ======================
+# OS Files
+# ======================
+# macOS Finder metadata
+.DS_Store
+# Windows thumbnail cache
+Thumbs.db
+# Windows desktop settings
+ehthumbs.db
+Desktop.ini
+
+# ======================
+# IDE Files
+# ======================
+# VS Code workspace settings
+.vscode/
+# JetBrains IDE project settings
+.idea/
+# Vim swap files
+*.swp
+*.swo
+*~
+
+# ======================
+# Coverage / Build
+# ======================
+# Test coverage reports
+coverage/
+# Build output
+dist/
+build/
