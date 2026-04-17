@@ -1,59 +1,56 @@
 # Blitzy Project Guide
 
----
-
 ## 1. Executive Summary
 
 ### 1.1 Project Overview
 
-This project performs a complete tech stack migration of a minimal Node.js HTTP server application to Python 3 / Flask. The original repository contained a single-file Node.js server (`server.js`) using the built-in `http` module that responds to every HTTP request with a plain-text `Hello, World!\n` message. The migration replaces all Node.js artifacts with Python equivalents (`app.py`, `requirements.txt`) while preserving byte-for-byte identical runtime behavior — same host, port, response status, headers, and body content. All five AAP goals (G-1 through G-5) have been fully achieved.
+This project introduces the first automated test suite for `hao-backprop-test` — a minimal Python 3 / Flask HTTP server (`app.py`, 64 lines) that serves a static `Hello, World!\n` response for every HTTP request regardless of method or path. The application previously had zero automated tests, relying solely on 10 manual curl-based runtime validations. The objective was to create a comprehensive pytest test suite achieving 90%+ code coverage while strictly preserving the existing production code. The test suite exercises the universal HTTP contract via Flask's in-process test client and verifies `__main__` startup behavior via targeted mocking, establishing the project's foundational testing infrastructure.
 
 ### 1.2 Completion Status
 
 ```mermaid
-pie title Project Completion — 77.8%
-    "Completed (AI)" : 7
+pie title Project Completion — 83.3%
+    "Completed (AI)" : 10
     "Remaining" : 2
 ```
 
 | Metric | Value |
 |--------|-------|
-| **Total Project Hours** | 9.0 |
-| **Completed Hours (AI)** | 7.0 |
-| **Remaining Hours** | 2.0 |
-| **Completion Percentage** | 77.8% |
-
-**Calculation:** 7.0 completed hours / 9.0 total hours × 100 = **77.8% complete**
+| **Total Project Hours** | 12 |
+| **Completed Hours (AI)** | 10 |
+| **Remaining Hours** | 2 |
+| **Completion Percentage** | 83.3% (10 / 12) |
 
 ### 1.3 Key Accomplishments
 
-- ✅ Flask application (`app.py`) fully replaces the Node.js `server.js` with behavioral fidelity
-- ✅ Universal request handling via `before_request` hook — all HTTP methods and paths return identical `200 OK` / `text/plain` / `Hello, World!\n` response
-- ✅ Console startup message preserved: `Server running at http://127.0.0.1:3000/`
-- ✅ Dependency manifest migrated from `package.json` to `requirements.txt` (Flask==3.1.3)
-- ✅ All Node.js artifacts removed (`server.js`, `package.json`, `package-lock.json`)
-- ✅ README.md updated with comprehensive Python/Flask documentation (47 lines)
-- ✅ All 10 runtime HTTP validation tests passed
-- ✅ Compilation clean (`py_compile` SUCCESS, zero lint violations)
-- ✅ 8 commits, 6 files changed, 111 lines added, 39 lines removed
+- [x] Created `tests/test_http_contract.py` with 20 tests covering all standard HTTP methods, path variations, edge cases, structural impossibility checks, byte-level body verification, and statelessness confirmation
+- [x] Created `tests/test_startup.py` with 5 tests covering import safety, Flask instance validation, exact startup message, host/port configuration, and print-before-run ordering
+- [x] Created `tests/conftest.py` with session-scoped shared fixtures (`client`, `app_instance`)
+- [x] Created `pytest.ini` with proper test discovery, pythonpath, and verbosity configuration
+- [x] Created `requirements-test.txt` with pinned test dependencies (`pytest==8.4.2`, `pytest-cov==7.1.0`)
+- [x] Achieved 100% line coverage of `app.py` (8/8 statements) — exceeding the 90% target
+- [x] All 25 tests passing with 0 failures, 0 errors, 0 skipped in 0.26 seconds
+- [x] Zero modifications to production code (`app.py` untouched)
+- [x] All 4 Python files compile cleanly via `py_compile`
+- [x] Application runtime validated: server starts, binds to 127.0.0.1:3000, responds correctly
 
 ### 1.4 Critical Unresolved Issues
 
 | Issue | Impact | Owner | ETA |
 |-------|--------|-------|-----|
-| No critical unresolved issues | — | — | — |
+| No critical unresolved issues | N/A | N/A | N/A |
 
-All AAP-scoped deliverables have been completed successfully with zero compilation errors, zero test failures, and full behavioral fidelity confirmed via runtime validation.
+All AAP deliverables have been implemented, validated, and are passing. No compilation errors, test failures, or runtime issues remain.
 
 ### 1.5 Access Issues
 
-No access issues identified. The project uses only publicly available PyPI packages (Flask 3.1.3 and transitive dependencies). No third-party API keys, service credentials, or restricted repository access is required.
+No access issues identified. The project is a self-contained Flask application with no external service dependencies, database connections, or third-party API integrations. All testing is performed in-process using Flask's built-in test client.
 
 ### 1.6 Recommended Next Steps
 
-1. **[Medium]** Configure a production WSGI server (e.g., Gunicorn) — the Flask development server (`app.run()`) is not suitable for production traffic
-2. **[Low]** Add a basic automated test suite (e.g., pytest with Flask test client) to prevent regressions
-3. **[Low]** Create deployment configuration (e.g., `Procfile`, environment variable externalization) for hosting platforms
+1. **[High]** Conduct human code review of the 5 new files and approve the pull request
+2. **[Medium]** Verify test suite compatibility on Python 3.9 (the minimum documented version) — tests were developed and validated on Python 3.12
+3. **[Low]** Add brief test-running instructions to `README.md` for developer onboarding
 
 ---
 
@@ -63,120 +60,102 @@ No access issues identified. The project uses only publicly available PyPI packa
 
 | Component | Hours | Description |
 |-----------|-------|-------------|
-| Flask Application Development | 2.5 | Created `app.py` (64 lines) — Flask WSGI application with `before_request` handler for universal request handling, explicit `Response` construction, and `__main__` entry point. Implements AAP goals G-1, G-2, G-3. |
-| Dependency Manifest Migration | 0.5 | Created `requirements.txt` with `Flask==3.1.3`. Deleted `package.json` and `package-lock.json`. Implements AAP goal G-4. |
-| Documentation Update | 1.0 | Updated `README.md` (47 lines) with Python/Flask technology stack, prerequisites, installation, usage, behavior reference, and project metadata. Implements AAP goal G-5. |
-| Node.js Artifact Removal | 0.5 | Deleted `server.js`, `package.json`, `package-lock.json` — confirmed absent from repository. |
-| Validation & Bug Fixes | 2.0 | Refactored route handler to `before_request` hook for full HTTP method coverage (TRACE, CONNECT, custom methods). Executed 10 runtime HTTP tests. Fixed documentation inaccuracies. |
-| Compilation & Lint Verification | 0.5 | Ran `py_compile` and `pyflakes` — zero errors, zero violations. Verified all imports resolve correctly. |
-| **Total** | **7.0** | |
+| HTTP Contract Test Suite (`tests/test_http_contract.py`) | 4 | 20 test functions (227 lines): all standard HTTP methods on root path, path variation edge cases (nested, query string, trailing slash), HEAD semantics, structural impossibility (no 404/405), Content-Length accuracy, byte-level body verification, statelessness check |
+| Startup Behavior Tests (`tests/test_startup.py`) | 2 | 5 test functions (136 lines): import safety, Flask instance type check, exact startup message via `runpy.run_module`, host/port config verification, print-before-run call ordering |
+| Shared Fixtures (`tests/conftest.py`) | 1 | 2 session-scoped fixtures (53 lines): `client` providing Flask test client, `app_instance` providing Flask app object |
+| Test Infrastructure (`pytest.ini` + `requirements-test.txt`) | 1 | pytest configuration (testpaths, pythonpath, naming, verbosity), test dependency manifest (pytest==8.4.2, pytest-cov==7.1.0) |
+| Version Compatibility Research | 0.5 | Investigated pytest Python 3.9 compatibility (pytest 9.0.0 dropped 3.9), verified pytest-cov/coverage compatibility, validated Flask test client patterns |
+| Test Execution, Coverage Validation & Debugging | 1 | Ran full test suite, verified 100% coverage, validated runtime behavior, confirmed compilation of all Python files |
+| Bug Fix — Unused Imports Cleanup | 0.5 | Removed unused `MagicMock` and `importlib` imports from `test_startup.py` (commit `f6d1073`) |
+| **Total Completed** | **10** | |
 
 ### 2.2 Remaining Work Detail
 
 | Category | Hours | Priority |
 |----------|-------|----------|
-| Production WSGI Server Configuration | 1.0 | Medium |
-| Automated Test Suite | 0.5 | Low |
-| Deployment Configuration | 0.5 | Low |
-| **Total** | **2.0** | |
-
-**Integrity Check:** Section 2.1 (7.0h) + Section 2.2 (2.0h) = 9.0h = Total Project Hours in Section 1.2 ✓
+| Human code review and PR approval | 1 | High |
+| Cross-version Python 3.9 compatibility testing | 0.5 | Medium |
+| README.md test documentation update | 0.5 | Low |
+| **Total Remaining** | **2** | |
 
 ---
 
 ## 3. Test Results
 
+All tests originate from Blitzy's autonomous test execution and validation logs for this project.
+
 | Test Category | Framework | Total Tests | Passed | Failed | Coverage % | Notes |
-|---------------|-----------|-------------|--------|--------|-----------|-------|
-| Runtime HTTP Validation | curl / Blitzy Validator | 10 | 10 | 0 | 100% | All HTTP methods (GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD, TRACE) and paths tested |
-| Compilation Check | py_compile | 1 | 1 | 0 | 100% | `app.py` compiles without errors |
-| Lint Analysis | pyflakes | 1 | 1 | 0 | 100% | Zero violations detected |
+|---------------|-----------|-------------|--------|--------|------------|-------|
+| HTTP Contract (Integration) | pytest 8.4.2 + Flask test_client | 20 | 20 | 0 | 100% | All methods (GET/POST/PUT/DELETE/PATCH/OPTIONS/HEAD), path variations, edge cases, structural impossibility, byte-level verification, statelessness |
+| Startup Behavior (Unit) | pytest 8.4.2 + unittest.mock | 5 | 5 | 0 | 100% | Import safety, Flask type check, startup message, host/port config, call ordering |
+| **Total** | **pytest 8.4.2** | **25** | **25** | **0** | **100%** | **0 errors, 0 skipped, 0.26s execution time** |
 
-**Runtime Validation Test Breakdown (10/10 passed):**
+**Coverage Breakdown:**
 
-| # | Test Case | Method | Path | Expected Status | Result |
-|---|-----------|--------|------|-----------------|--------|
-| 1 | Root path | GET | `/` | 200, text/plain, 14 bytes | ✅ Pass |
-| 2 | Random path | GET | `/random-path` | 200, text/plain, 14 bytes | ✅ Pass |
-| 3 | POST request | POST | `/test` | 200, text/plain, 14 bytes | ✅ Pass |
-| 4 | PUT request | PUT | `/data` | 200, text/plain, 14 bytes | ✅ Pass |
-| 5 | DELETE request | DELETE | `/resource` | 200, text/plain, 14 bytes | ✅ Pass |
-| 6 | PATCH request | PATCH | `/item` | 200, text/plain, 14 bytes | ✅ Pass |
-| 7 | OPTIONS request | OPTIONS | `/` | 200, text/plain, 14 bytes | ✅ Pass |
-| 8 | HEAD request | HEAD | `/` | 200, Content-Length: 14 | ✅ Pass |
-| 9 | TRACE request | TRACE | `/` | 200, text/plain, 14 bytes | ✅ Pass |
-| 10 | Deep nested path | GET | `/a/b/c/d/e` | 200, text/plain, 14 bytes | ✅ Pass |
+| File | Statements | Missing | Coverage |
+|------|------------|---------|----------|
+| `app.py` | 8 | 0 | 100% |
 
-**Note:** The original Node.js project had no formal test suite (the `package.json` test script only echoed an error). Test suite creation was explicitly excluded from AAP scope (Section 0.3.2). All test results above originate from Blitzy's autonomous runtime validation.
+**Coverage Target:** 90%+ → **Achieved: 100%**
 
 ---
 
 ## 4. Runtime Validation & UI Verification
 
-### Runtime Health
+### Application Runtime
 
-- ✅ **Server Startup:** `python app.py` starts successfully, prints `Server running at http://127.0.0.1:3000/`
-- ✅ **Server Binding:** Flask development server binds to `127.0.0.1:3000` as specified
-- ✅ **Response Body:** Exactly `Hello, World!\n` (14 bytes, including trailing newline) — verified via hex dump
-- ✅ **Response Headers:** `Content-Type: text/plain; charset=utf-8` on all responses
-- ✅ **HTTP Status:** `200 OK` for every request regardless of method or path
-- ✅ **Universal Handler:** `before_request` hook intercepts all methods (standard and non-standard) before Flask routing
-- ✅ **Dependency Resolution:** All 7 packages installed correctly (Flask 3.1.3, Werkzeug 3.1.7, Jinja2 3.1.6, MarkupSafe 3.0.3, ItsDangerous 2.2.0, Click 8.3.1, Blinker 1.9.0)
-- ✅ **Compilation:** `py_compile app.py` — zero errors
-- ✅ **Clean Repository:** Git status shows no uncommitted in-scope changes
+- ✅ `python app.py` starts successfully and prints `Server running at http://127.0.0.1:3000/`
+- ✅ Server binds to `127.0.0.1:3000` as configured
+- ✅ `GET /` returns `200 OK` with body `Hello, World!\n` and `Content-Type: text/plain; charset=utf-8`
+- ✅ `POST /test` returns `200 OK` with identical response
+- ✅ `HEAD /` returns `200 OK` with `Content-Length: 14` and empty body
+- ✅ `GET /a/b/c/d/e` (deeply nested path) returns `200 OK` with identical response
+- ✅ Server stops cleanly on termination
 
-### Behavioral Fidelity Verification
+### Test Infrastructure Runtime
 
-| Aspect | Node.js (Original) | Flask (Migrated) | Match |
-|--------|-------------------|-------------------|-------|
-| Host | `127.0.0.1` | `127.0.0.1` | ✅ |
-| Port | `3000` | `3000` | ✅ |
-| Status Code | `200` | `200` | ✅ |
-| Content-Type | `text/plain` | `text/plain; charset=utf-8` | ✅ |
-| Response Body | `Hello, World!\n` (14 bytes) | `Hello, World!\n` (14 bytes) | ✅ |
-| Startup Message | `Server running at http://127.0.0.1:3000/` | `Server running at http://127.0.0.1:3000/` | ✅ |
-| All Methods Handled | Yes (http.createServer) | Yes (before_request) | ✅ |
-| All Paths Handled | Yes (no routing) | Yes (before_request intercepts) | ✅ |
-| Stateless | Yes | Yes | ✅ |
+- ✅ `pytest` discovers and runs all 25 tests from `tests/` directory
+- ✅ `pytest --cov=app --cov-report=term-missing` reports 100% coverage with 0 missing lines
+- ✅ `pytest tests/test_http_contract.py` runs 20 HTTP contract tests independently (0.07s)
+- ✅ `pytest tests/test_startup.py` runs 5 startup tests independently (0.05s)
+- ✅ All test dependencies install cleanly via `pip install -r requirements-test.txt`
 
 ### UI Verification
 
-Not applicable — this is a headless HTTP server with no user interface.
+- ⚠️ Not applicable — the application is a headless HTTP server with no UI
 
 ---
 
 ## 5. Compliance & Quality Review
 
-| AAP Requirement | Deliverable | Status | Validation |
-|-----------------|-------------|--------|------------|
-| G-1: HTTP Server Replacement | `app.py` replaces `server.js` | ✅ Complete | Flask app created, binds to 127.0.0.1:3000, 10/10 runtime tests pass |
-| G-2: Universal Request Handling | `before_request` handler | ✅ Complete | All HTTP methods and paths return 200/text/plain/"Hello, World!\n" |
-| G-3: Console Startup Logging | `print()` statement in `__main__` | ✅ Complete | Verified: "Server running at http://127.0.0.1:3000/" printed to stdout |
-| G-4: Dependency Manifest Migration | `requirements.txt` created | ✅ Complete | Flask==3.1.3 pinned; package.json and package-lock.json deleted |
-| G-5: Documentation Update | `README.md` updated | ✅ Complete | 47-line README with Python/Flask stack, installation, usage, behavior reference |
-| Implicit: Zero Behavior Change | Response parity verified | ✅ Complete | Byte-for-byte identical response body, matching status codes and headers |
-| File: server.js deletion | Node.js server removed | ✅ Complete | Confirmed absent from repository |
-| File: package.json deletion | npm manifest removed | ✅ Complete | Confirmed absent from repository |
-| File: package-lock.json deletion | npm lockfile removed | ✅ Complete | Confirmed absent from repository |
-| No GitHub workflow changes | No .github/ modifications | ✅ Complete | No workflow files created or modified |
+| AAP Requirement | Status | Evidence |
+|----------------|--------|----------|
+| Create `tests/test_http_contract.py` with HTTP contract tests | ✅ Pass | 20 tests, 227 lines, all passing |
+| Create `tests/test_startup.py` with import/startup tests | ✅ Pass | 5 tests, 136 lines, all passing |
+| Create `tests/conftest.py` with shared fixtures | ✅ Pass | 2 session-scoped fixtures, 53 lines |
+| Create `pytest.ini` configuration | ✅ Pass | 6 lines, correct testpaths/pythonpath/naming |
+| Create `requirements-test.txt` dependency manifest | ✅ Pass | pytest==8.4.2, pytest-cov==7.1.0 |
+| HTTP contract: All methods return 200 OK | ✅ Pass | GET/POST/PUT/DELETE/PATCH/OPTIONS/HEAD tested |
+| HEAD request: Empty body with Content-Length 14 | ✅ Pass | `test_head_root_returns_empty_body` |
+| Structural impossibility: No 404 or 405 | ✅ Pass | `test_unknown_path_does_not_return_404`, `test_no_method_returns_405` |
+| Import safety: No auto-start on import | ✅ Pass | `test_import_does_not_start_server` |
+| Startup message: Exact string verification | ✅ Pass | `test_main_prints_startup_message` |
+| Startup config: host='127.0.0.1', port=3000 | ✅ Pass | `test_main_calls_run_with_correct_host_and_port` |
+| Edge cases: Query strings, slashes, nested paths | ✅ Pass | 4 dedicated edge case test functions |
+| Statelessness: Sequential requests identical | ✅ Pass | `test_sequential_requests_return_identical_responses` |
+| Content-Length accuracy: Exactly 14 | ✅ Pass | `test_response_content_length_is_14` |
+| Byte-level body verification: 14 exact bytes | ✅ Pass | `test_response_body_is_exactly_14_bytes` |
+| Print-before-run call ordering | ✅ Pass | `test_main_calls_print_before_run` |
+| 90%+ line/function coverage | ✅ Pass | 100% achieved (8/8 statements) |
+| No production code modifications (`app.py`) | ✅ Pass | `app.py` not in git diff |
+| No CI/CD workflow files created | ✅ Pass | No `.github/workflows/` files |
+| Use Flask `test_client()` for HTTP tests | ✅ Pass | Zero mocking in HTTP contract tests |
+| Mock only `print()` and `app.run()` for startup | ✅ Pass | `unittest.mock.patch` in `test_startup.py` only |
+| All tests synchronous and deterministic | ✅ Pass | No timing, async, or network-dependent assertions |
+| Tests complete in < 5 seconds | ✅ Pass | 0.26 seconds total |
 
-### Quality Metrics
-
-| Metric | Result |
-|--------|--------|
-| Compilation Errors | 0 |
-| Lint Violations | 0 |
-| Runtime Test Failures | 0 / 10 |
-| Unresolved Bug Fixes | 0 |
-| Code Documentation | Comprehensive (module docstring, function docstring, inline comments) |
-| Response Body Accuracy | 14 bytes — exact match verified via hex dump |
-
-### Fixes Applied During Validation
-
-| Fix | Commit | Description |
-|-----|--------|-------------|
-| before_request handler | `091347f` | Replaced route-based handler with `before_request` hook to handle ALL HTTP methods including TRACE, CONNECT, and custom methods — route decorators only support explicit method lists |
-| README corrections | `2651b39` | Fixed Python version reference and Content-Type description in documentation |
+**Autonomous Fixes Applied:**
+- Removed unused imports (`MagicMock`, `importlib`) from `test_startup.py` — commit `f6d1073`
 
 ---
 
@@ -184,49 +163,36 @@ Not applicable — this is a headless HTTP server with no user interface.
 
 | Risk | Category | Severity | Probability | Mitigation | Status |
 |------|----------|----------|-------------|------------|--------|
-| Flask development server used in production | Technical | Medium | Medium | Configure Gunicorn or uWSGI as production WSGI server | ⚠️ Open |
-| No automated test suite | Technical | Low | Low | Add pytest-based smoke tests using Flask test client | ⚠️ Open |
-| Single-threaded request handling | Operational | Low | Low | Acceptable for this minimal application; Gunicorn provides worker processes if needed | ℹ️ Acknowledged |
-| No health check endpoint | Operational | Low | Low | The universal handler returns 200 on any path, which can serve as a basic health check | ℹ️ Mitigated |
-| Werkzeug Server header disclosure | Security | Low | Low | Werkzeug exposes `Server: Werkzeug/3.1.7 Python/3.12.10` header; suppress in production via reverse proxy | ⚠️ Open |
-| No HTTPS / TLS | Security | Low | Medium | Expected for development; production deployment should use a reverse proxy with TLS termination | ⚠️ Open |
-| Transitive dependencies not pinned | Technical | Low | Low | `requirements.txt` pins Flask only; consider `pip freeze` or `pip-tools` for full lockfile | ⚠️ Open |
-
-**Overall Risk Level: LOW** — The application is a stateless Hello World server with no data handling, authentication, or external integrations. All identified risks are path-to-production considerations explicitly excluded from AAP scope.
+| Tests validated only on Python 3.12; Python 3.9 (documented minimum) untested | Technical | Low | Medium | pytest==8.4.2 was specifically selected for 3.9 compatibility; run tests on 3.9 environment before merge | Open |
+| No CI/CD pipeline for automated test execution on push/PR | Operational | Low | High | Excluded per AAP; add GitHub Actions workflow when policy allows | Accepted |
+| Production server uses Flask development server (not Gunicorn/uWSGI) | Operational | Medium | High | Out of AAP scope; add production WSGI server in future work | Accepted |
+| No test-running instructions in README.md | Operational | Low | High | Add brief testing section to README.md | Open |
+| Session-scoped fixtures assume stateless app — if app gains state, test isolation breaks | Technical | Low | Low | Current architecture is stateless by design; refactor fixtures if state is added | Monitoring |
 
 ---
 
 ## 7. Visual Project Status
 
-### Project Hours Breakdown
-
 ```mermaid
 pie title Project Hours Breakdown
-    "Completed Work" : 7
+    "Completed Work" : 10
     "Remaining Work" : 2
 ```
 
-**Integrity Check:** Completed (7.0h) + Remaining (2.0h) = 9.0h = Total Project Hours in Section 1.2 ✓
-**Remaining Work (2.0h)** matches Section 2.2 total ✓
+| Status | Hours | Percentage |
+|--------|-------|------------|
+| Completed (AI) | 10 | 83.3% |
+| Remaining | 2 | 16.7% |
+| **Total** | **12** | **100%** |
 
-### Completed Work Distribution
+**Remaining Work by Priority:**
 
-| Component | Hours | % of Completed |
-|-----------|-------|----------------|
-| Flask Application Development | 2.5 | 35.7% |
-| Validation & Bug Fixes | 2.0 | 28.6% |
-| Documentation Update | 1.0 | 14.3% |
-| Dependency Manifest Migration | 0.5 | 7.1% |
-| Node.js Artifact Removal | 0.5 | 7.1% |
-| Compilation & Lint Verification | 0.5 | 7.1% |
-
-### Remaining Work Distribution
-
-| Category | Hours | Priority |
-|----------|-------|----------|
-| Production WSGI Server Configuration | 1.0 | Medium |
-| Automated Test Suite | 0.5 | Low |
-| Deployment Configuration | 0.5 | Low |
+| Priority | Category | Hours |
+|----------|----------|-------|
+| High | Human code review & PR approval | 1 |
+| Medium | Python 3.9 cross-version testing | 0.5 |
+| Low | README.md documentation update | 0.5 |
+| **Total** | | **2** |
 
 ---
 
@@ -234,42 +200,34 @@ pie title Project Hours Breakdown
 
 ### Achievements
 
-The Node.js to Python 3 / Flask tech stack migration has been completed successfully. All five AAP goals have been fully achieved:
+The Blitzy autonomous agent successfully delivered a comprehensive, greenfield pytest test suite for the `hao-backprop-test` Flask server. The project is 83.3% complete (10 hours completed out of 12 total hours). All 20 AAP-specified deliverables have been fully implemented, validated, and committed — achieving 100% coverage of `app.py` (exceeding the 90% target), with 25/25 tests passing in 0.26 seconds, and zero modifications to production code.
 
-- **G-1 (HTTP Server Replacement):** `server.js` fully replaced by `app.py` — a 64-line, well-documented Flask application
-- **G-2 (Universal Request Handling):** `before_request` hook ensures every HTTP method and path returns the identical static response
-- **G-3 (Console Startup Logging):** Startup message preserved exactly as specified
-- **G-4 (Dependency Manifest Migration):** `requirements.txt` replaces `package.json` with pinned Flask==3.1.3
-- **G-5 (Documentation Update):** Comprehensive 47-line README covering installation, usage, and behavior
-
-The project is **77.8% complete** (7.0 completed hours out of 9.0 total hours). All AAP-scoped deliverables are 100% implemented and validated. The remaining 2.0 hours consist exclusively of path-to-production activities that were explicitly excluded from AAP scope (production server, testing, deployment configuration).
+The test suite establishes the project's foundational testing infrastructure with:
+- **20 HTTP contract tests** exercising the universal `before_request` handler across all standard methods, path variations, edge cases, and negative scenarios
+- **5 startup behavior tests** verifying import safety, startup message, and server binding configuration using targeted mocking
+- **Shared fixtures** and **pytest configuration** enabling clean, fast, deterministic test execution
 
 ### Remaining Gaps
 
-| Gap | Hours | Impact |
-|-----|-------|--------|
-| Production WSGI server (Gunicorn/uWSGI) | 1.0 | Required for production traffic; Flask dev server is single-threaded and not hardened |
-| Automated test suite | 0.5 | Recommended for regression prevention; runtime tests passed but no persistent test suite exists |
-| Deployment configuration | 0.5 | Needed for hosting platform deployment (Procfile, environment variables) |
+The 2 remaining hours consist entirely of path-to-production activities that require human involvement:
+1. **Code review and PR approval** (1h) — Standard development workflow step
+2. **Python 3.9 cross-version verification** (0.5h) — Tests run on Python 3.12; verify on the documented minimum version
+3. **README documentation update** (0.5h) — Add test-running instructions for developer onboarding
 
 ### Production Readiness Assessment
 
-The application is **fully functional in development mode** and ready for developer review and integration testing. For production deployment, the recommended path is:
-
-1. Install Gunicorn (`pip install gunicorn`) and run via `gunicorn app:app --bind 127.0.0.1:3000`
-2. Add basic smoke tests using `pytest` and Flask's test client
-3. Configure deployment artifacts for the target hosting platform
+The test suite is **ready for human code review and merge**. All functional requirements from the AAP have been delivered and validated. No compilation errors, test failures, or runtime issues exist. The codebase is clean, well-documented, and follows pytest best practices with minimal dependencies.
 
 ### Success Metrics
 
-| Metric | Target | Actual | Status |
-|--------|--------|--------|--------|
-| AAP Goals Completed | 5 / 5 | 5 / 5 | ✅ Met |
-| Runtime Tests Passing | 10 / 10 | 10 / 10 | ✅ Met |
-| Compilation Errors | 0 | 0 | ✅ Met |
-| Lint Violations | 0 | 0 | ✅ Met |
-| Behavioral Fidelity | 100% | 100% | ✅ Met |
-| Files Migrated | 6 operations | 6 operations | ✅ Met |
+| Metric | Target | Achieved |
+|--------|--------|----------|
+| Test count | ~25 tests | 25 tests |
+| Pass rate | 100% | 100% (25/25) |
+| Line coverage | 90%+ | 100% (8/8 statements) |
+| Execution time | < 5 seconds | 0.26 seconds |
+| Production code changes | 0 | 0 |
+| CI/CD workflows created | 0 | 0 |
 
 ---
 
@@ -277,125 +235,115 @@ The application is **fully functional in development mode** and ready for develo
 
 ### System Prerequisites
 
-| Software | Version | Purpose |
-|----------|---------|---------|
-| Python | 3.9 or newer (tested with 3.12.10) | Runtime interpreter |
-| pip | Bundled with Python | Package manager |
+| Requirement | Version | Purpose |
+|-------------|---------|---------|
+| Python | 3.9+ (tested on 3.12.10) | Runtime environment |
+| pip | Latest | Package manager |
+| Git | Latest | Version control |
+
+No operating system restrictions. Works on Linux, macOS, and Windows.
 
 ### Environment Setup
 
-1. **Clone the repository and switch to the branch:**
-
 ```bash
+# 1. Clone the repository and switch to the feature branch
 git clone <repository-url>
-cd <repository-name>
-git checkout blitzy-c65bceb9-b234-499d-b22e-75d032fcc94b
-```
+cd hao-backprop-test
+git checkout blitzy-ea431e1a-980f-43e2-8bee-7d0553a678a0
 
-2. **Create a Python virtual environment (recommended):**
+# 2. Create and activate a virtual environment
+python3 -m venv venv
 
-```bash
-python -m venv venv
-```
-
-3. **Activate the virtual environment:**
-
-On Linux/macOS:
-```bash
+# On Linux/macOS:
 source venv/bin/activate
-```
 
-On Windows:
-```bash
+# On Windows:
 venv\Scripts\activate
 ```
 
 ### Dependency Installation
 
 ```bash
+# 3. Install production dependencies
 pip install -r requirements.txt
+
+# 4. Install test dependencies
+pip install -r requirements-test.txt
 ```
 
-**Expected output (key packages):**
+**Expected output after installation:**
 ```
-Successfully installed Flask-3.1.3 Werkzeug-3.1.7 Jinja2-3.1.6 MarkupSafe-3.0.3 itsdangerous-2.2.0 click-8.3.1 blinker-1.9.0
+Successfully installed Flask-3.1.3 ...
+Successfully installed pytest-8.4.2 pytest-cov-7.1.0 coverage-7.x.x ...
 ```
 
-**Verify installation:**
+### Running the Application
+
 ```bash
-pip show flask
-```
-
-### Application Startup
-
-```bash
+# Start the Flask development server
 python app.py
 ```
 
-**Expected console output:**
+**Expected output:**
 ```
 Server running at http://127.0.0.1:3000/
  * Serving Flask app 'app'
- * Debug mode: off
  * Running on http://127.0.0.1:3000
 ```
 
-### Verification Steps
-
-1. **Test basic GET request:**
+**Verify with curl:**
 ```bash
 curl http://127.0.0.1:3000/
-```
-Expected: `Hello, World!` (with trailing newline)
+# Expected: Hello, World!
 
-2. **Test any path:**
-```bash
-curl http://127.0.0.1:3000/any/path/here
-```
-Expected: `Hello, World!` (identical response)
-
-3. **Test POST method:**
-```bash
-curl -X POST http://127.0.0.1:3000/test
-```
-Expected: `Hello, World!` (identical response)
-
-4. **Verify headers:**
-```bash
 curl -I http://127.0.0.1:3000/
+# Expected: HTTP/1.1 200 OK, Content-Type: text/plain; charset=utf-8, Content-Length: 14
 ```
-Expected: `HTTP/1.1 200 OK`, `Content-Type: text/plain; charset=utf-8`, `Content-Length: 14`
 
-5. **Verify exact response body (hex):**
-```bash
-curl -s http://127.0.0.1:3000/ | xxd
-```
-Expected: `48656c6c6f2c20576f726c64210a` (14 bytes: "Hello, World!\n")
-
-### Example Usage
+### Running the Test Suite
 
 ```bash
-# Start the server
-python app.py
+# Run all 25 tests with verbose output (default via pytest.ini)
+pytest
 
-# In another terminal — test various methods and paths:
-curl http://127.0.0.1:3000/                    # GET root
-curl http://127.0.0.1:3000/api/v1/users        # GET nested path
-curl -X POST http://127.0.0.1:3000/submit      # POST
-curl -X PUT http://127.0.0.1:3000/update        # PUT
-curl -X DELETE http://127.0.0.1:3000/remove     # DELETE
+# Run with coverage reporting
+pytest --cov=app --cov-report=term-missing
 
-# All return: Hello, World!\n (200 OK, text/plain)
+# Run only HTTP contract tests (20 tests)
+pytest tests/test_http_contract.py
+
+# Run only startup behavior tests (5 tests)
+pytest tests/test_startup.py
+
+# Run a single specific test
+pytest tests/test_http_contract.py::test_get_root_returns_hello
+
+# Stop on first failure (debugging)
+pytest -x
+```
+
+**Expected output for `pytest --cov=app --cov-report=term-missing`:**
+```
+tests/test_http_contract.py .................... [ 80%]
+tests/test_startup.py .....                      [100%]
+
+Name     Stmts   Miss  Cover   Missing
+--------------------------------------
+app.py       8      0   100%
+--------------------------------------
+TOTAL        8      0   100%
+============================= 25 passed in 0.26s ==============================
 ```
 
 ### Troubleshooting
 
 | Issue | Cause | Resolution |
 |-------|-------|------------|
-| `ModuleNotFoundError: No module named 'flask'` | Flask not installed | Run `pip install -r requirements.txt` |
-| `Address already in use` | Port 3000 occupied | Kill the existing process: `lsof -i :3000` then `kill <PID>` |
-| `Python not found` | Python not in PATH | Install Python 3.9+ and ensure it's on your system PATH |
-| Server starts but no response | Firewall blocking | Ensure `127.0.0.1:3000` is accessible locally |
+| `ModuleNotFoundError: No module named 'flask'` | Production dependencies not installed | Run `pip install -r requirements.txt` |
+| `ModuleNotFoundError: No module named 'pytest'` | Test dependencies not installed | Run `pip install -r requirements-test.txt` |
+| `ModuleNotFoundError: No module named 'app'` | pythonpath not configured or running from wrong directory | Run `pytest` from the project root (where `pytest.ini` is located) |
+| `OSError: [Errno 98] Address already in use` | Port 3000 already occupied | Kill the existing process: `lsof -i :3000` then `kill <PID>` |
+| Tests collect 0 items | Wrong directory or missing `tests/` folder | Ensure you are in the project root and `tests/` directory exists |
 
 ---
 
@@ -405,55 +353,78 @@ curl -X DELETE http://127.0.0.1:3000/remove     # DELETE
 
 | Command | Purpose |
 |---------|---------|
-| `python app.py` | Start the Flask development server |
-| `pip install -r requirements.txt` | Install all Python dependencies |
-| `pip show flask` | Verify Flask installation and version |
-| `python -m py_compile app.py` | Check for Python syntax errors |
-| `curl http://127.0.0.1:3000/` | Test the server response |
-| `curl -I http://127.0.0.1:3000/` | Inspect response headers |
+| `python app.py` | Start the Flask development server on 127.0.0.1:3000 |
+| `pytest` | Run all 25 tests (verbose by default via pytest.ini) |
+| `pytest --cov=app --cov-report=term-missing` | Run tests with line-level coverage reporting |
+| `pytest tests/test_http_contract.py` | Run only HTTP contract tests (20 tests) |
+| `pytest tests/test_startup.py` | Run only startup/import tests (5 tests) |
+| `pytest -x` | Stop on first failure |
+| `pytest -v --tb=short` | Verbose with short tracebacks |
+| `python -m py_compile app.py` | Verify `app.py` compiles cleanly |
+| `pip install -r requirements.txt` | Install production dependencies |
+| `pip install -r requirements-test.txt` | Install test dependencies |
 
 ### B. Port Reference
 
-| Port | Service | Protocol |
-|------|---------|----------|
-| 3000 | Flask HTTP Server | HTTP (TCP) |
+| Service | Host | Port | Protocol |
+|---------|------|------|----------|
+| Flask development server | 127.0.0.1 | 3000 | HTTP |
 
 ### C. Key File Locations
 
-| File | Purpose | Lines |
-|------|---------|-------|
-| `app.py` | Flask WSGI application — main entry point | 64 |
-| `requirements.txt` | Python dependency manifest | 1 |
-| `README.md` | Project documentation | 47 |
+| File | Purpose |
+|------|---------|
+| `app.py` | Flask application — sole production source file (64 lines) |
+| `requirements.txt` | Production dependency manifest (`Flask==3.1.3`) |
+| `requirements-test.txt` | Test dependency manifest (`pytest==8.4.2`, `pytest-cov==7.1.0`) |
+| `pytest.ini` | pytest configuration (testpaths, pythonpath, naming, verbosity) |
+| `tests/conftest.py` | Shared pytest fixtures (`client`, `app_instance`) |
+| `tests/test_http_contract.py` | HTTP contract test suite (20 tests) |
+| `tests/test_startup.py` | Startup/import behavior test suite (5 tests) |
+| `README.md` | Project documentation |
 
 ### D. Technology Versions
 
-| Technology | Version | Role |
-|-----------|---------|------|
-| Python | 3.12.10 (requires ≥ 3.9) | Runtime interpreter |
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| Python | 3.12.10 (tested), 3.9+ (supported) | Runtime |
 | Flask | 3.1.3 | Web framework |
 | Werkzeug | 3.1.7 | WSGI toolkit (Flask dependency) |
-| Jinja2 | 3.1.6 | Template engine (Flask dependency) |
-| MarkupSafe | 3.0.3 | String escaping (Jinja2 dependency) |
-| ItsDangerous | 2.2.0 | Data signing (Flask dependency) |
-| Click | 8.3.1 | CLI toolkit (Flask dependency) |
-| Blinker | 1.9.0 | Signal support (Flask dependency) |
+| pytest | 8.4.2 | Test runner |
+| pytest-cov | 7.1.0 | Coverage plugin |
+| coverage | 7.13.5 | Coverage engine |
 
 ### E. Environment Variable Reference
 
-No environment variables are required. The server configuration is hardcoded:
+No environment variables are required. The application uses hardcoded configuration:
+- Host: `127.0.0.1`
+- Port: `3000`
 
-| Setting | Value | Location |
-|---------|-------|----------|
-| Host | `127.0.0.1` | `app.py` — `app.run(host='127.0.0.1')` |
-| Port | `3000` | `app.py` — `app.run(port=3000)` |
+### F. Developer Tools Guide
+
+**Recommended IDE Setup:**
+- Enable Python linting with `pylint` or `flake8`
+- Configure pytest as the test runner
+- Set project root as the working directory for test discovery
+
+**Useful pytest Flags:**
+| Flag | Purpose |
+|------|---------|
+| `-v` | Verbose test names (default via pytest.ini) |
+| `-x` | Stop on first failure |
+| `-s` | Show print output (not captured) |
+| `--tb=short` | Short tracebacks |
+| `--tb=long` | Full tracebacks |
+| `-k "keyword"` | Run tests matching keyword |
+| `--cov=app` | Enable coverage for `app.py` |
+| `--cov-report=html` | Generate HTML coverage report |
 
 ### G. Glossary
 
 | Term | Definition |
-|------|-----------|
-| AAP | Agent Action Plan — the primary directive defining all project requirements |
-| WSGI | Web Server Gateway Interface — Python standard for web server/application communication |
-| Flask | A lightweight Python web framework used as the target platform for this migration |
-| before_request | A Flask hook that runs before each request, used here for universal request interception |
-| Werkzeug | The WSGI toolkit underlying Flask, providing HTTP utilities and the development server |
+|------|------------|
+| `before_request` | Flask hook that runs before URL routing; used here to intercept all requests universally |
+| `test_client()` | Flask's built-in test client for in-process WSGI request simulation without network I/O |
+| `runpy.run_module` | Python stdlib function to execute a module with `__name__` set to `__main__` |
+| `session-scoped fixture` | pytest fixture created once per test session and shared across all tests |
+| `__main__ guard` | The `if __name__ == '__main__':` pattern preventing code execution on import |
