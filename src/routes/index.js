@@ -6,7 +6,7 @@
  * single module mounted by src/app.js via app.use('/', routes).
  *
  * Route hierarchy:
- *   GET  /         — Root welcome route returning JSON greeting
+ *   GET  /         — Root welcome route returning plain-text greeting
  *   GET  /health   — Health check endpoint (delegated to health router)
  *   GET  /api      — API welcome message (delegated to API router)
  *   GET  /api/info — Server metadata (delegated to API router)
@@ -33,19 +33,17 @@ const router = express.Router();
 /**
  * GET / — Root welcome route
  *
- * Serves as the application landing endpoint. Returns a JSON response
- * with a success status and welcome message. This preserves the original
- * "Hello, World!" response from the bare http.createServer() implementation
- * while upgrading the format from plain text to structured JSON.
+ * Serves as the application landing endpoint. Returns a plain-text response
+ * with a welcome message per the documented API contract (Content-Type: text/plain).
+ * This preserves the original "Hello, World!" response from the bare
+ * http.createServer() implementation in its natural plain-text format.
  *
  * @param {import('express').Request}  req - Express request object
  * @param {import('express').Response} res - Express response object
  */
 router.get('/', validateInput({ body: z.object({}).strict().optional(), query: z.object({}).strict() }), (req, res) => {
-  res.json({
-    status: 'success',
-    message: 'Hello, World! Welcome to the Express server.'
-  });
+  // Fixed: Return plain text per documented API contract (Content-Type: text/plain)
+  res.type('text/plain').send('Hello, World!\n');
 });
 
 // SECURITY: Reject non-GET methods on the root route with 405 Method Not Allowed.

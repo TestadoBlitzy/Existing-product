@@ -106,20 +106,18 @@ describe('app middleware pipeline', () => {
   // 3. JSON Content-Type Enforcement
   // =========================================================================
   describe('JSON responses', () => {
-    test('returns Content-Type application/json for all GET endpoints', async () => {
-      const endpoints = ['/', '/health', '/api', '/api/info'];
+    test('returns Content-Type application/json for JSON GET endpoints', async () => {
+      const endpoints = ['/health', '/api', '/api/info'];
       for (const endpoint of endpoints) {
         const res = await request(app).get(endpoint);
         expect(res.headers['content-type']).toMatch(/application\/json/);
       }
     });
 
-    test('returns valid JSON body with expected root properties', async () => {
+    test('returns plain text response for GET /', async () => {
       const res = await request(app).get('/');
-      expect(res.body).toBeDefined();
-      expect(typeof res.body).toBe('object');
-      expect(res.body.status).toBe('success');
-      expect(typeof res.body.message).toBe('string');
+      expect(res.headers['content-type']).toMatch(/text\/plain/);
+      expect(res.text).toBe('Hello, World!\n');
     });
   });
 
@@ -133,7 +131,7 @@ describe('app middleware pipeline', () => {
     test('HEAD requests pass through middleware pipeline successfully', async () => {
       const res = await request(app).head('/');
       expect(res.status).toBe(200);
-      expect(res.headers['content-type']).toMatch(/application\/json/);
+      expect(res.headers['content-type']).toMatch(/text\/plain/);
       // Security headers are present even on HEAD responses
       expect(res.headers['x-content-type-options']).toBe('nosniff');
     });
@@ -283,9 +281,8 @@ describe('app middleware pipeline', () => {
         .get('/')
         .set('Accept-Encoding', 'gzip, deflate');
       expect(res.status).toBe(200);
-      // Response body is still valid JSON despite compression middleware
-      expect(res.body).toHaveProperty('status', 'success');
-      expect(res.body).toHaveProperty('message');
+      // Response body is correct plain text despite compression middleware
+      expect(res.text).toBe('Hello, World!\n');
     });
   });
 
