@@ -2,598 +2,695 @@
 
 # 0. Agent Action Plan
 
-## 0.1 Intent Clarification
+## 0.1 Executive Summary
 
-### 0.1.1 Core Testing Objective
+Based on the bug description, the Blitzy platform understands that the bug is **a documentation-drift defect in which a stale "codebase context" artifact contradicts the authoritative Technical Specifications** regarding the system architecture, runtime dependencies, endpoint surface, and test inventory of the `hello_world` project. The stale artifact describes the application as a minimal Node.js server using the built-in `http` module that returns `Hello, World!` for any incoming request with no tests and no framework, while the Technical Specifications (and the actual repository state) describe an Express.js 5.2.1 application with two GET endpoints, `x-powered-by` suppression, a testability export pattern, and a 14-test Jest + Supertest suite at 100% coverage.
 
-Based on the provided requirements, the Blitzy platform understands that the testing objective is to **introduce the project's first automated test suite** for a minimal, single-file Node.js/Express.js 5 tutorial application (`server.js`) that currently has zero automated test coverage. The project explicitly identified the absence of an automated test suite as an open medium-severity technology risk (TR-001 in Section 3.9 of the existing tech spec), and this implementation directly remediates that risk.
+Ground truth was established by direct inspection of the repository at `/tmp/blitzy/Existing-product/exit-code-test-10_4ae24b`. The canonical implementation is the in-repo source code and its accompanying tests — every claim made by the Technical Specifications was verified against `server.js`, `package.json`, `tests/server.test.js`, and `tests/startup.test.js`. The git log further confirms a historical migration in commit `baafc3d` ("refactor: migrate server.js from http module to Express.js"), which explains why the stale "codebase context" appears to describe an earlier, now-superseded state of the project — the artifact was authored before the migration and was never regenerated afterward.
 
-**Request Category:** Add new tests (greenfield test infrastructure)
+### 0.1.1 Precise Technical Failure
 
-The testing requirements, restated with enhanced clarity, are:
+The defect is a **context-layer inconsistency**, not a runtime failure. Two consumer-facing descriptions of the same system disagree:
 
-- **HTTP Endpoint Contract Testing** — Verify that `GET /` returns exactly `Hello, World!\n` (including trailing newline, 14 bytes) with HTTP 200 and `Content-Type: text/plain; charset=utf-8`, and that `GET /good-evening` returns exactly `Good evening` (no trailing newline, 12 bytes) with HTTP 200 and `Content-Type: text/plain; charset=utf-8`
-- **404 Default Behavior Testing** — Verify that requests to any unregistered route (e.g., `GET /nonexistent`, `GET /foo/bar/baz`) return HTTP 404 with the Express default error body pattern `Cannot GET /[path]`
-- **Security Hardening Verification** — Verify that the `x-powered-by` HTTP response header is absent from all responses, confirming `app.disable('x-powered-by')` is effective
-- **Startup Configuration Testing** — Verify that the server binds to `127.0.0.1:3000` and that the startup callback logs the exact message `Server running at http://127.0.0.1:3000/`
-- **Express App Bootstrap Testing** — Verify core app initialization: Express instance creation, route registration, and security configuration
+| Assertion | Stale "Codebase Context" | Technical Specifications | Actual Code (verified) |
+|---|---|---|---|
+| HTTP library | Built-in Node `http` module | Express.js 5.2.1 | Express.js 5.2.1 (`server.js` line 1) |
+| Route surface | Any request → `Hello, World!` | `GET /` → `Hello, World!\n`; `GET /good-evening` → `Good evening` | Two routes defined (`server.js` lines 9–11, 14–16) |
+| Response body for `/` | `Hello, World!` | `Hello, World!\n` (14 bytes, trailing newline) | `res.type('text').send('Hello, World!\n')` (line 10) |
+| Response body for `/good-evening` | Not defined | `Good evening` (12 bytes, no trailing newline) | `res.type('text').send('Good evening')` (line 15) |
+| Security header posture | Not described | `x-powered-by` disabled | `app.disable('x-powered-by')` (line 4) |
+| 404 behavior | Not described | Express default `finalhandler` fallback | Verified via `tests/server.test.js` |
+| Test framework | None ("no tests") | Jest 29.7.0 + Supertest 7.2.2 | Declared in `package.json` devDependencies |
+| Test count | 0 | 14 (9 HTTP + 5 startup) | 9 in `server.test.js` + 5 in `startup.test.js` = 14 |
+| Coverage | Not measured | 100% Stmts / Branch / Funcs / Lines | Verified by `CI=true npm test` |
+| Testability pattern | Not described | `require.main === module` guard + `module.exports = app` | `server.js` lines 19–24 |
+| Bind address | Not described | `127.0.0.1:3000` | `server.js` lines 5–6 |
 
-**Implicit testing needs surfaced:**
-- Exact body matching must include character-level precision (the `\n` on `Hello, World!\n` vs. no newline on `Good evening`)
-- Content-Type assertions must match the full value `text/plain; charset=utf-8`, not just `text/plain`
-- The 404 test must cover representative non-matching paths including nested/arbitrary routes to confirm Express's `finalhandler` behavior
-- Header absence testing for `x-powered-by` should be verified across multiple endpoints, not just one
-- The app module must be exportable for in-process supertest testing without actually binding a network port
+### 0.1.2 When and How This Bug Manifests
 
-### 0.1.2 Special Instructions and Constraints
+This is a **consistent, context-level defect**. It occurs every time both artifacts are consumed together — during onboarding, automated code reasoning, bug triage, or any Blitzy workflow that relies on the "codebase context" to decide how the server is structured and what behavior is expected. There is no runtime stack trace; the symptom is a silent category of downstream failure: agents and humans reasoning correctly over incorrect premises, producing scoped fixes against the wrong framework, inventing bugs that do not exist in the Express application, or proposing changes that would revert behavior the test suite depends on.
 
-**Minimal Change Directive:** Only add test files and minimal test infrastructure. Do not modify existing production code (`server.js`) unless absolutely required for testability. The sole permissible production change is enabling module export of the Express app instance for in-process testing.
+### 0.1.3 Reproduction Steps (as Executable Commands)
 
-**Testing Discipline Requirements:**
-- Follow existing repository conventions (CommonJS modules, `const` declarations, tutorial-grade simplicity)
-- Prefer real in-process HTTP testing over mocking wherever possible
-- Mock only when necessary for startup logging assertions or isolating process-level side effects
-- Keep test structure simple, readable, and appropriate for tutorial learners
-- Ensure all tests can run independently and deterministically
-- Use inline expectations for static/deterministic responses — no complex fixtures needed
+The drift can be demonstrated deterministically against the canonical repository by observing that the actual runtime behavior contradicts the stale "codebase context" and matches the Technical Specifications exactly:
 
-**CI/CD Constraint:** Do not create or modify `.github/workflows/` files. Tests must be CI-friendly but CI pipeline creation is explicitly out of scope.
+```bash
+# Install dependencies and start the server in the background
 
-**Implementation Rule:** Do not make any updates or changes in GitHub App to create or update a workflow.
+cd /tmp/blitzy/Existing-product/exit-code-test-10_4ae24b
+CI=true npm install --no-audit --no-fund --prefer-offline
+node server.js &
 
-**User Example — Expected Responses (preserved exactly):**
-- User Example: `GET /` returns `Hello, World!\n` with HTTP 200 and plain-text content
-- User Example: `GET /good-evening` returns `Good evening` with HTTP 200 and plain-text content
-- User Example: unmatched routes return Express default 404
-- User Example: `x-powered-by` is disabled on responses
-- User Example: the server starts on `127.0.0.1:3000`
-- User Example: startup logs `Server running at http://127.0.0.1:3000/`
+#### Assertion 1 — the stale context claims "any request returns Hello, World!"
 
-### 0.1.3 Technical Interpretation
+#### Reality: an unknown path returns 404, contradicting the stale context
 
-These testing requirements translate to the following technical test implementation strategy:
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3000/nonexistent   # -> 404
 
-- To **test HTTP endpoint contracts**, we will create `tests/server.test.js` using Jest and Supertest to send in-process HTTP requests against the Express app instance and assert exact status codes, response bodies, and Content-Type headers
-- To **test 404 default behavior**, we will add test cases in `tests/server.test.js` that send requests to multiple unregistered paths and verify HTTP 404 status codes and Express-generated error body patterns
-- To **test security hardening**, we will add assertions across endpoint tests verifying the absence of the `x-powered-by` header in all HTTP responses
-- To **test startup configuration**, we will create `tests/startup.test.js` that verifies the server's host/port binding configuration and console output by capturing `console.log` calls and inspecting the listen callback behavior
-- To **enable testability**, we will add a minimal `module.exports = app` export and wrap the `app.listen()` call in an `if (require.main === module)` guard in `server.js`, ensuring the server only auto-starts when run directly (not when imported by tests)
+#### Assertion 2 — the stale context omits /good-evening entirely
 
-### 0.1.4 Coverage Requirements Interpretation
+#### Reality: /good-evening returns 200 with body "Good evening"
 
-**Explicit coverage targets specified by user:**
-- 100% coverage of all externally visible HTTP behavior (both endpoints, 404, security headers)
-- Strong coverage of `server.js` startup/configuration logic
-- Practical overall target of 90%+ line/function coverage
+curl -s http://127.0.0.1:3000/good-evening                                   # -> Good evening
 
-**Implicit coverage expectations based on analysis:**
-- Industry standard for Node.js/Express applications of this size: 90–100% is achievable and expected
-- The existing repository has 0% automated coverage (confirmed by tech spec Section 6.6)
-- The application comprises only 20 lines of code in a single file with no branching logic beyond route matching
-- With full endpoint testing, security assertions, and startup behavior verification, 90%+ coverage is readily achievable
+#### Assertion 3 — the stale context says "no tests"
 
-To achieve comprehensive testing, coverage should include:
-- All two route handler functions (`GET /`, `GET /good-evening`)
-- The `app.disable('x-powered-by')` configuration call path
-- The `app.listen()` callback execution path
-- The Express default 404 handler delegation to `finalhandler`
-- All `res.type('text').send(...)` execution paths
+#### Reality: 14 Jest + Supertest tests pass with 100% coverage
 
-## 0.2 Test Discovery and Analysis
+CI=true npm test -- --watchAll=false --ci
 
-### 0.2.1 Existing Test Infrastructure Assessment
+#### Stop the server
 
-A comprehensive repository search was conducted to assess the current test infrastructure. The repository was inspected at root level, all subdirectories were explored, and pattern-based searches for test-related files were performed.
-
-**Repository analysis reveals zero testing infrastructure of any kind.** The project contains exactly four root-level files (`server.js`, `package.json`, `package-lock.json`, `README.md`) and a `blitzy/documentation/` folder with design documentation. No test files, test directories, test configurations, or testing-related dependencies exist anywhere in the repository.
-
-| Assessment Area | Finding | Evidence |
-|----------------|---------|----------|
-| Test files (`*.test.js`, `*.spec.js`, `__tests__/`) | None found | `find . -name "*.test.*" -o -name "*.spec.*"` returned zero results |
-| Test directories (`tests/`, `test/`, `__tests__/`) | None found | Repository contains only `blitzy/` subdirectory |
-| Testing framework | Not installed | `package.json` has no `devDependencies` block |
-| Test runner configuration | None found | No `jest.config.*`, `.mocharc.*`, `vitest.config.*`, or `pytest.*` files |
-| Coverage tools | Not installed | No Istanbul/nyc, c8, or coverage configuration |
-| Mock/stub libraries | Not installed | No Sinon, nock, or jest mocking packages |
-| Test data fixtures/factories | None found | No fixture files or factory patterns present |
-| npm test script | Placeholder only | `"test": "echo \"Error: no test specified\" && exit 1"` |
-
-**Current testing framework:** None — the `package.json` `scripts.test` entry is a non-functional placeholder that outputs an error message and exits with code 1.
-
-**Test runner configuration location:** Not applicable — no test runner is configured.
-
-**Coverage tools in use:** None — no coverage tooling of any kind is present in the dependency tree. All 65 resolved packages in `package-lock.json` are runtime dependencies of Express.js v5.2.1.
-
-**Mock/stub libraries detected:** None.
-
-**Test data fixtures or factories present:** None needed — all HTTP responses are static string literals with no external data dependencies.
-
-### 0.2.2 Source Code Testability Analysis
-
-The sole source file `server.js` (20 lines) was analyzed for testability:
-
-```javascript
-const app = express();
-app.disable('x-powered-by');
-app.listen(port, hostname, () => { ... });
+kill %1
 ```
 
-**Testability concern identified:** The current `server.js` immediately calls `app.listen()` upon require, which would bind port 3000 during test execution. This prevents clean in-process testing with Supertest. A minimal one-time modification is required: wrapping `app.listen()` in an `if (require.main === module)` guard and adding `module.exports = app`. This is the standard, industry-recognized pattern for Express testability and represents the least-invasive production code change possible.
+Each assertion produced by the stale "codebase context" fails when executed against the actual code; each assertion made by the Technical Specifications succeeds.
 
-**Application architecture characteristics relevant to testing:**
-- Single-file monolithic architecture — all logic in one 20-line file
-- CommonJS module system (`require()`/`module.exports`)
-- Two synchronous route handlers returning static strings
-- No middleware chain, no error handlers, no async operations
-- No external service calls, no database, no file I/O
-- Express 5.2.1 with `finalhandler` providing default 404 responses
+### 0.1.4 Error Type Classification
 
-### 0.2.3 Web Search Research Conducted
+The defect is classified as a **context / contract consistency error** — specifically, an artifact-layer documentation drift in which a descriptive context document has not been regenerated after a substantive source-code migration. It is not a null-reference, race condition, logic error, or exception. It is a semantic-integrity failure in the project's context layer that produces **silent downstream reasoning errors** rather than runtime faults.
 
-Research was conducted to validate testing tool selection and compatibility:
+### 0.1.5 Fix Summary at a Glance
 
-- **Jest + Supertest for Express.js 5 testing:** Confirmed as the standard, most widely documented approach. Supertest works by passing the Express app instance directly to `request(app)`, which binds to an ephemeral port automatically — no manual port management required.
-- **Best practice for Express testability:** The standard pattern involves exporting the Express app separately from the `app.listen()` call, enabling Supertest to create isolated test servers per request. This is documented across official Supertest documentation and major tutorial sources.
-- **Jest version compatibility with Node.js 20:** Jest 29.7.0 is fully compatible with Node.js 18+ and is the most stable, widely-documented version for CommonJS projects. Jest 30.x is also compatible but introduces breaking changes unnecessary for this tutorial-grade project.
-- **Supertest version compatibility with Express 5:** Supertest 7.2.2 (latest) is fully compatible with Express 5.x and Node.js 20.x. It supports both `require()` and `import` patterns.
-- **CommonJS testing patterns:** Jest's default configuration works natively with CommonJS modules — no additional transforms or configuration needed beyond setting `testEnvironment: "node"`.
+- **Canonical source of truth**: the in-repo code and the in-repo documentation, both of which are already mutually consistent.
+- **Stale artifact**: the external "codebase context" described in the problem statement, which predates the `http` → Express migration.
+- **Fix approach**: create a single, authoritative `codebase_context.md` at the repository root that precisely mirrors the verified runtime reality, so that any consumer (human or automated agent) loading the repository receives an internally consistent context layer alongside the Technical Specifications.
+- **Non-goals**: no changes to `server.js`, no changes to either test file, no changes to `package.json`, no changes to existing `README.md` or `blitzy/documentation/*` (all already correct), no new tests, no refactoring, no framework migration, no CI/CD workflow changes.
 
-## 0.3 Testing Scope Analysis
+## 0.2 Root Cause Identification
 
-### 0.3.1 Test Target Identification
+Based on exhaustive repository investigation, git-history reconstruction, and runtime validation, **THE root cause is a stale pre-migration context artifact that was never regenerated after the codebase was refactored from the Node.js built-in `http` module to Express.js 5.2.1**. The artifact describes the project as it existed prior to commit `baafc3d`, and it remains in circulation alongside the current Technical Specifications without any reconciliation mechanism. There is a secondary, reinforcing root cause: the repository lacks a committed `codebase_context.md` at its root, so any external consumer relying on a "codebase context" to interpret the project has no authoritative, versioned in-repo artifact to defer to.
 
-**Primary code to be tested:**
+### 0.2.1 Root Cause Statement
 
-- **Module:** Express application at `server.js` — requires integration-style HTTP endpoint tests, app configuration tests, and startup behavior tests
+- **Primary root cause**: The "codebase context" artifact referenced in the problem statement is **temporally stale**. It correctly described the project at an earlier point in the git history (pre-migration), but it has not been updated to reflect the `http` → Express.js refactor, the introduction of the `/good-evening` route, the addition of `x-powered-by` suppression, the testability export pattern, or the 14-test Jest + Supertest suite.
+- **Secondary root cause**: No canonical, in-repo `codebase_context.md` exists. Consequently, there is no single versioned artifact in the repository that downstream agents or developers can authoritatively load to answer the question "what is this codebase?" — the only existing answers live in `README.md`, `blitzy/documentation/Project Guide.md`, and `blitzy/documentation/Technical Specifications.md`, none of which is named or positioned to be consumed as a "codebase context" file.
 
-**Functions and behaviors requiring test coverage:**
+### 0.2.2 Location of the Defect
 
-| Function/Behavior | Location | Test Categories Needed |
-|-------------------|----------|----------------------|
-| `app.get('/', ...)` route handler | `server.js` line 9–11 | Happy path (200, body, content-type), security header absence |
-| `app.get('/good-evening', ...)` route handler | `server.js` line 14–16 | Happy path (200, body, content-type), security header absence |
-| `app.disable('x-powered-by')` | `server.js` line 4 | Security verification across all endpoints |
-| Express default 404 via `finalhandler` | Implicit (Express internals) | Unmatched route paths, error body pattern |
-| `app.listen(port, hostname, callback)` | `server.js` line 18–20 | Startup binding config, console output |
-| `hostname = '127.0.0.1'` / `port = 3000` | `server.js` lines 5–6 | Configuration value verification |
+The defect is **not in source code**. It is in the context layer that wraps the repository for automated consumption. The defect therefore has no `file:line` coordinate inside `server.js` or the test files. Its effective location is:
 
-**Existing test file mapping:**
+| Component | Location | Nature of Defect |
+|---|---|---|
+| Stale "codebase context" artifact | External to the repository (no file named `codebase_context*` exists anywhere on the filesystem — verified by `find /` and `find .`) | Content describes a pre-migration implementation that no longer exists in the repository |
+| Missing canonical context file | Repository root: `/tmp/blitzy/Existing-product/exit-code-test-10_4ae24b/` | The file `codebase_context.md` does not exist; there is no committed single-source-of-truth artifact for project context |
 
-| Source File | Existing Test File | Test Categories Present |
-|-------------|-------------------|----------------------|
-| `server.js` | None | None — 0% coverage |
-| `package.json` | None | None — no test script functional |
+### 0.2.3 Triggering Conditions
 
-**Dependencies requiring mocking:**
+The drift surfaces whenever either of the following conditions is met:
 
-| Dependency | Mocking Strategy | Rationale |
-|-----------|-----------------|-----------|
-| `console.log` | Jest spy (`jest.spyOn`) | Capture startup log message without side effects |
-| `app.listen` | Jest mock (only in startup tests) | Prevent real port binding during startup behavior tests |
-| Express framework | No mocking | Use real Express instance via Supertest for maximum confidence |
-| Route handlers | No mocking | Test actual HTTP behavior, not mock implementations |
+- A Blitzy workflow loads both the stale "codebase context" and the Technical Specifications for joint reasoning, and the two disagree on architecture.
+- A human or automated reader consults the stale context without cross-validating it against `server.js`, `package.json`, or the test suite.
 
-### 0.3.2 Version Compatibility Research
+The underlying cause of why the drift was able to persist is the migration commit `baafc3d` (`refactor: migrate server.js from http module to Express.js`) and the subsequent commits that added the Express metadata, the second route, the test suite, and the testability pattern — all completed without a corresponding regeneration of the external context artifact.
 
-Based on the current Node.js v20.20.1 runtime and Express.js v5.2.1 framework, the recommended testing stack is:
+### 0.2.4 Evidence from Repository File Analysis
 
-| Tool | Recommended Version | Rationale |
-|------|-------------------|-----------|
-| **Jest** (test runner + assertions) | 29.7.0 | Most stable LTS-equivalent release for CommonJS; fully compatible with Node.js 18+; all-in-one test runner, assertions, mocking, and built-in coverage; most widely documented version for tutorial-level projects |
-| **Supertest** (HTTP assertions) | 7.2.2 | Latest stable release; fully compatible with Express 5.x and Node.js 20.x; provides in-process HTTP testing without real server startup |
-| **Jest built-in coverage** (`--coverage`) | Included with Jest 29.7.0 | Uses Istanbul/babel under the hood; no separate `nyc` or `c8` installation needed; produces lcov, text, and HTML reports |
+The following evidence was collected through direct repository inspection and runtime execution. Each item is traceable to a specific file and, where applicable, exact line numbers.
 
-**Version conflict analysis:** No conflicts detected. Jest 29.7.0, Supertest 7.2.2, Express 5.2.1, and Node.js 20.20.1 are all mutually compatible. The CommonJS module system used by the project requires no additional transformers or configuration for Jest.
+| # | Evidence | Source | Observation |
+|---|---|---|---|
+| 1 | `const express = require('express');` | `server.js:1` | Express is the HTTP library, not the Node `http` module |
+| 2 | `app.disable('x-powered-by');` | `server.js:4` | `x-powered-by` suppression is implemented, contrary to the stale context's silence on the matter |
+| 3 | `const hostname = '127.0.0.1'; const port = 3000;` | `server.js:5–6` | Hardcoded localhost binding, matches Technical Specifications |
+| 4 | `app.get('/', (req, res) => { res.type('text').send('Hello, World!\n'); });` | `server.js:9–11` | `GET /` returns `Hello, World!\n` (14 bytes, with trailing newline) |
+| 5 | `app.get('/good-evening', (req, res) => { res.type('text').send('Good evening'); });` | `server.js:14–16` | A second endpoint exists that the stale context does not mention |
+| 6 | `if (require.main === module) { app.listen(...); } module.exports = app;` | `server.js:19–24` | The testability pattern (testability export + guarded listen) is in place |
+| 7 | `"express": "^5.2.1"` | `package.json` dependencies | Express 5.2.1 is a declared production dependency |
+| 8 | `"jest": "^29.7.0"`, `"supertest": "^7.2.2"` | `package.json` devDependencies | Jest and Supertest are committed devDependencies, contrary to "no tests" |
+| 9 | `describe('GET /')` × 3, `describe('GET /good-evening')` × 3, `describe('404 handling')` × 3 | `tests/server.test.js` | 9 HTTP integration tests exist |
+| 10 | 5 tests validating module export, hostname, port, `require.main` guard, and VM-based startup log | `tests/startup.test.js` | 5 startup tests exist |
+| 11 | `Test Suites: 2 passed, 2 total; Tests: 14 passed, 14 total; server.js: 100% Stmts/Branch/Funcs/Lines` | `CI=true npm test` output | 14/14 pass with 100% coverage |
+| 12 | `curl -s http://127.0.0.1:3000/` → `Hello, World!\n`; `curl -s http://127.0.0.1:3000/good-evening` → `Good evening`; `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/nonexistent` → `404` | Runtime validation | Runtime matches Technical Specifications exactly and contradicts the stale context |
+| 13 | Commit `baafc3d refactor: migrate server.js from http module to Express.js` followed by `0fbbfcc chore: update package.json with Express metadata`, `4b7db05 chore: add express@^5.2.1 as production dependency`, `6e3a82b Add HTTP endpoint integration tests for Express.js app`, `3f9b413 Create tests/startup.test.js` | `git log --all --oneline` | The repository underwent a substantive migration; the stale context pre-dates all of these commits |
+| 14 | `find / -type f -name "codebase_context*" 2>/dev/null` returns no results within the repository tree | Filesystem search | There is no `codebase_context.md` in the repo to keep in sync with the code |
 
-**Why Jest 29.7.0 over Jest 30.x:** Jest 30.x (latest: 30.3.0) introduces several breaking changes including mandatory `globalConfig` in Runtime constructors and reworked mocking utilities. For a tutorial-grade CommonJS project, Jest 29.7.0 provides identical functionality with superior stability, broader documentation coverage, and zero migration risk. Jest 30.x offers no features needed by this project.
+### 0.2.5 Why This Conclusion Is Definitive
 
-**Why not Mocha:** While the tech spec mentions both Jest and Mocha as options, Jest is preferred here because it provides assertions, mocking, and coverage reporting in a single package, minimizing the number of dependencies. Mocha would require additional packages (Chai for assertions, Sinon for mocking, nyc for coverage), increasing complexity contrary to the "lightest clean setup" directive.
+This conclusion is irrefutable because:
 
-## 0.4 Test Implementation Design
+- **Code-as-evidence**: every claim made by the Technical Specifications has been independently verified against the source of truth — the committed code, its test suite, and live HTTP responses. The Technical Specifications are accurate.
+- **Runtime validation**: `curl` requests against a freshly started `node server.js` produce bodies, status codes, content-length values, and header sets that match the Technical Specifications byte-for-byte and header-for-header, while they directly contradict the stale "codebase context".
+- **Test corroboration**: the 14-test Jest + Supertest suite passes at 100% coverage, which is incompatible with the stale context's assertion that the project has no tests.
+- **Temporal evidence**: the git log shows a migration from `http` to Express, with the stale context's description matching the pre-migration state. This is precisely the textbook manifestation of documentation drift: a descriptor authored at time `T₀` that was not regenerated at time `T₁` after a refactor.
+- **Absence of competing evidence**: no `codebase_context*` file exists anywhere in the repository or on the sandbox filesystem. There is therefore no in-repo artifact that could be "right" in a way that would force us to re-evaluate which side is stale.
 
-### 0.4.1 Test Strategy Selection
+Consequently, the only defensible interpretation is that the stale "codebase context" is the faulty artifact, the in-repo code and Technical Specifications are the correct artifacts, and the fix must reconcile the context layer without mutating the already-correct code or the already-correct Technical Specifications.
 
-**Test types to implement:**
+## 0.3 Diagnostic Execution
 
-- **Integration-style HTTP endpoint tests:** Focus on real in-process HTTP requests to the Express app via Supertest, testing the full request-to-route-to-handler-to-response chain including headers, status codes, and body content. This is the primary test category covering `GET /`, `GET /good-evening`, and unmatched routes.
-- **App configuration tests:** Lightweight assertions verifying Express app-level settings such as `x-powered-by` disablement, covering the security hardening behavior across all response paths.
-- **Startup behavior tests:** Focused assertions around the `app.listen()` callback, console output message, and host/port configuration values. These use minimal mocking to isolate startup side effects from endpoint behavior.
-- **Edge case tests:** Address boundary conditions including the exact trailing newline in `Hello, World!\n`, multiple unmatched route patterns (nested paths, arbitrary paths), and Content-Type precision.
+This subsection documents the diagnostic work that was performed to reproduce, localize, and validate the defect. Because the defect is a context-layer inconsistency rather than a runtime fault, "reproduction" takes the form of demonstrating that the stale "codebase context" contradicts the actual code and tests, not of triggering an exception.
 
-**Test types explicitly excluded:**
-- Browser/UI tests — no frontend exists
-- Database integration tests — no database exists
-- External API tests — no outbound calls exist
-- Performance/load tests — out of scope for demo workload
-- E2E tests — no multi-step workflows exist
-- Deployment/infrastructure tests — out of scope
+### 0.3.1 Code Examination Results
 
-### 0.4.2 Test Case Blueprint
+The authoritative source files were examined line-by-line against the stale "codebase context" and the Technical Specifications.
 
-**Component: GET / Route Handler**
+- **File analyzed**: `server.js` (24 lines, CommonJS, single-file)
+- **Problematic code block**: none — the code is internally consistent and correct; the defect is that the stale context does not describe this code.
+- **Execution flow (happy path)**:
+  - Line 1 loads Express (`const express = require('express');`).
+  - Line 3 instantiates the application (`const app = express();`).
+  - Line 4 disables the `x-powered-by` response header globally.
+  - Lines 5–6 define the hostname and port constants (`127.0.0.1`, `3000`).
+  - Lines 9–11 register the `GET /` handler that sends `Hello, World!\n` with `Content-Type: text/plain; charset=utf-8`.
+  - Lines 14–16 register the `GET /good-evening` handler that sends `Good evening` with `Content-Type: text/plain; charset=utf-8`.
+  - Lines 19–23 guard the `app.listen(port, hostname, ...)` call behind `require.main === module` so that test imports do not start the server.
+  - Line 24 exports the `app` instance for Supertest-based integration tests.
+- **Execution flow (404 path)**: any request that does not match `GET /` or `GET /good-evening` falls through to Express's default `finalhandler` which emits a 404 response with `Content-Type: text/html; charset=utf-8` and a default HTML body. This is the contract the test `tests/server.test.js` validates for `/nonexistent` and `/foo/bar/baz`.
+- **Point where the stale context diverges from reality**: the stale context asserts that **any** request returns `Hello, World!`. This is refuted by lines 9–11 (which bind the handler only to `GET /`) and by the 404 test block in `tests/server.test.js`.
 
-- Happy path: Returns HTTP 200, body is exactly `Hello, World!\n`, Content-Type is `text/plain; charset=utf-8`
-- Edge cases: Body includes trailing newline character, response is not HTML
-- Security: `x-powered-by` header is absent from response
-
-**Component: GET /good-evening Route Handler**
-
-- Happy path: Returns HTTP 200, body is exactly `Good evening`, Content-Type is `text/plain; charset=utf-8`
-- Edge cases: Body has no trailing newline, response is not HTML
-- Security: `x-powered-by` header is absent from response
-
-**Component: Express Default 404 Handling**
-
-- Error cases: `GET /nonexistent` returns 404, `GET /foo/bar/baz` returns 404
-- Edge cases: Body contains `Cannot GET /[path]` pattern
-- Security: `x-powered-by` header is absent from 404 responses
-
-**Component: Server Startup Configuration**
-
-- Happy path: Host is `127.0.0.1`, port is `3000`
-- Happy path: Listen callback logs `Server running at http://127.0.0.1:3000/`
-- Edge cases: `console.log` called exactly once with exact message format
-
-### 0.4.3 Existing Test Extension Strategy
-
-Not applicable — no existing tests to extend. This is a greenfield test implementation. All test files are new creations.
-
-### 0.4.4 Test Data and Fixtures Design
-
-**Required test data structures:** None — all responses are static, deterministic string literals. Expected values are defined inline within test assertions.
-
-**Fixture organization strategy:** No fixture files needed. The two expected response strings (`Hello, World!\n` and `Good evening`) and expected header values are simple enough to express as inline constants within test files.
-
-**Mock object specifications:**
-- `console.log` spy — used only in `tests/startup.test.js` to capture and verify the startup log message. Implemented via `jest.spyOn(console, 'log')` with automatic restoration after each test.
-- `app.listen` mock — used only in `tests/startup.test.js` to test the listen callback behavior without binding a real port. The callback is extracted and invoked manually to verify its output.
-
-**Test database/state management approach:** Not applicable — no persistent state, no database, no session management. Each test is fully stateless and isolated.
+The following diagram captures the actual request-processing flow as implemented by `server.js`:
 
 ```mermaid
-graph TD
-    subgraph TestArchitecture["Test Architecture"]
-        ST["tests/server.test.js"]
-        SUT["tests/startup.test.js"]
-    end
-    subgraph SourceUnderTest["Source Under Test"]
-        SJS["server.js (Express app)"]
-    end
-    subgraph Tools["Testing Tools"]
-        JEST["Jest 29.7.0 (Runner + Assertions)"]
-        SUPT["Supertest 7.2.2 (HTTP Assertions)"]
-        SPY["Jest Spies (console.log capture)"]
-    end
-    ST -->|"require app"| SJS
-    SUT -->|"require app"| SJS
-    ST -->|"request(app)"| SUPT
-    SUPT -->|"ephemeral port"| SJS
-    SUT -->|"jest.spyOn"| SPY
-    JEST -->|"runs"| ST
-    JEST -->|"runs"| SUT
+flowchart TD
+    A[HTTP request arrives] --> B{Method == GET?}
+    B -- No --> D[Express default<br/>finalhandler -> 404]
+    B -- Yes --> C{Path match}
+    C -- '/' --> E[res.type text<br/>send Hello, World!\n]
+    C -- '/good-evening' --> F[res.type text<br/>send Good evening]
+    C -- other --> D
+    E --> G[200 text/plain<br/>no x-powered-by]
+    F --> G
+    D --> H[404 text/html<br/>no x-powered-by]
 ```
 
-## 0.5 Test File Transformation Mapping
-
-### 0.5.1 File-by-File Test Plan
-
-Every test file to be created, updated, or used as a reference is mapped below with the target test file listed first. This is the exhaustive, complete list — no test files remain pending or to be discovered.
-
-| Target Test File | Transformation | Source File/Test | Purpose/Changes |
-|-----------------|----------------|------------------|-----------------|
-| `tests/server.test.js` | CREATE | `server.js` | Comprehensive HTTP endpoint tests covering GET /, GET /good-evening, 404 behavior, Content-Type assertions, x-powered-by absence, and response body exactness |
-| `tests/startup.test.js` | CREATE | `server.js` | Startup configuration tests covering host/port binding values, console.log output message, and listen callback behavior |
-| `server.js` | UPDATE | `server.js` | Minimal testability change: add `module.exports = app` and wrap `app.listen()` in `if (require.main === module)` guard |
-| `package.json` | UPDATE | `package.json` | Add `devDependencies` (jest, supertest), update `scripts.test` to invoke Jest, add Jest configuration block |
-
-### 0.5.2 New Test Files Detail
-
-**`tests/server.test.js`** — HTTP endpoint and app behavior tests
-
-- Test categories: happy path responses, exact body assertions, Content-Type verification, security header absence, 404 error handling
-- Mock dependencies: None — uses real Express app instance via Supertest for maximum confidence
-- Assertions focus:
-  - `GET /` → status 200, body exactly `Hello, World!\n` (including newline), Content-Type matches `text/plain`
-  - `GET /good-evening` → status 200, body exactly `Good evening` (no newline), Content-Type matches `text/plain`
-  - `GET /nonexistent` → status 404, body contains `Cannot GET /nonexistent`
-  - `GET /foo/bar/baz` → status 404, body contains `Cannot GET /foo/bar/baz`
-  - All responses lack `x-powered-by` header
-
-**`tests/startup.test.js`** — Startup and configuration behavior tests
-
-- Test categories: configuration values, listen callback, console output
-- Mock dependencies: `jest.spyOn(console, 'log')` for output capture
-- Assertions focus:
-  - Verify hostname constant is `127.0.0.1`
-  - Verify port constant is `3000`
-  - Verify startup log message matches `Server running at http://127.0.0.1:3000/`
-
-### 0.5.3 Test Files to Modify Detail
-
-No existing test files to modify — this is a greenfield test implementation.
-
-### 0.5.4 Production Files Requiring Minimal Testability Changes
-
-**`server.js`** — Add testability export (minimal change)
-
-- New addition: `module.exports = app;` at end of file
-- New addition: Wrap `app.listen(...)` in `if (require.main === module) { ... }` guard
-- Behavior preservation: When run directly via `node server.js` or `npm start`, behavior is identical to current implementation. When required as a module by tests, the app is exported without starting the listener.
-- These two changes are the standard, minimal-impact pattern for Express testability with Supertest
-
-**`package.json`** — Test infrastructure configuration
-
-- New `devDependencies` block with `jest` and `supertest`
-- Updated `scripts.test` from placeholder to `jest --watchAll=false --coverage`
-- New `jest` configuration block with `testEnvironment: "node"` and `coveragePathIgnorePatterns`
-
-### 0.5.5 Test Configuration Updates
-
-| Config File | Update Description |
-|------------|-------------------|
-| `package.json` `scripts.test` | Change from `echo "Error: no test specified" && exit 1` to `jest --watchAll=false --coverage` |
-| `package.json` `jest` block | Add `{"testEnvironment": "node", "coveragePathIgnorePatterns": ["/node_modules/"]}` |
-| `package.json` `devDependencies` | Add `jest: "^29.7.0"` and `supertest: "^7.2.2"` |
-
-No standalone configuration files (e.g., `jest.config.js`) are needed — Jest configuration is embedded in `package.json` to maintain the project's minimal file footprint and tutorial-grade simplicity.
-
-### 0.5.6 Cross-File Test Dependencies
-
-**Shared fixtures:** None required — test data is inline and deterministic.
-
-**Mock objects:** Jest built-in spies (`jest.spyOn`) are used directly in `tests/startup.test.js` — no shared mock files needed.
-
-**Test utilities:** No separate helper files are needed. The Express app import (`const app = require('../server')`) and Supertest request factory (`const request = require('supertest')`) are the only shared patterns, used directly in each test file.
-
-**Import updates required across test files:**
-- `tests/server.test.js` imports: `supertest`, `../server`
-- `tests/startup.test.js` imports: `../server`
-
-## 0.6 Dependency Inventory
-
-### 0.6.1 Testing Dependencies
-
-All testing packages required for this implementation are listed below with exact names and verified versions from the npm registry. No placeholder versions are used.
-
-| Registry | Package Name | Version | Purpose |
-|----------|-------------|---------|---------|
-| npm | `jest` | 29.7.0 | All-in-one test runner, assertion library, mocking framework, and built-in coverage reporting. Most stable release for CommonJS/Node.js 20 projects. |
-| npm | `supertest` | 7.2.2 | HTTP assertion library for testing Express.js servers in-process without starting a live network listener. Sends requests directly to the Express app instance. |
-
-**Version verification notes:**
-- `jest@29.7.0` — Confirmed as the latest stable release in the 29.x line. Published to npm with full Node.js 18+ support. Provides Istanbul-based code coverage via the `--coverage` flag with no additional packages.
-- `supertest@7.2.2` — Confirmed as the latest stable release. Compatible with Express 5.x and Node.js 20.x. Depends on `superagent` internally for HTTP client functionality.
-
-**Packages intentionally NOT included:**
-- `chai` — Not needed; Jest includes built-in `expect()` assertions
-- `sinon` — Not needed; Jest includes built-in `jest.spyOn()` and `jest.fn()` mocking
-- `nyc` / `c8` — Not needed; Jest's `--coverage` flag provides Istanbul-based coverage reporting
-- `@types/jest` / `@types/supertest` — Not needed; project uses plain JavaScript, not TypeScript
-- `jest-cli` — Not needed; the `jest` package includes the CLI
-- `mocha` — Not selected; Jest provides a more complete single-package solution
-
-### 0.6.2 Existing Runtime Dependencies (Unchanged)
-
-The existing production dependency remains unchanged:
-
-| Registry | Package Name | Version Range | Resolved Version | Purpose |
-|----------|-------------|--------------|-----------------|---------|
-| npm | `express` | ^5.2.1 | 5.2.1 | Web application framework (sole runtime dependency) |
-
-### 0.6.3 Import Updates
-
-**Test files requiring import statements:**
-
-- `tests/server.test.js` — Requires:
-  - `const request = require('supertest');`
-  - `const app = require('../server');`
-
-- `tests/startup.test.js` — Requires:
-  - `const app = require('../server');`
-
-**No import transformation rules needed** — this is a greenfield test implementation with no existing imports to migrate. All imports are new additions in new files using the project's established CommonJS `require()` pattern.
-
-## 0.7 Coverage and Quality Targets
-
-### 0.7.1 Coverage Metrics
-
-| Metric | Current Coverage | Target Coverage | Basis |
-|--------|-----------------|----------------|-------|
-| Overall line coverage | 0% (no tests exist) | 90%+ | User-specified practical target |
-| Overall function coverage | 0% | 90%+ | User-specified practical target |
-| HTTP behavior coverage | 0% | 100% | User-specified: "100% coverage of all externally visible HTTP behavior" |
-| Route handler coverage | 0% | 100% | Both `GET /` and `GET /good-evening` handlers fully exercised |
-| Security config coverage | 0% | 100% | `app.disable('x-powered-by')` and `res.type('text')` paths verified |
-| Startup logic coverage | 0% | Strong | User-specified: "strong coverage of server.js startup/configuration logic" |
-
-**Coverage gaps to address:**
-
-- **Route handlers** (`server.js` lines 9–16): Currently 0%, target 100% — achieved through Supertest HTTP requests exercising both `GET /` and `GET /good-evening` handlers end-to-end
-- **Security configuration** (`server.js` line 4): Currently 0%, target 100% — achieved through header absence assertions on all endpoint responses
-- **Startup/listen logic** (`server.js` lines 18–20): Currently 0%, target strong — achieved through startup behavior tests verifying the listen callback and console output
-- **Configuration constants** (`server.js` lines 5–6): Currently 0%, target covered — achieved through value assertions on hostname and port constants
-
-**Per-file coverage targets:**
-
-| File | Line Coverage Target | Branch Coverage Target | Function Coverage Target |
-|------|---------------------|----------------------|------------------------|
-| `server.js` | 90%+ | 100% (only branch is `require.main` guard) | 100% (all 2 route handlers + listen callback) |
-
-### 0.7.2 Test Quality Criteria
-
-**Assertion density expectations:** Each test case includes at minimum one primary assertion (status code or body content) and at least one secondary assertion (Content-Type header or header absence). Endpoint tests target 3–4 assertions per test case for comprehensive verification.
-
-**Test isolation requirements:** Every test is fully independent and stateless. No test depends on the execution or result of any other test. Supertest creates ephemeral connections per request, ensuring complete isolation. Jest spies are restored after each test via `afterEach` cleanup.
-
-**Performance constraints for test execution:** The full test suite must execute in under 5 seconds on a standard development machine. In-process Supertest testing eliminates network latency. No real server startup occurs during endpoint tests. The suite is designed for frequent local execution during development.
-
-**Maintainability standards:**
-- Test file structure mirrors the application's simplicity — two test files for one source file
-- Test descriptions use human-readable language matching the functional requirement language
-- Assertions test stable external behavior (HTTP responses), not internal implementation details
-- No reliance on test execution order or shared mutable state
-- CommonJS `require()` style matches the project's established module pattern
-
-**Following repository test patterns and conventions:** Since no prior test patterns exist, the new tests establish conventions aligned with the project's tutorial-grade philosophy: minimal files, clear naming (`*.test.js`), CommonJS modules, and inline assertions without complex abstractions.
-
-## 0.8 Scope Boundaries
-
-### 0.8.1 Exhaustively In Scope
-
-**New test files:**
-- `tests/server.test.js` — all HTTP endpoint integration tests, 404 behavior tests, security header tests
-- `tests/startup.test.js` — startup configuration and logging behavior tests
-
-**Production file updates (minimal testability changes only):**
-- `server.js` — add `module.exports = app` and `if (require.main === module)` guard around `app.listen()`
-- `package.json` — add `devDependencies`, update `scripts.test`, add `jest` configuration block
-- `package-lock.json` — auto-regenerated by `npm install` after adding devDependencies
-
-**Test configuration (embedded in package.json):**
-- Jest `testEnvironment: "node"` setting
-- Jest `coveragePathIgnorePatterns` for `node_modules`
-- `scripts.test` command invoking Jest with coverage
-
-**Test scope coverage areas:**
-- Express app initialization and route registration
-- `GET /` endpoint: status, body, content-type
-- `GET /good-evening` endpoint: status, body, content-type
-- Unmatched routes: 404 status, error body pattern
-- Security: `x-powered-by` header absence on all responses
-- Startup: host/port binding configuration, console log message
-
-### 0.8.2 Explicitly Out of Scope
-
-**Source code modifications beyond testability:**
-- No refactoring of route handlers or response logic
-- No addition of middleware, error handlers, or new routes
-- No architectural changes (single-file structure preserved)
-- No module system changes (CommonJS retained)
-
-**Infrastructure and CI/CD:**
-- No `.github/workflows/` creation or modification (explicit user constraint and implementation rule)
-- No Docker/containerization changes
-- No deployment configuration changes
-
-**Features and functionality:**
-- No new endpoints beyond `GET /` and `GET /good-evening`
-- No environment variable support (deferred per tech spec)
-- No error-handling middleware (deferred per tech spec)
-- No health check endpoint
-- No rate limiting, authentication, or authorization
-
-**Test categories not implemented:**
-- Browser/UI tests — no frontend exists
-- Database integration tests — no database exists
-- External API tests — no outbound calls
-- Performance/load tests — excluded per user directive
-- E2E workflow tests — no multi-step workflows
-- TypeScript type tests — project uses plain JavaScript
-
-**Third-party dependency internals:**
-- No testing of Express.js framework internals
-- No testing of Supertest or Jest library behavior
-- No testing of Backprop or external tooling
-
-**Documentation expansion:**
-- No README testing section expansion beyond what is directly required for running tests
-- No creation of standalone testing documentation files
-
-## 0.9 Execution Parameters
-
-### 0.9.1 Testing-Specific Instructions
-
-**Test execution command:**
+### 0.3.2 Repository File Analysis Findings
+
+The table below records the exact commands executed during repository investigation and the findings they produced.
+
+| Tool Used | Command Executed | Finding | File:Line |
+|---|---|---|---|
+| bash | `find . -maxdepth 4 -name ".blitzyignore"` | No `.blitzyignore` files exist in the repository | repo root |
+| bash | `ls -la && find . -not -path "./node_modules*" -not -path "./.git*" -type f` | Repository contains `README.md`, `blitzy/documentation/*.md`, `package.json`, `package-lock.json`, `server.js`, `tests/server.test.js`, `tests/startup.test.js`; no `codebase_context*` | repo root |
+| bash | `cat -n server.js` | 24-line Express 5.2.1 file with `x-powered-by` disabled, two `GET` routes, guarded listen, and `module.exports = app` | `server.js:1–24` |
+| bash | `cat package.json` | `"express": "^5.2.1"` in dependencies; `"jest": "^29.7.0"` and `"supertest": "^7.2.2"` in devDependencies; scripts `start: node server.js` and `test: jest --watchAll=false --coverage` | `package.json` |
+| bash | `cat tests/server.test.js` | 9 tests across three `describe` blocks: `GET /`, `GET /good-evening`, and `404 handling` | `tests/server.test.js` |
+| bash | `cat tests/startup.test.js` | 5 tests validating the exported app, hostname, port, `require.main` guard, and VM-based startup log | `tests/startup.test.js` |
+| bash | `node --version && npm --version` | Node v22.22.2, npm 11.1.0 (both satisfy the project's declared requirement of Node ≥ 18) | sandbox environment |
+| bash | `CI=true npm install --no-audit --no-fund --prefer-offline` | 344 packages installed; transitive deprecations observed for `inflight@1.0.6` and `glob@7.2.3` (no impact) | `node_modules/` |
+| bash | `CI=true npm test` | `Test Suites: 2 passed, 2 total; Tests: 14 passed, 14 total; server.js 100%/100%/100%/100%` in ~1.06s | coverage report |
+| bash | `node server.js &` then `curl -sv http://127.0.0.1:3000/` | 200 OK, `Content-Type: text/plain; charset=utf-8`, `Content-Length: 14`, body `Hello, World!\n`, no `x-powered-by` header | runtime |
+| bash | `curl -sv http://127.0.0.1:3000/good-evening` | 200 OK, `Content-Type: text/plain; charset=utf-8`, `Content-Length: 12`, body `Good evening`, no `x-powered-by` header | runtime |
+| bash | `curl -sv http://127.0.0.1:3000/nonexistent` | 404 Not Found, `Content-Type: text/html; charset=utf-8`, `Content-Length: 150`, no `x-powered-by` header | runtime |
+| bash | `find / -type f -name "codebase_context*" 2>/dev/null` | No file named `codebase_context*` exists anywhere on the sandbox filesystem or in the repository | global |
+| bash | `git log --all --oneline` | Migration trail: `baafc3d refactor: migrate server.js from http module to Express.js`, `0fbbfcc chore: update package.json with Express metadata`, `4b7db05 chore: add express@^5.2.1 as production dependency`, `6e3a82b Add HTTP endpoint integration tests for Express.js app`, `3f9b413 Create tests/startup.test.js` | git history |
+| get_tech_spec_section | `"1.1 Executive Summary"`, `"1.2 System Overview"`, `"1.3 Scope"`, `"1.4 Known Risks and Constraints"`, `"2.4 Implementation Considerations"`, `"2.7 Out-of-Scope Items"`, `"2.8 Technology Stack Reference"`, `"3.3 Frameworks & Libraries"`, `"Express.js 5.2.1"`, `"4.6 Module Import and Testability Pattern"`, `"5.1 High-Level Architecture"`, `"5.2 Component Details"` | Technical Specifications are internally consistent, accurately describe the Express 5.2.1 implementation, document 14/14 tests and 100% coverage, enumerate out-of-scope items, and match the code byte-for-byte where response bodies are specified | tech spec data store |
+| read_file | `README.md` | 59-line README describing the project as "a simple Node.js HTTP server built with ExpressJS (v5)" with two endpoints, requiring Node.js v18+, aligned with `server.js` | `README.md` |
+| read_file | `blitzy/documentation/Project Guide.md` | Project Guide confirms 14 tests (9 HTTP + 5 startup), 100% coverage across all metrics, 80% project completion, and open risk: missing `.gitignore` | `blitzy/documentation/Project Guide.md` |
+| read_file | `blitzy/documentation/Technical Specifications.md` (physical file on disk) | 599 lines; contains only Section 0 (Agent Action Plan) with sub-sections 0.1 through 0.10 from a prior testing-focused Action Plan; Sections 1–9 are served via `get_tech_spec_section` from a separate data store | `blitzy/documentation/Technical Specifications.md` |
+
+### 0.3.3 Fix Verification Analysis
+
+Because the defect is a context-layer inconsistency rather than an exception, verification takes the form of (a) reproducing the mismatch, (b) demonstrating that the proposed fix removes the mismatch, and (c) proving that no production code path has been mutated.
+
+- **Steps followed to reproduce the bug**:
+  - Load both the stale "codebase context" (claims: bare `http` module; any-request `Hello, World!`; no tests) and the Technical Specifications (claims: Express 5.2.1; two routes; 14 tests; 100% coverage).
+  - Observe that the two artifacts make mutually contradictory statements about the system.
+  - Execute `curl` against a live `node server.js` to confirm which side of the contradiction is factually correct. The live system contradicts the stale context and matches the Technical Specifications.
+- **Confirmation tests used to ensure the bug is fixed**:
+  - After creating the canonical `codebase_context.md` (see section 0.4), run `diff`-style cross-validation: every factual claim in `codebase_context.md` must resolve to (i) a line in `server.js` or `package.json`, (ii) a test in `tests/server.test.js` or `tests/startup.test.js`, or (iii) an assertion in a Technical Specifications section that itself traces back to code.
+  - Re-run `CI=true npm test -- --watchAll=false --ci` to confirm that adding a markdown file has no effect on the test suite (Jest's `testEnvironment: node` only picks up `*.test.js` files, and `coveragePathIgnorePatterns: ["/node_modules/"]` plus coverage being computed only on `.js` files means the new `.md` cannot alter coverage numbers).
+  - Re-run `node server.js &` followed by the three `curl` checks against `/`, `/good-evening`, and `/nonexistent` to confirm runtime behavior is unchanged.
+- **Boundary conditions and edge cases covered**:
+  - Routes not in `/`, `/good-evening` return Express's default 404 with `text/html` Content-Type — preserved.
+  - The `require.main === module` guard prevents the listener from starting during Jest's test runs — preserved.
+  - The `x-powered-by` header remains suppressed on both success and 404 responses — preserved.
+  - Adding the new markdown file does not create any name collision with existing files (`codebase_context.md` does not yet exist in the repository or the sandbox).
+  - The new file does not appear in any path covered by `package.json`'s `main` entry, Jest's default test discovery, or the `start` / `test` npm scripts, so it cannot affect the production or test execution paths.
+  - The fix does not alter `.github/workflows/` (honoring the user-specified rule), does not create or modify any workflow file, and does not change any existing documentation.
+- **Whether verification was successful and confidence level**: verification is expected to be successful, and the proposed fix is expected to resolve the context-layer inconsistency. **Confidence: 98%.** The residual 2% accounts for (i) the possibility that an external Blitzy platform layer maintains its own internal copy of the stale context that cannot be refreshed purely by committing a new file to the repository, and (ii) the possibility that future git operations could re-introduce drift if `codebase_context.md` is not regenerated after subsequent refactors — a risk that can be mitigated by the Rules section and a "last_verified" marker inside the file itself.
+
+## 0.4 Bug Fix Specification
+
+This subsection specifies the exact, minimal, targeted fix. The fix is a **single-file addition**: a new `codebase_context.md` committed at the repository root that establishes a canonical, internally consistent codebase context aligned with the verified runtime reality and the Technical Specifications. **No existing file is modified, no runtime behavior is changed, and no test is altered.**
+
+### 0.4.1 The Definitive Fix
+
+- **Files to create**: `codebase_context.md` at the repository root — absolute path within the sandbox: `/tmp/blitzy/Existing-product/exit-code-test-10_4ae24b/codebase_context.md`; path relative to the repository root: `codebase_context.md`.
+- **Files to modify**: none.
+- **Files to delete**: none.
+- **Why this fix resolves the root cause (technical mechanism)**: The stale "codebase context" has no committed in-repo counterpart. By introducing a canonical, versioned `codebase_context.md` that is byte-aligned with `server.js`, `package.json`, the test suite, and the Technical Specifications, the repository gains a single authoritative artifact that any downstream consumer can load. The new file supersedes the stale external artifact by providing a fresher, more specific, and in-tree alternative — the industry-standard remediation pattern for documentation drift. Consumers that previously had no choice but to trust the stale external artifact now have an authoritative source of truth at a predictable location.
+
+The new file must assert exactly the claims that the code and tests already support. The required content of `codebase_context.md` is specified below. Each line of the file traces back to verifiable evidence in the repository.
+
+```
+# Codebase Context — hello_world
+
+<!-- Canonical, code-aligned context for the hello_world project.
+     This file is the single source of truth for "what this codebase is".
+     It must be regenerated any time server.js, package.json, or the
+     test files in tests/ materially change. -->
+
+#### Project Identity
+
+- Project name: hello_world
+- Version: 1.0.0
+- Author: hxu
+- License: MIT
+- Main entry: server.js
+- Repository purpose: Backprop integration test artifact
+
+#### Runtime Architecture
+
+- Language: JavaScript (CommonJS)
+- Runtime: Node.js >= 18 (verified working on Node.js v22.22.2)
+- HTTP framework: Express.js ^5.2.1 (resolved 5.2.1)
+- Architecture style: Single-file, synchronous request-response
+- Bind address: 127.0.0.1:3000 (hardcoded in server.js lines 5–6)
+- Module system: CommonJS (require / module.exports)
+
+#### Endpoints (server.js)
+
+| Method | Path            | Status | Content-Type                | Body              | Length |
+|--------|-----------------|--------|-----------------------------|-------------------|--------|
+| GET    | /               | 200    | text/plain; charset=utf-8   | "Hello, World!\n" | 14     |
+| GET    | /good-evening   | 200    | text/plain; charset=utf-8   | "Good evening"    | 12     |
+| *      | any other path  | 404    | text/html; charset=utf-8    | Express default   | 150    |
+
+All responses omit the x-powered-by header (disabled at server.js line 4).
+
+#### Testability Pattern
+
+- server.js exports the Express app via "module.exports = app" (line 24).
+- app.listen is guarded by "if (require.main === module)" (lines 19–23),
+  so importing server.js from a test file never starts the listener.
+- Tests import the app with const app = require('../server') and drive it
+  with Supertest.
+
+#### Test Suite
+
+- Framework: Jest ^29.7.0 with Supertest ^7.2.2
+- Jest config in package.json: testEnvironment node,
+  coveragePathIgnorePatterns ["/node_modules/"]
+- tests/server.test.js: 9 HTTP integration tests
+  - GET /: 3 tests (200 + body, content-type, no x-powered-by)
+  - GET /good-evening: 3 tests (200 + body, content-type, no x-powered-by)
+  - 404 handling: 3 tests (/nonexistent, /foo/bar/baz, no x-powered-by on 404)
+- tests/startup.test.js: 5 tests (exported app, hostname, port,
+  require.main guard, VM-based startup log)
+- Total: 14 tests
+- Coverage on server.js: 100% statements, branches, functions, lines
+- Commands: npm start (runs the server); npm test (runs Jest with coverage)
+
+#### Known Risks
+
+- Missing .gitignore (tracked as Medium severity in the Technical Specifications).
+- No CI/CD pipeline (out of scope per Technical Specifications section 1.3.2).
+
+#### Out of Scope
+
+Frontend/UI, database, authentication, rate limiting, custom error middleware,
+health-check endpoint, environment variables, TypeScript, Docker, cloud
+deployment, HTTPS, non-GET methods, dynamic content, WebSocket, CORS.
+
+#### Authoritative References (in repository)
+
+- server.js                                      — implementation
+- package.json                                   — dependencies and scripts
+- tests/server.test.js                           — HTTP integration tests
+- tests/startup.test.js                          — startup/export tests
+- README.md                                      — user-facing overview
+- blitzy/documentation/Project Guide.md          — project status + metrics
+- blitzy/documentation/Technical Specifications.md — formal tech spec
+
+#### Provenance
+
+- Last verified against: server.js (24 lines), package.json, tests/*
+- Last verified by: Blitzy Platform (Agent Action Plan execution)
+- Drift policy: regenerate this file whenever server.js, package.json, or
+  tests/* materially change. Do not edit this file in isolation from the code.
+```
+
+### 0.4.2 Change Instructions
+
+The fix is expressed as an ADD operation — there are no DELETE or MODIFY instructions against existing files.
+
+- **CREATE file** `codebase_context.md` at the repository root with the content specified in section 0.4.1. Write the file with a trailing newline; use LF line endings; encode as UTF-8.
+- **Do NOT modify** any line of `server.js`.
+- **Do NOT modify** any line of `package.json` or `package-lock.json`.
+- **Do NOT modify** any line of `tests/server.test.js` or `tests/startup.test.js`.
+- **Do NOT modify** `README.md`, `blitzy/documentation/Project Guide.md`, or `blitzy/documentation/Technical Specifications.md` — all three are already consistent with the code.
+- **Do NOT create, modify, or touch** any file under `.github/` (this is both a user-specified rule and a best-practice guardrail because the repository does not presently contain CI workflows).
+
+Implementation notes for the agent that writes the file:
+
+- The file must be authored as plain markdown; no HTML, no frontmatter beyond the HTML comment shown in section 0.4.1.
+- Backticked code fences inside the file's embedded template must use exactly three backtick characters in a row and must not be nested.
+- The file must not declare any executable content, shebang, or `require` directive.
+- The file must not reference `node_modules/` relative paths, absolute sandbox paths, or any path that does not exist in the committed repository tree.
+- The "Last verified against" line should reflect the 24-line structure of `server.js` as of the commit that introduces `codebase_context.md`.
+
+### 0.4.3 Fix Validation
+
+- **Test command to verify the fix**: run the existing Jest suite exactly as the project defines it, confirming that no production behavior has changed.
 
 ```bash
-npm test
+cd /tmp/blitzy/Existing-product/exit-code-test-10_4ae24b
+CI=true npm test -- --watchAll=false --ci
 ```
 
-This invokes `jest --watchAll=false --coverage` as defined in `package.json` `scripts.test`. The `--watchAll=false` flag ensures non-interactive, CI-friendly execution. The `--coverage` flag generates an Istanbul coverage report.
+- **Expected output after the fix**:
 
-**Coverage measurement command:**
+```text
+Test Suites: 2 passed, 2 total
+Tests:       14 passed, 14 total
+File       | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
+server.js  |     100 |      100 |     100 |     100 |
+```
+
+- **Confirmation method — runtime parity check**:
 
 ```bash
-npx jest --coverage
+node server.js &
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3000/
+curl -s http://127.0.0.1:3000/
+curl -s http://127.0.0.1:3000/good-evening
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3000/nonexistent
+curl -sI http://127.0.0.1:3000/ | grep -i 'x-powered-by' || echo "no x-powered-by header"
+kill %1
 ```
 
-Produces a coverage summary in the terminal and generates detailed reports in the `coverage/` directory (lcov, HTML, and text formats).
+Expected outcomes: 200 for `/`, body `Hello, World!\n` for `/`, body `Good evening` for `/good-evening`, 404 for `/nonexistent`, and the `no x-powered-by header` message for the header check. All five checks must produce the same outputs they produced before the fix, because no production code is being changed.
 
-**Single test execution pattern:**
+- **Confirmation method — context-layer consistency check**: open `codebase_context.md` and confirm that every claim traces to verifiable evidence in `server.js`, `package.json`, `tests/*`, or the Technical Specifications. There must be no statement that is not corroborated by at least one other committed artifact.
+
+## 0.5 Scope Boundaries
+
+This subsection enumerates — exhaustively — every file that the Blitzy platform is authorized to touch and every file that it must leave untouched. The boundaries are deliberately narrow because the defect is a context-layer inconsistency whose remediation requires a single new file and nothing else.
+
+### 0.5.1 Changes Required (EXHAUSTIVE LIST)
+
+| File | Action | Lines | Specific Change |
+|---|---|---|---|
+| `codebase_context.md` (repo root) | CREATE | N/A (new file) | Author the canonical codebase context document with the content specified in section 0.4.1. File must be UTF-8 encoded, LF line endings, end with a trailing newline. |
+
+- **No other files require modification.** The source code (`server.js`), the dependency manifest (`package.json`), the dependency lockfile (`package-lock.json`), both test files (`tests/server.test.js`, `tests/startup.test.js`), the README (`README.md`), the Project Guide (`blitzy/documentation/Project Guide.md`), and the Technical Specifications (`blitzy/documentation/Technical Specifications.md`) are all internally consistent with the code and must remain untouched.
+- **No new tests are added.** The existing 14-test suite already validates the Express 5.2.1 implementation at 100% coverage, and it already asserts every factual claim that the new `codebase_context.md` will make about runtime behavior.
+- **No dependencies are added or upgraded.** Neither `package.json` nor `package-lock.json` is modified.
+
+### 0.5.2 Explicitly Excluded
+
+The following changes are **explicitly forbidden** for this fix. Any agent executing this plan must treat each exclusion as an invariant.
+
+- **Do not modify `server.js`.** The 24-line Express implementation is the source of truth; changing it would invert the direction of the fix and would break the 14 passing tests.
+- **Do not modify `package.json` or `package-lock.json`.** The Express 5.2.1, Jest 29.7.0, and Supertest 7.2.2 pins are correct and are corroborated by the Technical Specifications. No version bump, no new script, no new dependency.
+- **Do not modify `tests/server.test.js`.** The 9 HTTP integration tests validate the canonical endpoint contracts and must remain intact.
+- **Do not modify `tests/startup.test.js`.** The 5 startup tests validate the testability pattern (module export, hostname, port, `require.main` guard, VM-based startup log).
+- **Do not modify `README.md`.** The README is already an accurate narrative of the Express 5.2.1 application.
+- **Do not modify `blitzy/documentation/Project Guide.md`.** The Project Guide correctly reports 14 tests, 100% coverage, 80% project completion, and the missing `.gitignore` as an open risk.
+- **Do not modify `blitzy/documentation/Technical Specifications.md`.** The Technical Specifications are the correct side of the drift; rewriting them would reintroduce the stale state.
+- **Do not create, modify, or delete any file under `.github/`** (user-specified rule "exit code 137 test"). The repository does not currently contain workflow files, and this fix must not create any.
+- **Do not create a `.gitignore` file.** The missing `.gitignore` is a known risk tracked in the Technical Specifications section 1.4, but it is out of scope for this bug fix (which is strictly limited to resolving the context-layer inconsistency).
+- **Do not refactor the single-file architecture.** The Technical Specifications explicitly endorse the single-file CommonJS architecture; modularization would exceed the scope of a documentation-drift fix.
+- **Do not migrate to TypeScript, ESM, or any other module system.**
+- **Do not add a health-check endpoint, logging middleware, error middleware, rate limiting, or any other feature** enumerated in the out-of-scope list in Technical Specifications section 2.7.
+- **Do not introduce environment variables** (e.g., `process.env.PORT`). The hostname and port are hardcoded in `server.js` lines 5–6 by design and are covered by `tests/startup.test.js`.
+- **Do not introduce a CI/CD workflow** or any automation that runs outside `npm test`.
+- **Do not touch `node_modules/`** (excluded by default and by the Jest `coveragePathIgnorePatterns` entry).
+- **Do not introduce any change that alters HTTP response bodies, headers, status codes, or content-length values.** Every byte of the current response contract is asserted by tests.
+
+## 0.6 Verification Protocol
+
+The verification protocol is designed to prove two things simultaneously: (a) the context-layer inconsistency is resolved — i.e., the new `codebase_context.md` is byte-aligned with the actual code and the Technical Specifications — and (b) no regression has been introduced in production behavior or in the test suite.
+
+### 0.6.1 Bug Elimination Confirmation
+
+- **Step 1 — confirm the new file exists and is well-formed**
 
 ```bash
-npx jest tests/server.test.js
+cd /tmp/blitzy/Existing-product/exit-code-test-10_4ae24b
+test -f codebase_context.md && echo "OK: codebase_context.md present" || echo "FAIL: missing"
+wc -l codebase_context.md
+file codebase_context.md
 ```
 
-Runs only the specified test file. Useful for focused debugging of endpoint or startup tests individually.
+Expected: the file exists at the repository root, is a plain UTF-8 text file, and has the content specified in section 0.4.1.
 
-**Debug mode execution:**
+- **Step 2 — confirm the new file's factual claims match the code**
 
 ```bash
-npx jest --verbose tests/server.test.js
+# Express version matches
+
+grep -E '"express":\s*"\^5\.2\.1"' package.json && grep -F 'Express.js ^5.2.1' codebase_context.md
+
+#### Route surface matches
+
+grep -n "app.get('/'," server.js
+grep -n "app.get('/good-evening'," server.js
+grep -nF 'GET    | /' codebase_context.md
+grep -nF 'GET    | /good-evening' codebase_context.md
+
+#### Security header suppression is asserted
+
+grep -nF "app.disable('x-powered-by')" server.js
+grep -nF 'x-powered-by' codebase_context.md
+
+#### Bind address matches
+
+grep -nE "hostname\s*=\s*'127\.0\.0\.1'" server.js
+grep -nE "port\s*=\s*3000" server.js
+grep -nF '127.0.0.1:3000' codebase_context.md
+
+#### Test inventory matches
+
+grep -c "it(" tests/server.test.js   # expect 9
+grep -c "it(" tests/startup.test.js  # expect 5
+grep -nF 'Total: 14 tests' codebase_context.md
 ```
 
-Runs tests with verbose output showing each individual test case name and result.
+Expected: each pair of grep commands finds matching content; in particular, `tests/server.test.js` contains 9 `it(` calls and `tests/startup.test.js` contains 5, summing to the 14 asserted in `codebase_context.md`.
 
-**Specific test patterns to follow in the repository:**
-- Test files are placed in a dedicated `tests/` directory at the project root
-- Test files use the naming convention `[module].test.js`
-- Tests use CommonJS `require()` imports matching the project's module system
-- Test descriptions use `describe()` for grouping by feature and `it()` for individual assertions
-- Assertions use Jest's `expect()` API with Supertest's chainable `.expect()` for HTTP-level checks
+- **Step 3 — confirm the stale-context assertions are refuted by the new file and the code**
 
-**Excluded test categories per user instruction:**
-- No browser tests, database tests, external API tests, performance tests, or deployment/infrastructure tests
-- No CI/CD workflow modifications
+The new `codebase_context.md` must make statements that are mutually contradictory with the stale artifact. Specifically, it must assert Express (not `http`), two routes (not any-request `Hello, World!`), 14 tests (not zero), `x-powered-by` suppressed, and the testability pattern — all of which are confirmed by `grep` checks above.
 
-**Environment setup requirements for tests:**
-- Node.js v18+ (v20.20.1 installed)
-- `npm install` to install both production and dev dependencies
-- No environment variables required
-- No external services or databases required
-- Port 3000 does NOT need to be available (Supertest uses ephemeral ports)
+- **Step 4 — confirm no stale assertion leaks into the new file**
 
-## 0.10 Special Instructions for Testing
+```bash
+# These strings must NOT appear in the new file
 
-### 0.10.1 Testing-Specific Requirements
+! grep -i "require('http')"      codebase_context.md
+! grep -i "http.createServer"    codebase_context.md
+! grep -i "no tests"             codebase_context.md
+! grep -i "minimal Node"         codebase_context.md
+echo "OK: no stale assertions present"
+```
 
-The following directives are explicitly emphasized by the user and must be strictly observed during implementation:
+### 0.6.2 Regression Check
 
-**Minimal change principle:**
-- ONLY add test files (`tests/server.test.js`, `tests/startup.test.js`) and minimal test infrastructure (`package.json` updates)
-- DO NOT modify `server.js` source code beyond the two changes absolutely required for testability: `module.exports = app` and `if (require.main === module)` guard around `app.listen()`
-- DO NOT refactor production code, add abstraction layers, or change the single-file architecture
-- DO NOT modify existing interfaces, behaviors, or API contracts
+- **Step 1 — run the full existing test suite**
 
-**Preserve existing functionality exactly:**
-- `GET /` must continue to return `Hello, World!\n` with HTTP 200
-- `GET /good-evening` must continue to return `Good evening` with HTTP 200
-- Express default 404 handling must remain unchanged
-- `text/plain` response typing must remain unchanged
-- `127.0.0.1:3000` binding must remain unchanged
-- CommonJS module style and `server.js` entrypoint structure must remain unchanged
+```bash
+cd /tmp/blitzy/Existing-product/exit-code-test-10_4ae24b
+CI=true npm test -- --watchAll=false --ci
+```
 
-**Test isolation and quality:**
-- Follow existing code style: CommonJS `require()`, `const` declarations, tutorial-grade simplicity
-- Ensure all tests can run independently and in parallel (Jest default behavior)
-- Match the project's tutorial-grade simplicity — no overengineered test abstractions
-- Use real in-process HTTP testing via Supertest wherever possible
-- Mock only when absolutely necessary (startup logging assertions only)
-- Keep assertions explicit and deterministic — test stable external behavior, not internal implementation
+Expected output (identical to the pre-fix baseline):
 
-**CI/CD constraint:**
-- Do not create or modify `.github/workflows/` files (explicit user constraint and implementation rule: "Do not make any updates or changes in GitHub App to create or update a workflow")
-- Tests must be CI-friendly (non-interactive execution, deterministic results) but CI pipeline creation is out of scope
+```text
+Test Suites: 2 passed, 2 total
+Tests:       14 passed, 14 total
+File       | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
+server.js  |     100 |      100 |     100 |     100 |
+```
 
-**Validation process to confirm tests work correctly:**
-- Run the full automated suite via `npm test` and verify all tests pass
-- Verify coverage output meets the 90%+ line/function target
-- Confirm that intentionally changing a route response (e.g., modifying `Hello, World!\n` to `Hello, World!`) causes the corresponding test to fail meaningfully
-- Confirm that tests do not require any production refactors beyond the documented minimal testability changes
-- Confirm that `npm start` continues to work identically after the testability changes
+- **Step 2 — confirm no coverage regression**
 
-**Code quality issues identified during testing analysis (noted but not fixed):**
-- The `scripts.test` placeholder in `package.json` will be replaced as part of test infrastructure setup
-- No `.gitignore` file exists to exclude `node_modules/` or `coverage/` directories (pre-existing issue, out of scope for this testing implementation)
-- No error-handling middleware exists in `server.js` (documented in tech spec as deferred future work, out of scope)
+Jest computes coverage from `.js` files only; the newly created `codebase_context.md` is a markdown file and cannot appear in the coverage report. The `server.js` line confirming 100/100/100/100 must remain unchanged from the pre-fix baseline.
+
+- **Step 3 — start the server and re-verify runtime behavior**
+
+```bash
+node server.js &
+sleep 1
+
+#### GET / must return 200 with body "Hello, World!n"
+
+BODY_ROOT=$(curl -s http://127.0.0.1:3000/)
+[ "$BODY_ROOT" = "Hello, World!" ] && echo "OK: GET / body" || echo "FAIL: GET / body"
+# (printf will show the trailing newline properly)
+
+printf "%s" "$BODY_ROOT" | xxd | head -1
+
+#### GET /good-evening must return 200 with body "Good evening"
+
+BODY_EVE=$(curl -s http://127.0.0.1:3000/good-evening)
+[ "$BODY_EVE" = "Good evening" ] && echo "OK: GET /good-evening body" || echo "FAIL: GET /good-evening body"
+
+#### GET /nonexistent must return 404
+
+STATUS_404=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/nonexistent)
+[ "$STATUS_404" = "404" ] && echo "OK: 404 status" || echo "FAIL: 404 status"
+
+#### x-powered-by must be absent on all responses
+
+! curl -sI http://127.0.0.1:3000/            | grep -qi 'x-powered-by' && echo "OK: no x-powered-by on /"
+! curl -sI http://127.0.0.1:3000/good-evening | grep -qi 'x-powered-by' && echo "OK: no x-powered-by on /good-evening"
+! curl -sI http://127.0.0.1:3000/nonexistent  | grep -qi 'x-powered-by' && echo "OK: no x-powered-by on 404"
+
+kill %1
+```
+
+Expected: every check prints `OK:`. No runtime metric differs from the pre-fix baseline, because no production code has changed.
+
+- **Step 4 — confirm the unchanged files are still byte-identical**
+
+```bash
+# Any of these commands should report that the file has NOT changed since the
+
+#### pre-fix state. In git, this is equivalent to running `git status` and
+
+#### confirming that only codebase_context.md appears as "new file".
+
+git status --porcelain
+```
+
+Expected: the only entry should be `?? codebase_context.md` (an untracked new file), and after staging/commit, the diff against the head commit should show **one new file, zero modified files, zero deleted files**.
+
+- **Step 5 — confirm the excluded areas are still excluded**
+
+```bash
+test ! -d .github                      && echo "OK: no .github/ created"
+test ! -f .github/workflows/ci.yml     && echo "OK: no workflow created"
+test ! -f .gitignore                   && echo "OK: .gitignore left alone (Medium-severity risk remains tracked)"
+```
+
+Expected: each check prints `OK:`. The `.github/` directory is not created, no workflow file is added, and the `.gitignore` (correctly out of scope) is not manipulated.
+
+## 0.7 Rules
+
+This subsection acknowledges and enumerates the project-level rules that govern this fix. Every rule has been translated into a concrete operational constraint on what the implementing agent may or may not do.
+
+### 0.7.1 User-Specified Rules (verbatim)
+
+The user attached a single explicit rule to this project. It is acknowledged in full below and honored throughout the entire Agent Action Plan.
+
+| Rule Name | Rule Content | Compliance |
+|---|---|---|
+| `exit code 137 test` | "Do not make any updates or changes in GitHub App to create or update a workflow." | **HONORED.** The fix creates exactly one file — `codebase_context.md` — at the repository root. No file is created, modified, or deleted under `.github/` or any subdirectory thereof. No workflow file is added, rewritten, or referenced. The `.github/workflows/` path is excluded by explicit name in section 0.5.2 and is re-checked in the verification protocol in section 0.6.2. |
+
+### 0.7.2 Minimal-Change Directive
+
+- **Make the exact specified change only.** The sole mutation to the repository is the addition of `codebase_context.md`. No other file is created, modified, or deleted.
+- **Zero modifications outside the bug fix.** No refactoring, no opportunistic cleanup, no style-guide sweeps, no dependency bumps, no formatter re-runs on existing files.
+- **No speculative improvements.** Even when a potential improvement is obvious (for example, adding a `.gitignore` — see section 0.8), it is deferred because it is not part of resolving the documentation-drift defect.
+
+### 0.7.3 Preservation of Existing Interfaces and Contracts
+
+- **HTTP contract — frozen.** `GET /` must continue to return `200` with body `Hello, World!\n` and `Content-Type: text/plain; charset=utf-8`. `GET /good-evening` must continue to return `200` with body `Good evening` and the same content type. Every other request must continue to produce Express's default `404` response. The `x-powered-by` header must remain suppressed on all responses.
+- **Network contract — frozen.** The server must continue to bind to `127.0.0.1:3000`. The hostname and port must remain hardcoded constants in `server.js` lines 5–6.
+- **Module contract — frozen.** `server.js` must continue to export the Express `app` via `module.exports = app` on line 24, and the `app.listen` call must remain guarded by `if (require.main === module)` on line 19.
+- **Test contract — frozen.** `npm test` must continue to execute `jest --watchAll=false --coverage` as declared in `package.json`. The 14-test count and 100% coverage on `server.js` must be preserved.
+- **Build / install contract — frozen.** `npm install` continues to resolve Express `^5.2.1`, Jest `^29.7.0`, and Supertest `^7.2.2` without modification to `package.json` or `package-lock.json`.
+
+### 0.7.4 Development Conventions Alignment
+
+- **Single-file CommonJS architecture is preserved.** The project's declared style is CommonJS (`require` / `module.exports`) in a single `server.js` file; this fix does not introduce any new JavaScript source file and therefore cannot violate the convention.
+- **UTC and time-related conventions are not applicable.** The project performs no time-based operations and stores no timestamps; however, the `Provenance` block in the new `codebase_context.md` deliberately avoids embedding a timestamp so that the file does not itself become a rolling drift source. Provenance is expressed as "Last verified against: server.js (24 lines), package.json, tests/*" and "Last verified by: Blitzy Platform (Agent Action Plan execution)".
+- **No new dependencies are introduced**, consistent with the project's declared Express-only production footprint.
+- **Comments on the fix's motive are carried in the new file itself** (the HTML comment at the top of `codebase_context.md` explains why the file exists and when it must be regenerated).
+
+### 0.7.5 Testing Discipline
+
+- **Extensive regression testing is applied.** The full 14-test Jest + Supertest suite is executed after the change (section 0.6.2, Step 1). Every existing assertion must continue to pass.
+- **No new tests are written.** Adding tests would exceed the scope of a pure documentation-drift fix and would require a separate Agent Action Plan.
+- **Runtime parity checks are re-run** (section 0.6.2, Step 3) to demonstrate that actual HTTP responses — bodies, statuses, content-types, and header sets — are byte-identical before and after the change.
+
+### 0.7.6 Security and Operational Invariants
+
+- **`x-powered-by` suppression is preserved.** Verified in section 0.6.2.
+- **Localhost-only binding is preserved.** The server remains reachable only on `127.0.0.1:3000`; no change to the bind address.
+- **Zero `npm audit` vulnerabilities** continues to hold because no dependency is added or upgraded.
+- **No new attack surface is introduced.** The new file is plain markdown; it is not loaded by the Node.js runtime, is not served by Express, and is never parsed as executable content.
+
+## 0.8 References
+
+This subsection enumerates every file, folder, Technical Specification section, and external source consulted during the preparation of this Agent Action Plan. No Figma frames and no user-attached files were provided for this task; where sections of the template are inapplicable they are marked explicitly.
+
+### 0.8.1 Repository Files Examined
+
+The following files were read directly from the repository at `/tmp/blitzy/Existing-product/exit-code-test-10_4ae24b/`. Line counts and a concise summary of each file's role in the investigation are recorded.
+
+| Path (relative to repo root) | Lines | Role in Investigation |
+|---|---|---|
+| `server.js` | 24 | Ground-truth implementation. Verified line-by-line: Express require (line 1), app instantiation (line 3), `x-powered-by` disable (line 4), hostname and port constants (lines 5–6), `GET /` handler (lines 9–11), `GET /good-evening` handler (lines 14–16), `require.main` guard + `app.listen` (lines 19–22), `module.exports = app` (line 24). |
+| `package.json` | — | Dependency manifest confirming `express@^5.2.1`, `jest@^29.7.0`, `supertest@^7.2.2`, and the `start` / `test` scripts. Also specifies `testEnvironment: node` and `coveragePathIgnorePatterns: ["/node_modules/"]`. |
+| `package-lock.json` | 195 KB (generated) | Not modified. Confirmed Express resolved to `5.2.1` and 344 total transitive packages installed cleanly. |
+| `tests/server.test.js` | — | Contains 9 HTTP integration tests across three `describe` blocks: `GET /`, `GET /good-evening`, and `404 handling`. Every test validates a specific byte-level contract that the canonical `codebase_context.md` must not contradict. |
+| `tests/startup.test.js` | — | Contains 5 tests validating the exported Express app, `hostname === '127.0.0.1'`, `port === 3000`, the `require.main === module` guard, and a VM-based startup log assertion (`Server running at http://127.0.0.1:3000/`). |
+| `README.md` | 59 | User-facing overview already aligned with the Express implementation; not modified. |
+| `blitzy/documentation/Project Guide.md` | — | Project status document confirming 14 tests, 100% coverage, 80% project completion, and the open risk "Missing `.gitignore`"; not modified. |
+| `blitzy/documentation/Technical Specifications.md` | 599 | Physical file that contains only Section 0 (prior Agent Action Plan subsections 0.1–0.10 for testing scope). Sections 1–9 are served from a separate data store via the `get_tech_spec_section` tool. Not modified. |
+
+### 0.8.2 Folders Inspected
+
+| Folder | Purpose |
+|---|---|
+| Repository root `/tmp/blitzy/Existing-product/exit-code-test-10_4ae24b/` | Confirmed the presence of `README.md`, `blitzy/`, `package-lock.json`, `package.json`, `server.js`, `tests/`. Confirmed the absence of `codebase_context*`, `.gitignore`, and `.github/`. |
+| `tests/` | Contains `server.test.js` (9 tests) and `startup.test.js` (5 tests). |
+| `blitzy/documentation/` | Contains `Project Guide.md` and `Technical Specifications.md`. |
+| `node_modules/` | Installed after `CI=true npm install --no-audit --no-fund --prefer-offline`. Excluded from analysis per Jest `coveragePathIgnorePatterns`. |
+
+### 0.8.3 Filesystem Searches Executed
+
+| Command | Finding |
+|---|---|
+| `find . -maxdepth 4 -name ".blitzyignore"` | No `.blitzyignore` files exist. |
+| `find . -not -path "./node_modules*" -not -path "./.git*" -type f` | Complete file inventory of the repository. |
+| `find . -not -path "./node_modules*" -not -path "./.git*" -type f -name "*.md"` | Three markdown files: `README.md`, `blitzy/documentation/Project Guide.md`, `blitzy/documentation/Technical Specifications.md`. No `codebase_context.md`. |
+| `find / -type f -name "codebase_context*" 2>/dev/null` | No file named `codebase_context*` exists anywhere on the sandbox filesystem (global scan). |
+| `git log --all --oneline` | Revealed the migration from the built-in `http` module to Express.js via commit `baafc3d` and related follow-up commits (`0fbbfcc`, `4b7db05`, `6e3a82b`, `3f9b413`). |
+
+### 0.8.4 Technical Specification Sections Consulted (via `get_tech_spec_section`)
+
+| Section | Purpose |
+|---|---|
+| 1.1 Executive Summary | Project identity, author, license, repository purpose as a Backprop integration test artifact. |
+| 1.2 System Overview | Confirmed absence of database/external APIs, Express 5.2.1 as sole runtime dependency, Node.js 18+ requirement, the 5 capabilities of the system, and the reported KPIs (14/14 tests passing, 100% coverage, 0 audit vulnerabilities). |
+| 1.3 Scope | In-scope features and the explicit out-of-scope list. |
+| 1.4 Known Risks and Constraints | Missing `.gitignore` flagged as Medium severity (Open); No CI/CD pipeline (Low severity, out of scope). |
+| 2.4 Implementation Considerations | Technical constraints, performance targets, scalability posture, and security implications. |
+| 2.7 Out-of-Scope Items | Used to validate the exclusions in section 0.5.2. |
+| 2.8 Technology Stack Reference | Node.js ≥ 18 (v20.19.5 observed in a prior environment; v22.22.2 observed in this environment), Express ^5.2.1, Jest ^29.7.0, Supertest ^7.2.2, npm ≥ 8. |
+| 3.3 Frameworks & Libraries | Brief opener confirming Express as the single framework dependency. |
+| Express.js 5.2.1 (subsection of 3.3) | Declared `^5.2.1`, resolved `5.2.1`, MIT license, npm registry; transitive dependency graph (router, finalhandler, body-parser, send, serve-static, cookie, qs, mime-types). |
+| 4.6 Module Import and Testability Pattern | Feature F-006 details — `require.main === module` guard and `module.exports = app` — used to corroborate the testability assertions in the canonical `codebase_context.md`. |
+| 5.1 High-Level Architecture | Monolithic single-file CommonJS architecture; 4 components (Express App Core, Route Handler Layer, Security Config, Test Infrastructure); response specs for `GET /` and `GET /good-evening`. |
+| 5.2 Component Details | Component interaction diagrams, state transitions, HTTP request processing sequences. |
+
+### 0.8.5 Commands Executed
+
+| Command | Purpose |
+|---|---|
+| `pwd && ls -la` | Confirm working directory and top-level layout. |
+| `cat -n server.js` | Record exact line numbers for each construct in the implementation. |
+| `cat package.json` | Extract declared dependencies, devDependencies, scripts, and Jest configuration. |
+| `cat tests/server.test.js` | Enumerate the 9 HTTP integration tests. |
+| `cat tests/startup.test.js` | Enumerate the 5 startup tests. |
+| `cat README.md` | Verify the user-facing README already describes the Express 5.2.1 application correctly. |
+| `node --version && npm --version` | Environment version check: Node v22.22.2, npm 11.1.0. |
+| `CI=true npm install --no-audit --no-fund --prefer-offline` | Install dependencies non-interactively; 344 packages resolved. |
+| `CI=true npm test` | Run the full test suite: 14/14 passing, 100% coverage on `server.js`, ~1.06s. |
+| `node server.js &` | Start the server in the background for runtime checks. |
+| `curl -sv http://127.0.0.1:3000/`, `/good-evening`, `/nonexistent` | Verify runtime behavior byte-for-byte matches the Technical Specifications. |
+
+### 0.8.6 External Sources Consulted (Web Search)
+
+External research was conducted to validate the remediation pattern used here — treating the code as the canonical source of truth and regenerating a context artifact that can drift — against industry best practice for documentation and context drift.
+
+| Source | Relevance |
+|---|---|
+| Atlan — "Context Drift: The Silent AI Failure Mode You Aren't Monitoring" | Defines context drift as the gap between what the code currently means and what downstream agents have been told it means; recommends auditing semantic sources of truth and reconciling conflicts. |
+| Paligo — "What is Single Source of Truth (SSOT)?" | Single-source-of-truth principle: when the source changes, every output updates; a canonical artifact prevents "save-as" version drift. |
+| GitHub Spec-Kit Discussion #152 — Evolving Specs | Discussion of spec-vs-code drift and the tractable approach of treating code as truth in the absence of automated bidirectional sync. |
+| Gaudion.dev — "What is Documentation Drift and How to Avoid It?" | Definition of documentation drift and the remediation approach of committing documentation directly into the codebase as versioned markdown files. |
+| Fiberplane — "We built a linter for documentation rot" | Anchoring markdown specs to source code so that downstream CI can detect drift; informs the `Provenance` block design in the canonical `codebase_context.md`. |
+
+### 0.8.7 User-Supplied Attachments
+
+No files were attached to this project (`/tmp/environments_files` was empty per the environment metadata: "No attachments found for this project"). Therefore, no attachment content was consumed in the preparation of this Action Plan.
+
+### 0.8.8 Figma References
+
+No Figma URLs, frames, or design-system assets were provided for this task. The Design System Compliance subsection of the bug-fix template is intentionally omitted because the task is a documentation-drift fix with no user-interface impact — the fix adds a single markdown file and does not affect any rendered UI, component library, or design token.
 
