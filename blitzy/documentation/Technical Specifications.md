@@ -526,11 +526,6 @@ Since this is a greenfield test suite with no existing test files, there are no 
 - `app.py` — must NOT be modified; tests verify existing behavior as-is
 - No production code refactoring, no dependency injection additions, no testability-driven restructuring
 
-**Legacy/Placeholder Files (excluded from testing per user instruction):**
-- `server.js` — empty Node.js placeholder, not part of active runtime
-- `package.json` — empty Node.js manifest, not part of active runtime
-- `package-lock.json` — empty Node.js lockfile, not part of active runtime
-
 **Documentation Artifacts (excluded from testing per user instruction):**
 - `README.md` — documentation verification is not in scope
 - `blitzy/documentation/Project Guide.md` — Blitzy documentation artifact
@@ -561,7 +556,7 @@ Since this is a greenfield test suite with no existing test files, there are no 
 - Third-party dependency internal testing
 
 **Unrelated Test Files:**
-- No tests for empty placeholder files
+- No tests for Node.js-era artifacts (removed from the repository as part of the completed Node.js → Python/Flask migration)
 - No tests for documentation content or formatting
 - No tests for Blitzy platform artifacts in the `blitzy/` directory
 
