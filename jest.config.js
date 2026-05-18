@@ -108,4 +108,15 @@ module.exports = {
 
   // Auto-restore jest.spyOn spies between tests (reinforces isolation).
   restoreMocks: true,
+
+  // Setup files — run ONCE per test file BEFORE the test framework is
+  // installed and BEFORE any test module is loaded.  Used here to monkey-
+  // patch `fs.mkdirSync` and `fs.createWriteStream` so the application's
+  // `logs/` directory and its log files are never created on disk during
+  // test execution.  See tests/helpers/setup.js for the full rationale.
+  //
+  // AAP references: §0.7.3 "no filesystem touching beyond jest.spyOn(fs,
+  // 'mkdirSync')" and §0.10.6 "No test file writes to a shared on-disk
+  // artefact".
+  setupFiles: ['<rootDir>/tests/helpers/setup.js'],
 };
