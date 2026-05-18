@@ -137,24 +137,48 @@ pm2 stop hello-world
 ## Project Structure
 
 ```
-├── server.js                  # Application entry point
+├── server.js                    # Application entry point (app.listen + signal handlers)
 ├── src/
-│   ├── app.js                 # Express application factory
+│   ├── README.md                # src module README — Express application layer
+│   ├── app.js                   # Express application factory (non-listening)
 │   ├── config/
-│   │   └── index.js           # Centralized configuration
+│   │   ├── README.md            # config module README
+│   │   └── index.js             # Centralized, frozen configuration
 │   ├── middleware/
-│   │   ├── errorHandler.js    # Central error handling
-│   │   └── notFound.js        # 404 catch-all handler
+│   │   ├── README.md            # middleware module README
+│   │   ├── errorHandler.js      # Central error handler (CWE-209 masking)
+│   │   ├── notFound.js          # 404 catch-all (CWE-117 sanitization)
+│   │   └── validateInput.js     # Zod validation middleware factory
 │   ├── routes/
-│   │   ├── index.js           # Route aggregator
-│   │   ├── health.js          # Health check endpoint
-│   │   └── api.js             # API routes
+│   │   ├── README.md            # routes module README
+│   │   ├── index.js             # Route aggregator (GET / + /health + /api)
+│   │   ├── health.js            # Health check endpoint
+│   │   └── api.js               # API routes (welcome + info)
 │   └── utils/
-│       └── logger.js          # Winston logger setup
+│       ├── README.md            # utils module README
+│       ├── logger.js            # Winston logger + Morgan stream adapter
+│       └── sanitizer.js         # Log/URL sanitization helpers
+├── docs/
+│   ├── architecture.md          # Architecture overview and middleware pipeline
+│   ├── api.md                   # REST API reference
+│   ├── security.md              # Security controls and CWE mappings
+│   ├── observability.md         # Logging and metrics guide
+│   ├── deployment.md            # Deployment and PM2 process management
+│   └── testing.md               # Jest + Supertest testing guide
+├── tests/
+│   ├── app.test.js              # Integration tests for the Express app
+│   ├── server.test.js           # Bootstrap/lifecycle tests for server.js
+│   ├── config/                  # Configuration module tests
+│   ├── helpers/                 # Shared test utilities
+│   ├── middleware/              # Middleware unit tests
+│   ├── routes/                  # Route contract tests
+│   └── utils/                   # Logger and sanitizer tests
+├── ecosystem.config.js          # PM2 cluster configuration
+├── jest.config.js               # Jest configuration (coverage thresholds 90/90/80/90)
 ├── package.json
-├── ecosystem.config.js        # PM2 configuration
-├── .env                       # Environment variables (not committed)
-├── .env.example               # Environment variable template
+├── package-lock.json
+├── .env                         # Environment variables (not committed)
+├── .env.example                 # Environment variable template
 └── .gitignore
 ```
 
@@ -162,10 +186,33 @@ pm2 stop hello-world
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/` | Welcome message (JSON) |
+| `GET` | `/` | Welcome message (plain text `Hello, World!\n`) |
 | `GET` | `/health` | Health check — returns status, uptime, timestamp, memory usage, and Node.js version |
 | `GET` | `/api` | API welcome message |
 | `GET` | `/api/info` | Server metadata — version, environment, and Node.js version |
+
+> `GET /` contract: `Content-Type: text/plain`, body `Hello, World!\n` (trailing newline included). Source: src/routes/index.js.
+
+## Documentation
+
+Comprehensive documentation is organized into module-level READMEs (adjacent to the code they describe) and cross-cutting operator guides under `docs/`.
+
+### Module READMEs
+
+- [`src/README.md`](./src/README.md) — Express application layer (`app.js` composition)
+- [`src/config/README.md`](./src/config/README.md) — Immutable configuration module and environment contract
+- [`src/middleware/README.md`](./src/middleware/README.md) — Error handler, 404 handler, and Zod validation middleware
+- [`src/routes/README.md`](./src/routes/README.md) — Route aggregation, endpoint contracts, and 405 method guards
+- [`src/utils/README.md`](./src/utils/README.md) — Winston logger, Morgan stream, and sanitization helpers
+
+### Operator Guides
+
+- [`docs/architecture.md`](./docs/architecture.md) — Bootstrap/app separation, middleware pipeline, route topology, and request lifecycle
+- [`docs/api.md`](./docs/api.md) — REST API reference with exact response bodies and error shapes
+- [`docs/security.md`](./docs/security.md) — Security controls: Helmet CSP, CORS, rate limiting, input validation, error masking, sanitization
+- [`docs/observability.md`](./docs/observability.md) — Winston logging, Morgan HTTP logs, log rotation, and PM2 log files
+- [`docs/deployment.md`](./docs/deployment.md) — Direct Node execution, PM2 cluster mode, graceful shutdown, and restart policy
+- [`docs/testing.md`](./docs/testing.md) — Jest configuration, Supertest patterns, coverage thresholds, and mocking conventions
 
 ## License
 
