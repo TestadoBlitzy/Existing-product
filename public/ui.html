@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hello World Validation</title>
+  <style>
+    /* Universal box-sizing for predictable layout math */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    /* Base layout: neutral background, system font stack, readable line-height */
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        Helvetica, Arial, sans-serif;
+      background-color: #f5f5f5;
+      color: #222;
+      line-height: 1.5;
+    }
+
+    /* Centered content container with comfortable reading width */
+    main {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 40px 24px;
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      margin: 0 0 12px 0;
+    }
+
+    p.description {
+      color: #555;
+      margin: 0 0 24px 0;
+    }
+
+    /* Primary action button — blue background, white text, rounded corners */
+    button#validate-btn {
+      background-color: #0066cc;
+      color: #ffffff;
+      font-size: 1rem;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    /* Hover feedback for interactive (non-disabled) button */
+    button#validate-btn:hover:not(:disabled) {
+      background-color: #004f9e;
+    }
+
+    /* Disabled state — muted gray, not-allowed cursor */
+    button#validate-btn:disabled {
+      background-color: #999999;
+      cursor: not-allowed;
+    }
+
+    /* Status message area — base styling applies to all three states */
+    #status {
+      margin-top: 20px;
+      padding: 12px;
+      border-radius: 4px;
+      font-weight: 500;
+      min-height: 1em;
+    }
+
+    /* Loading state — neutral gray while request is in flight */
+    #status.loading {
+      background-color: #f0f0f0;
+      color: #555555;
+    }
+
+    /* Success state — green for positive confirmation */
+    #status.success {
+      background-color: #e6f7ed;
+      color: #0a7e3a;
+    }
+
+    /* Error state — red for failures (network error or unexpected response) */
+    #status.error {
+      background-color: #fdeaea;
+      color: #b3261e;
+    }
+
+    /* Raw response preview — monospace, dark theme for code-like display */
+    #response {
+      margin-top: 16px;
+      padding: 12px;
+      background-color: #1e1e1e;
+      color: #e0e0e0;
+      border-radius: 4px;
+      font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
+      font-size: 0.9rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* Hide the response preview entirely when empty (cleaner initial state) */
+    #response:empty {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Hello World Validation</h1>
+    <p class="description">
+      Click the button below to verify the server is running and returning the
+      expected "Hello, World!" response.
+    </p>
+    <button id="validate-btn" type="button">Run Validation</button>
+    <div id="status" role="status" aria-live="polite"></div>
+    <pre id="response"></pre>
+  </main>
+
+  <script>
+    // IIFE — avoid polluting the global namespace while keeping everything inline.
+    (function () {
+      // DOM element references (resolved once at script load)
+      var btn = document.getElementById('validate-btn');
+      var statusEl = document.getElementById('status');
+      var responseEl = document.getElementById('response');
+
+      // The exact response body contract the server is known to emit for GET /
+      // Includes the trailing newline that server.js emits via res.end('Hello, World!\n')
+      var EXPECTED = 'Hello, World!\n';
+
+      // Update the status line: set its text and toggle the state class
+      // kind is one of: 'loading', 'success', 'error', or undefined/empty
+      function setStatus(message, kind) {
+        statusEl.textContent = message;
+        statusEl.className = kind || '';
+      }
+
+      // Update the raw response preview block
+      function setResponse(text) {
+        responseEl.textContent = text || '';
+      }
+
+      // Full validation flow: disable button -> fetch('/') -> display result -> re-enable
+      function runValidation() {
+        // Enter loading state
+        btn.disabled = true;
+        setStatus('Validating...', 'loading');
+        setResponse('');
+
+        // Same-origin fetch — hits the same server that served this HTML page
+        fetch('/')
+          .then(function (res) {
+            // Capture both status and body so the next .then can inspect them together
+            return res.text().then(function (text) {
+              return { status: res.status, text: text };
+            });
+          })
+          .then(function (result) {
+            // Show the raw response to the developer regardless of outcome
+            setResponse(result.text);
+            if (result.status === 200 && result.text === EXPECTED) {
+              setStatus(
+                '\u2713 Server responded with expected output: Hello, World!',
+                'success'
+              );
+            } else {
+              setStatus(
+                '\u2717 Validation failed: unexpected response (status ' +
+                  result.status +
+                  ').',
+                'error'
+              );
+            }
+          })
+          .catch(function (err) {
+            // Network-level failure (server unreachable, DNS error, fetch aborted, etc.)
+            setResponse('');
+            var detail = err && err.message ? err.message : 'network error';
+            setStatus(
+              '\u2717 Validation failed. Unable to reach server: ' + detail,
+              'error'
+            );
+          })
+          .then(function () {
+            // Always re-enable the button so the user can retry, regardless of outcome
+            btn.disabled = false;
+          });
+      }
+
+      // Wire up the click handler
+      btn.addEventListener('click', runValidation);
+    })();
+  </script>
+</body>
+</html>
