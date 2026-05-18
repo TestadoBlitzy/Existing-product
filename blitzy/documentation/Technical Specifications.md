@@ -465,8 +465,8 @@ All testing packages relevant to this exercise, with exact versions verified fro
 - No tests for features that do not exist (auth, persistence, middleware, templates, frontend/UI)
 - No README or documentation changes beyond minimal testing instructions if strictly needed
 
-**Code quality observations (resolved):**
-- `README.md` now documents all 5 of 5 endpoints (`GET /`, `GET /evening`, `POST /evening`, `GET /morning`, `POST /morning`) — the previous documentation inconsistency has been resolved and the README endpoint table is fully aligned with `server.py`
+**Code quality observations (noted but not fixed):**
+- `README.md` documents only 3 of 5 endpoints (missing `/morning`) — documentation inconsistency is out of scope per user instructions
 
 
 ## 0.9 Execution Parameters
