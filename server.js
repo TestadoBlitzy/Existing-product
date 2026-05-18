@@ -12,6 +12,7 @@ app.get('/evening', (req, res) => {
   res.send('Good evening');
 });
 
+/* istanbul ignore next */
 if (require.main === module) {
   app.listen(port, hostname, () => {
     console.log(`Server running at http://${hostname}:${port}/`);

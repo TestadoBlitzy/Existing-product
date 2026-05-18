@@ -21,7 +21,7 @@
         "testEnvironment": "node",
         "testMatch": ["**/tests/**/*.test.js"],
         "collectCoverageFrom": ["server.js"],
-        "coverageProvider": "v8",
+        "coverageProvider": "babel",
         "coverageThreshold": {
             "global": {
                 "statements": 90,
