@@ -35,6 +35,12 @@ describe('server.js HTTP contracts', () => {
     it('returns HTTP 404 from the Express default 404 handler for an unregistered path', async () => {
       const response = await request(app).get('/missing');
       expect(response.status).toBe(404);
+      // Second non-brittle assertion: SuperAgent (Supertest's underlying
+      // library) sets response.notFound to true for any 404 response.
+      // This corroborates the status assertion through a different signal
+      // without over-constraining headers (e.g., Content-Type/Length) that
+      // are Express framework defaults rather than F-005 contract values.
+      expect(response.notFound).toBe(true);
     });
   });
 });
