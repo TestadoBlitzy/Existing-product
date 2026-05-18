@@ -56,12 +56,12 @@ The test file `server.test.js` provides comprehensive coverage including:
 
 | Metric | Enforced Threshold | Design Target | Notes |
 |--------|-------------------|---------------|-------|
-| Statements | ≥90% | ≥90% | 13/14 statements reachable from Jest |
+| Statements | ≥90% | ≥90% | 16/17 statements reachable from Jest |
 | Branches | ≥80% | ≥80% | 5/6 branches reachable (see note) |
-| Functions | ≥90% | ≥90% | 4/4 functions reachable from Jest |
-| Lines | ≥90% | ≥90% | 13/14 lines reachable from Jest |
+| Functions | ≥90% | ≥90% | 5/5 functions reachable from Jest |
+| Lines | ≥90% | ≥90% | 16/17 lines reachable from Jest |
 
-> **Note:** The `if (require.main === module)` auto-start branch in `server.js` (lines 50–52) is structurally unreachable from Jest's V8 coverage context. When Jest loads modules, `require.main` points to the Jest runner — not the module under test. The auto-start behavior is verified behaviorally via a `child_process.fork()` test in `server.test.js`, but child process execution runs in a separate V8 isolate and is not aggregated into Jest's coverage report. The enforced thresholds in `jest.config.js` are set to 90/80/90/90, calibrated just below the actual achievable coverage of ~93/83/100/93 within Jest's V8 context.
+> **Note:** The `if (require.main === module)` auto-start branch in `server.js` (lines 103–105) is structurally unreachable from Jest's V8 coverage context. When Jest loads modules, `require.main` points to the Jest runner — not the module under test. The auto-start behavior is verified behaviorally via a `child_process.fork()` test in `server.test.js`, but child process execution runs in a separate V8 isolate and is not aggregated into Jest's coverage report. The enforced thresholds in `jest.config.js` are set to 90/80/90/90, calibrated just below the actual achievable coverage of ~93/83/100/93 within Jest's V8 context.
 
 ## Project Structure
 
