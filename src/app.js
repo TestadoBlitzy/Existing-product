@@ -152,7 +152,7 @@ app.use(limiter);
 // ---------------------------------------------------------------------------
 // The routes module (src/routes/index.js) is an Express Router that internally
 // mounts all sub-routers:
-//   GET  /         — Root welcome route (JSON greeting)
+//   GET  /         — Root welcome route (plain-text greeting: text/plain "Hello, World!\n")
 //   GET  /health   — Health check endpoint (status, uptime, memory, node version)
 //   GET  /api      — API welcome message
 //   GET  /api/info — Server metadata (version, environment, node version)

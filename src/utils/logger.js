@@ -16,6 +16,7 @@
  *   logger.error('Something failed', { error: err });
  *   // Morgan integration: morgan('combined', { stream: logger.stream })
  *
+ * @see src/app.js — Morgan binding site: app.use(morgan('combined', { stream: logger.stream }))
  * @module src/utils/logger
  */
 

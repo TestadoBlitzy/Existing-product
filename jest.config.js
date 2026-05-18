@@ -11,6 +11,8 @@
  *   npm run test:watch    — Watch mode for development
  *   npm run test:ci       — CI-safe execution
  *   npx jest tests/path   — Run specific test file or directory
+ *
+ * @module jest.config
  */
 
 module.exports = {
