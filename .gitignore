@@ -59,6 +59,8 @@ Desktop.ini
 # ======================
 # Test coverage reports
 coverage/
+# nyc / c8 coverage intermediate output
+.nyc_output/
 # Build output
 dist/
 build/

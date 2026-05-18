@@ -202,6 +202,37 @@ Cluster worker logs are merged into single files via the `merge_logs` option, an
 └── .gitignore
 ```
 
+## Running Tests
+
+The project uses [Jest](https://jestjs.io/) as the test runner and [Supertest](https://github.com/ladjs/supertest) for HTTP integration assertions.
+
+### Prerequisites
+
+- **Node.js** >= 18.0.0
+- Install dependencies (this will install the `jest` and `supertest` dev dependencies declared in `package.json`):
+
+  ```bash
+  npm install
+  ```
+
+### Run the suite
+
+Execute the full test suite in single-run (non-watch) mode:
+
+```bash
+npm test
+```
+
+### Run with coverage
+
+Execute the full test suite and produce a coverage report:
+
+```bash
+npm run test:coverage
+```
+
+The coverage report is written to the `./coverage/` directory (added to `.gitignore`). Open `./coverage/index.html` in a browser to inspect the per-file line, function, branch, and statement coverage breakdown. The configuration in `jest.config.js` enforces a global floor of 90% lines / 90% functions / 80% branches / 90% statements and will fail the run if coverage drops below those thresholds.
+
 ## License
 
 This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).
