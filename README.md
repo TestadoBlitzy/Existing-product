@@ -30,6 +30,8 @@ A minimal Python tutorial server powered by [Flask](https://flask.palletsproject
 | GET    | `/`        | `Hello, World!`  | `200 OK`        |
 | GET    | `/evening` | `Good evening`   | `200 OK`        |
 | POST   | `/evening` | `Good evening`   | `201 Created`   |
+| GET    | `/morning` | `Good morning`   | `200 OK`        |
+| POST   | `/morning` | `Good morning`   | `201 Created`   |
 
 > **Note:** POST requests return a `201 Created` status code.
 

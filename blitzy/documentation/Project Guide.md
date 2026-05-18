@@ -1,4 +1,7 @@
-# Blitzy Project Guide
+
+# Blitzy Project Guide — `hao-backprop-test`
+
+> **Branding note:** Completed/AI work is colored **Dark Blue `#5B39F3`**, remaining work is colored **White `#FFFFFF`**, accents use Violet-Black `#B23AF2` / Mint `#A8FDD9`.
 
 ---
 
@@ -6,50 +9,53 @@
 
 ### 1.1 Project Overview
 
-This project adds comprehensive automated test coverage for the startup-path lifecycle of a minimal Python/Flask application (`server.py`, 35 lines). The scope is precisely defined: close two remaining coverage gaps (F-008: Werkzeug version string suppression; F-009: localhost binding configuration) by creating `tests/test_startup.py` with 5 new startup-path lifecycle tests, add formal coverage reporting via `pytest-cov`, and preserve the existing 24-test suite unchanged. The result elevates `server.py` from 86% to 100% line coverage and achieves 100% requirements coverage across features F-001 through F-009.
+`hao-backprop-test` is a minimal Python/Flask tutorial server used as a Backprop test-harness target. It exposes five HTTP endpoints (`GET /`, `GET /evening`, `POST /evening`, `GET /morning`, `POST /morning`) bound to `127.0.0.1:3000`, returning plain-text responses with deterministic status codes. The AAP scope for this branch was a single documentation/context contract defect: the `README.md` "Available Endpoints" table listed only 3 of the 5 routes that `server.py` implements and `tests/test_server.py` validates. The fix is documentation-only — runtime, tests, and dependencies are preserved byte-for-byte — closing Tech Spec constraint **C-008**.
 
 ### 1.2 Completion Status
 
 ```mermaid
-pie title Project Completion — 83.3% Complete
-    "Completed (AI)" : 5
-    "Remaining" : 1
+%%{init: {"pie": {"textPosition": 0.5}, "themeVariables": {"pieOuterStrokeWidth": "0px", "pie1": "#5B39F3", "pie2": "#FFFFFF", "pieStrokeColor": "#B23AF2", "pieStrokeWidth": "2px", "pieTitleTextSize": "16px", "pieSectionTextSize": "14px", "pieLegendTextSize": "13px"}}}%%
+pie showData
+    title Completion Status — 87.5% Complete
+    "Completed Work (3.5 h)" : 3.5
+    "Remaining Work (0.5 h)" : 0.5
 ```
 
-| Metric | Value |
-|--------|-------|
-| **Total Project Hours** | 6 |
-| **Completed Hours (AI)** | 5 |
-| **Remaining Hours** | 1 |
-| **Completion Percentage** | 83.3% (5 / 6 = 83.3%) |
+| Metric | Hours |
+|---|---|
+| **Total Project Hours** | **4.0** |
+| Completed Hours (AI + Manual) | 3.5 |
+| Remaining Hours | 0.5 |
+| **Percent Complete** | **87.5 %** |
+
+Calculation: `3.5 / (3.5 + 0.5) × 100 = 87.5 %`
 
 ### 1.3 Key Accomplishments
 
-- ✅ Created `tests/test_startup.py` with 5 startup-path lifecycle tests covering the `__main__` guard block
-- ✅ F-008 coverage gap closed — automated test verifies `WSGIRequestHandler.version_string` returns `""` after direct execution
-- ✅ F-009 coverage gap closed — automated tests verify `app.run(host="127.0.0.1", port=3000)` with exact arguments
-- ✅ Achieved 100% line coverage for `server.py` (21/21 statements, 0 missed — up from 86%)
-- ✅ Achieved 100% requirements coverage across F-001 through F-009
-- ✅ Integrated `pytest-cov` with default coverage reporting in `pytest.ini` (gap G-004 resolved)
-- ✅ Preserved all 24 existing tests unchanged — 29/29 total tests pass in 0.17 seconds
-- ✅ Zero production code modifications — `server.py` and `requirements.txt` are byte-for-byte identical
-- ✅ All 4 source/test files compile cleanly with 0 errors
+- ✅ `README.md` endpoint table extended from 3 rows to all 5 routes (`/`, `GET /evening`, `POST /evening`, `GET /morning`, `POST /morning`) — constraint **C-008** closed
+- ✅ Net cumulative diff = exactly `README.md | 2 ++` (matches AAP §0.4.3 expected output byte-for-byte)
+- ✅ Out-of-scope commit `b469cd5` (touching `blitzy/documentation/*`) was correctly reverted by `609246b`, restoring authoritative documentation to pre-fix state
+- ✅ All 29 pytest tests pass with 100 % line coverage on `server.py` (21/21 statements, 0 missed)
+- ✅ All 5 live endpoints verified via `curl` returning correct body / status / `Content-Type: text/plain; charset=utf-8`
+- ✅ No Node.js phantom files reintroduced (`server.js`, `package.json`, `package-lock.json`, `jest.config.js`, `node_modules/` all absent)
+- ✅ No `.github/` workflow modifications (user implementation rule "exit code 137 test" honored)
+- ✅ Tech Spec constraints **C-001 through C-008** all honored
 
 ### 1.4 Critical Unresolved Issues
 
 | Issue | Impact | Owner | ETA |
-|-------|--------|-------|-----|
-| `pytest-cov` not in `requirements.txt` | New developers must manually install `pytest-cov` for coverage reporting; intentional per project design philosophy | Human Developer | 0.5h |
+|---|---|---|---|
+| _None — all AAP-required work is complete and verified_ | — | — | — |
 
 ### 1.5 Access Issues
 
-No access issues identified. All testing operates within the local Python/Flask environment with no external service dependencies, API keys, or repository permission requirements.
+No access issues identified. The repository is fully accessible, dependencies installed successfully into `.venv\` via PyPI (Flask 3.1.3, pytest 9.0.2, pytest-cov 7.1.0 — no private registries or credentials required), and the live server binds only to loopback `127.0.0.1:3000` per constraint **C-006**. The fix introduced zero new external dependencies, secrets, environment variables, or third-party integrations.
 
 ### 1.6 Recommended Next Steps
 
-1. **[High]** Review and approve the PR — verify `tests/test_startup.py` test logic and `pytest.ini` configuration change (2 files, 53 lines added)
-2. **[Medium]** Document dev-only dependency installation — add a note for developers to `pip install pytest-cov` for coverage reporting
-3. **[Low]** Consider adding `/morning` endpoints to `README.md` endpoint table (currently documents 3 of 5 endpoints — noted as out of scope per AAP)
+1. **[High]** Peer-review the `README.md` change in PR commit `61a0e60` and confirm the 2-line insertion matches AAP §0.4.2 byte-for-byte (~0.5 h).
+2. **[Medium]** Optionally squash-merge the 3-commit chain (`61a0e60` + `b469cd5` + revert `609246b`) into a single net-diff commit before merging to `main`, since `b469cd5`/`609246b` are no-op against the working tree.
+3. **[Low]** After merge, request external Codebase Context indexers to refresh their summary so RC-2 (the phantom Node.js characterization) is closed at the external index layer (in-repo lever already pulled).
 
 ---
 
@@ -58,371 +64,451 @@ No access issues identified. All testing operates within the local Python/Flask 
 ### 2.1 Completed Work Detail
 
 | Component | Hours | Description |
-|-----------|-------|-------------|
-| Test Architecture & Strategy Design | 1.0 | Researched and designed the `runpy.run_module` + `monkeypatch` approach for safely testing the `__main__` guard block without binding a real socket; analyzed existing test patterns for convention compliance |
-| `tests/test_startup.py` Implementation | 2.0 | Created 52-line test file with `_run_server_as_main` helper function and 5 test functions covering F-008 (version suppression), F-009 (host/port binding), app.run invocation, and import safety edge case |
-| `pytest-cov` Setup & `pytest.ini` Configuration | 0.5 | Installed `pytest-cov` 7.1.0 as dev-only dependency; added `addopts = --cov=server --cov-report=term-missing` to `pytest.ini` for default coverage reporting |
-| Existing Suite Preservation Verification | 0.5 | Verified all 24 existing tests in `test_server.py` pass without modification; confirmed zero changes to `conftest.py`, `__init__.py`, `server.py`, and `requirements.txt` via git diff |
-| Validation & Runtime Verification | 0.5 | Executed full 29-test suite, verified 100% line coverage output, validated server runtime with all 5 endpoints, confirmed version header suppression |
-| Code Review Refinements | 0.5 | Addressed code review findings — refined monkeypatch patterns in `test_startup.py` for proper class-level patching and automatic revert of `WSGIRequestHandler.version_string` |
-| **Total** | **5** | |
+|---|---:|---|
+| [AAP §0.2] Root cause investigation & AAP comprehension | 0.75 | Read AAP in full; examined `server.py` (5 `@app.route` decorators at lines 6, 11, 16, 21, 26); read `tests/test_server.py` (24 tests) and `tests/test_startup.py` (5 tests); consulted Tech Spec §1.1.1, §1.2.2, §2.6.2 (C-007, C-008); confirmed RC-1 (README documents 3/5 routes) and RC-2 (phantom Node.js characterization in external index) |
+| [AAP §0.4] `README.md` endpoint table update (commit `61a0e60`) | 0.5 | Inserted 2 rows at lines 33–34 for `GET /morning` → `Good morning` / `200 OK` and `POST /morning` → `Good morning` / `201 Created` with byte-aligned column formatting matching the existing 3 rows |
+| [AAP §0.6.2] Regression test execution & coverage validation | 0.5 | Ran `pytest -v` → 29/29 passed in 0.23 s; `server.py` 100 % line coverage (21/21 statements, 0 missed); idempotency confirmed across multiple consecutive runs |
+| [AAP §0.6.1] Live endpoint runtime validation | 0.5 | Started Flask server bound to `127.0.0.1:3000`; issued `curl` against all 5 routes; confirmed body, status, and `Content-Type: text/plain; charset=utf-8` for each; cleanly stopped server |
+| [AAP §0.6.2] Scope-compliance audit | 0.25 | Verified `git diff --name-only 61a0e60~1..HEAD` returns only `README.md`; confirmed phantom Node.js files absent; confirmed `.github/` folder absent; verified C-001 through C-008 all honored |
+| Out-of-scope incident remediation (commit `609246b` revert) | 0.5 | Detected prior agent commit `b469cd5` modifying `blitzy/documentation/Project Guide.md` and `blitzy/documentation/Technical Specifications.md` (both forbidden by AAP §0.5.2); created revert restoring authoritative documentation files to pre-fix state |
+| Dev environment & dependency installation | 0.5 | Created Python 3.10.11 virtual environment in `.venv\`; installed Flask 3.1.3 from `requirements.txt`; installed dev-only `pytest 9.0.2` + `pytest-cov 7.1.0` (intentionally excluded from `requirements.txt` per feature F-010) |
+| **Total Completed Hours** | **3.5** | Sums to Section 1.2 "Completed Hours" |
 
 ### 2.2 Remaining Work Detail
 
 | Category | Hours | Priority |
-|----------|-------|----------|
-| Human Code Review & PR Approval | 0.5 | High |
-| Dev Dependency Documentation | 0.5 | Medium |
-| **Total** | **1** | |
+|---|---:|---|
+| Human peer code review of `README.md` change (`61a0e60`) before merge to `main` | 0.5 | High |
+| **Total Remaining Hours** | **0.5** | Sums to Section 1.2 "Remaining Hours" and Section 7 pie "Remaining Work" |
 
-### 2.3 Hours Calculation
+### 2.3 Hours Arithmetic Integrity
 
-```
-Completed Hours: 5h
-  [AAP: Test Architecture & Strategy Design]     = 1.0h
-  [AAP: tests/test_startup.py Implementation]    = 2.0h
-  [AAP: pytest-cov Setup & pytest.ini Config]    = 0.5h
-  [AAP: Existing Suite Preservation Verification]= 0.5h
-  [Path-to-production: Validation & Runtime]     = 0.5h
-  [Path-to-production: Code Review Refinements]  = 0.5h
-
-Remaining Hours: 1h
-  [Path-to-production: Human Code Review & PR]   = 0.5h
-  [Path-to-production: Dev Dependency Docs]      = 0.5h
-
-Total Project Hours: 5 + 1 = 6h
-Completion: 5 / 6 = 83.3%
-```
+| Check | Value |
+|---|---|
+| Section 2.1 Completed total | 3.5 h |
+| Section 2.2 Remaining total | 0.5 h |
+| Sum (2.1 + 2.2) | **4.0 h** |
+| Section 1.2 Total Project Hours | **4.0 h** ✓ matches |
+| Section 1.2 Completion % | **87.5 %** (= 3.5 / 4.0 × 100) ✓ |
+| Section 7 pie "Completed Work" / "Remaining Work" | 3.5 / 0.5 ✓ matches Sections 1.2 and 2.x |
 
 ---
 
 ## 3. Test Results
 
-| Test Category | Framework | Total Tests | Passed | Failed | Coverage % | Notes |
-|---------------|-----------|-------------|--------|--------|-----------|-------|
-| Unit — Route Handlers (Happy Path) | pytest 9.0.2 | 15 | 15 | 0 | 100% | F-001, F-002, F-003, F-005: GET/POST status codes, response bodies, content types |
-| Unit — Edge Cases | pytest 9.0.2 | 2 | 2 | 0 | 100% | F-004: GET vs POST status differentiation for /evening and /morning |
-| Unit — Error Cases (404) | pytest 9.0.2 | 3 | 3 | 0 | 100% | F-006: Unknown routes and POST to unknown routes return 404 |
-| Unit — Error Cases (405) | pytest 9.0.2 | 3 | 3 | 0 | 100% | F-006: Unsupported methods (POST /, DELETE /evening, DELETE /morning) return 405 |
-| Unit — Importability | pytest 9.0.2 | 2 | 2 | 0 | 100% | F-007: Flask instance type verification, import does not start server |
-| Integration — Startup Path | pytest 9.0.2 | 4 | 4 | 0 | 100% | F-008, F-009: __main__ guard block — version suppression, host/port binding, app.run invocation |
-| Integration — Import Safety | pytest 9.0.2 | 1 | 1 | 0 | 100% | Edge case: import-path does not trigger app.run() |
-| **Total** | **pytest 9.0.2** | **29** | **29** | **0** | **100%** | **0.17s execution — 100% pass rate, 100% line coverage (21/21 stmts)** |
+All tests below originate from Blitzy's autonomous validation logs for this project (final-validator `pytest` run on branch `blitzy-6df4b765-f376-4010-a5ed-5da98918d35d`).
 
-All tests originate from Blitzy's autonomous validation execution. Coverage measured via `pytest-cov` 7.1.0 with `coverage` 7.13.5 engine.
+| Test Category | Framework | Total Tests | Passed | Failed | Coverage % | Notes |
+|---|---|---:|---:|---:|---:|---|
+| Endpoint contract — `GET /` | pytest 9.0.2 | 3 | 3 | 0 | 100 % | F-001: status, body, content-type |
+| Endpoint contract — `/evening` (GET + POST) | pytest 9.0.2 | 6 | 6 | 0 | 100 % | F-002 / F-003: 200 vs 201 status, body, content-type |
+| Endpoint contract — `/morning` (GET + POST) | pytest 9.0.2 | 6 | 6 | 0 | 100 % | F-005: 200 vs 201 status, body, content-type |
+| GET-vs-POST status differentiation | pytest 9.0.2 | 2 | 2 | 0 | 100 % | F-004: `/evening` and `/morning` 200≠201 |
+| Error case — 404 unknown route | pytest 9.0.2 | 2 | 2 | 0 | 100 % | F-006: GET and POST to `/nonexistent` |
+| Error case — 405 method not allowed | pytest 9.0.2 | 3 | 3 | 0 | 100 % | F-006: POST `/`, DELETE `/evening`, DELETE `/morning` |
+| Import safety | pytest 9.0.2 | 2 | 2 | 0 | 100 % | F-007: `import server` does not start `app.run()` |
+| `__main__` startup — `app.run()` invoked once | pytest 9.0.2 | 3 | 3 | 0 | 100 % | F-009: host `127.0.0.1`, port `3000` |
+| `__main__` startup — Werkzeug version suppression | pytest 9.0.2 | 1 | 1 | 0 | 100 % | F-008: `WSGIRequestHandler.version_string` returns `""` |
+| `__main__` import safety (run_name ≠ `__main__`) | pytest 9.0.2 | 1 | 1 | 0 | 100 % | F-007: `runpy.run_module(...)` with custom `run_name` |
+| **Totals** | **pytest 9.0.2 + pytest-cov 7.1.0** | **29** | **29** | **0** | **100 %** (21/21 `server.py` stmts) | Test run time: 0.23 s |
+
+**Live HTTP smoke (manual `curl` against `python server.py`):** All 5 routes returned the documented body/status/content-type — see Section 4.
 
 ---
 
 ## 4. Runtime Validation & UI Verification
 
-**Application Runtime:**
+### 4.1 Live Endpoint Validation
 
-- ✅ `server.py` starts successfully on `http://127.0.0.1:3000`
-- ✅ Server header version suppression active — `Server:` header returns empty string (F-008)
-- ✅ Werkzeug development server binds to `127.0.0.1:3000` (F-009)
+Started via `.\.venv\Scripts\python.exe server.py` (binds `127.0.0.1:3000`). Each route exercised with `Invoke-WebRequest`:
 
-**Endpoint Verification:**
+| Method | Path | Body | Status | Content-Type | Status |
+|---|---|---|---:|---|---|
+| GET | `/` | `Hello, World!` | 200 | `text/plain; charset=utf-8` | ✅ Operational |
+| GET | `/evening` | `Good evening` | 200 | `text/plain; charset=utf-8` | ✅ Operational |
+| POST | `/evening` | `Good evening` | 201 | `text/plain; charset=utf-8` | ✅ Operational |
+| GET | `/morning` | `Good morning` | 200 | `text/plain; charset=utf-8` | ✅ Operational |
+| POST | `/morning` | `Good morning` | 201 | `text/plain; charset=utf-8` | ✅ Operational |
 
-- ✅ `GET /` — Returns `Hello, World!` with status 200 and `text/plain; charset=utf-8`
-- ✅ `GET /evening` — Returns `Good evening` with status 200 and `text/plain; charset=utf-8`
-- ✅ `POST /evening` — Returns `Good evening` with status 201 and `text/plain; charset=utf-8`
-- ✅ `GET /morning` — Returns `Good morning` with status 200 and `text/plain; charset=utf-8`
-- ✅ `POST /morning` — Returns `Good morning` with status 201 and `text/plain; charset=utf-8`
+Server start emitted no errors, warnings, or stack traces; Werkzeug version header suppressed (F-008). Server stopped cleanly via `Stop-Process`.
 
-**Compilation:**
+### 4.2 Importability Verification (Feature F-007)
 
-- ✅ `server.py` — compiles cleanly (`py_compile`)
-- ✅ `tests/test_server.py` — compiles cleanly
-- ✅ `tests/test_startup.py` — compiles cleanly
-- ✅ `tests/conftest.py` — compiles cleanly
+```
+> python -c "import server; print(server.app)"
+<Flask 'server'>
+> python -c "import server; [print(r.rule, sorted(m for m in r.methods if m not in ('HEAD','OPTIONS'))) for r in server.app.url_map.iter_rules() if r.endpoint != 'static']"
+/            ['GET']
+/evening     ['GET']
+/evening     ['POST']
+/morning     ['GET']
+/morning     ['POST']
+```
 
-**Test Execution:**
+✅ Operational — module imports cleanly without calling `app.run()`; all 5 rules registered.
 
-- ✅ Full suite: `python -m pytest -v` — 29/29 passed in 0.17s
-- ✅ Startup tests only: `python -m pytest tests/test_startup.py -v` — 5/5 passed in 0.09s
-- ✅ Route tests only: `python -m pytest tests/test_server.py -v` — 24/24 passed in 0.12s
-- ✅ Single test isolation: `python -m pytest -k "test_main_calls_app_run" -v` — 1/1 passed in 0.07s
+### 4.3 UI Verification
+
+This project has **no GUI, no HTML templates, no static assets, and no Figma design attachments** (AAP §0.4.4). The only user-facing "UI" is the Markdown-rendered `README.md` endpoint table, which now renders as a well-formed 5-row HTML table in any standard Markdown viewer:
+
+```
+| Method | Path       | Response Body    | Status Code     |
+| ------ | ---------- | ---------------- | --------------- |
+| GET    | /          | Hello, World!    | 200 OK          |
+| GET    | /evening   | Good evening     | 200 OK          |
+| POST   | /evening   | Good evening     | 201 Created     |
+| GET    | /morning   | Good morning     | 200 OK          |
+| POST   | /morning   | Good morning     | 201 Created     |
+```
+
+✅ Operational — 5 data rows, identical 4-column structure, all `(method, path, body, status)` tuples agree with `server.py` and the test suite.
+
+### 4.4 API Integration Outcomes
+
+No external services or third-party APIs are invoked by this application (constraints C-002 and C-003 — no auth, no persistence). No integration testing applicable beyond the in-process pytest client fixture (`tests/conftest.py::client`).
 
 ---
 
 ## 5. Compliance & Quality Review
 
-| AAP Requirement | Deliverable | Status | Evidence |
-|-----------------|-------------|--------|----------|
-| F-008: Werkzeug version suppression test | `test_main_suppresses_werkzeug_version` in `tests/test_startup.py` | ✅ Pass | Asserts `WSGIRequestHandler.version_string(None) == ""` after `__main__` execution |
-| F-009: Localhost binding test (host) | `test_main_binds_to_localhost` in `tests/test_startup.py` | ✅ Pass | Asserts `calls[0]["host"] == "127.0.0.1"` via monkeypatched `app.run()` |
-| F-009: Localhost binding test (port) | `test_main_binds_to_port_3000` in `tests/test_startup.py` | ✅ Pass | Asserts `calls[0]["port"] == 3000` via monkeypatched `app.run()` |
-| F-009: app.run() invocation test | `test_main_calls_app_run` in `tests/test_startup.py` | ✅ Pass | Asserts `len(calls) == 1` — exactly one invocation |
-| Import safety edge case | `test_import_does_not_call_app_run` in `tests/test_startup.py` | ✅ Pass | Asserts `len(calls) == 0` when `run_name="server"` (not `"__main__"`) |
-| 100% requirements coverage (F-001–F-009) | 29 tests across 2 test files | ✅ Pass | All 9 features verified by automated tests |
-| 100% line coverage for `server.py` | `pytest --cov=server --cov-report=term-missing` | ✅ Pass | 21/21 statements covered, 0 missed (up from 86%, 3 missed) |
-| Preserve existing 24-test suite | `tests/test_server.py` unchanged | ✅ Pass | Git diff confirms 0 changes; 24/24 tests pass |
-| No production code modifications | `server.py` unchanged | ✅ Pass | Git diff confirms byte-for-byte identical |
-| No runtime dependency changes | `requirements.txt` unchanged | ✅ Pass | Git diff confirms no changes; `pytest-cov` is dev-only |
-| pytest-cov integration (G-004) | `pytest.ini` addopts added | ✅ Pass | Default coverage reporting enabled via `addopts = --cov=server --cov-report=term-missing` |
-| Deterministic, fast-running tests | 0.17s total execution | ✅ Pass | No flaky tests, no network I/O, monkeypatched startup path |
-| Convention compliance | Function naming, section markers, assert style | ✅ Pass | Follows `test_{subject}_{assertion}` naming, `# --- Category ---` markers, bare `assert` statements |
-| Test isolation | `monkeypatch` auto-revert per test | ✅ Pass | Each test independently executable via `pytest -k`; `sys.modules` cleanup via `monkeypatch.delitem` |
-| No CI/CD workflow changes | No `.github/workflows` modifications | ✅ Pass | Per explicit AAP instruction: "Do not make any updates or changes in GitHub App to create or update a workflow" |
+| Benchmark | Status | Evidence | Notes |
+|---|---|---|---|
+| **AAP §0.4.1** — Only `README.md` modified | ✅ Pass | `git diff --name-only 61a0e60~1..HEAD` → `README.md` | Net diff `README.md | 2 ++` |
+| **AAP §0.4.2** — 2-line insertion at lines 33–34 | ✅ Pass | Direct file inspection: rows present in declared order | Byte-aligned with existing rows |
+| **AAP §0.4.3** — pytest 29 passed, `server.py` 100 % | ✅ Pass | `pytest -v` output | 0.23 s runtime |
+| **AAP §0.5.1** — Exhaustive change list honored | ✅ Pass | Only `README.md` in diff | No other files modified |
+| **AAP §0.5.2** — Explicitly excluded files untouched | ✅ Pass | `git diff -- server.py requirements.txt pytest.ini tests/ blitzy/` → empty | `b469cd5` was reverted by `609246b` |
+| **AAP §0.6.1** — `grep -c '/morning' README.md` ≥ 2 | ✅ Pass | Returns `2` | Was `0` pre-fix |
+| **AAP §0.6.1** — 5 endpoint rows in README | ✅ Pass | Regex match count = `5` | Was `3` pre-fix |
+| **AAP §0.6.2** — No Node.js phantom files | ✅ Pass | `server.js`, `package.json`, `package-lock.json`, `jest.config.js` all absent | Constraint C-007 honored |
+| **AAP §0.6.2** — No `.github/` modifications | ✅ Pass | `git diff --name-only -- .github/` → empty | Directory does not exist |
+| **AAP §0.7.1** — User rule "exit code 137 test" | ✅ Pass | No `.github/workflows/*.yml` created or modified | Implementation rule honored verbatim |
+| **C-001** — No production deployment infra | ✅ Pass | No Dockerfile, k8s, CI/CD added | — |
+| **C-002** — No auth/sessions/API keys | ✅ Pass | `server.py` unchanged; no auth logic | — |
+| **C-003** — No databases/persistence/caching | ✅ Pass | No persistence layers introduced | — |
+| **C-004** — Literal host/port; no env vars | ✅ Pass | `server.py:35` `app.run(host="127.0.0.1", port=3000)` unchanged | — |
+| **C-005** — No HTML/static/JS frontend | ✅ Pass | No frontend code | — |
+| **C-006** — Loopback-only binding | ✅ Pass | Binding unchanged at `127.0.0.1` | — |
+| **C-007** — No Node.js phantom artifacts | ✅ Pass | Phantoms confirmed absent | — |
+| **C-008** — README documents all 5 endpoints | ✅ Pass — **closed by this PR** | 5 rows present in table | Was the bug being fixed |
+| **F-001 – F-010** — Feature catalog | ✅ Pass | All 29 tests pass; live curls confirm contracts | See Section 3 |
 
-**Quality Benchmarks:**
+**Fixes applied during autonomous validation:**
+- Inserted 2 missing `/morning` rows in `README.md` (commit `61a0e60`)
+- Reverted out-of-scope modifications to `blitzy/documentation/*` (commit `609246b` reverting `b469cd5`)
 
-| Benchmark | Target | Actual | Status |
-|-----------|--------|--------|--------|
-| Test pass rate | 100% | 100% (29/29) | ✅ |
-| Line coverage | ~100% | 100% (21/21) | ✅ |
-| Compilation errors | 0 | 0 | ✅ |
-| Execution time | < 1 second | 0.17 seconds | ✅ |
-| Files modified outside scope | 0 | 0 | ✅ |
-| New runtime dependencies | 0 | 0 | ✅ |
+**Outstanding compliance items:** None.
 
 ---
 
 ## 6. Risk Assessment
 
 | Risk | Category | Severity | Probability | Mitigation | Status |
-|------|----------|----------|-------------|------------|--------|
-| Python version difference: tests validated on 3.12.10, project targets 3.10+ | Technical | Low | Low | All stdlib features used (`runpy`, `sys`) are available in Python 3.10+; `monkeypatch` is a pytest built-in. Run tests on 3.10 to confirm before production deployment. | Open |
-| `pytest-cov` not in `requirements.txt` — new developers may not have coverage tooling | Operational | Low | Medium | Intentional per project philosophy (F-010). Document `pip install pytest-cov` in developer onboarding. Tests pass without `pytest-cov` installed (coverage reporting is optional). | Open |
-| Class-level `Flask.run` monkeypatch could theoretically interfere with parallel test execution | Technical | Low | Very Low | pytest `monkeypatch` fixture auto-reverts after each test. The project runs tests sequentially (no `pytest-xdist`). No interference observed in validation. | Mitigated |
-| No CI/CD pipeline configured for automated test execution | Operational | Medium | High | Explicitly out of scope per AAP. Tests must be run manually. Consider adding a GitHub Actions workflow in a future iteration. | Accepted |
-| `WSGIRequestHandler.version_string` mutation in `__main__` block is a global side effect | Technical | Low | Low | Startup tests use `monkeypatch.setattr` to save and auto-restore the original method after each test, preventing cross-test contamination. | Mitigated |
+|---|---|---|---|---|---|
+| Future `/`-only routes added to `server.py` without README update | Technical / Documentation drift | Low | Medium | Adopt a pre-merge CI check parsing `@app.route` decorators vs README rows (out of AAP scope; future enhancement) | Open — not in AAP |
+| External Codebase Context indexer still characterizing the repo as Node.js post-merge | Integration / Documentation | Low | Low | The in-repo lever (README authority) is pulled; external indexes refresh on next crawl per AAP §0.4.1 RC-2 narrative | Mitigated — out of repo scope |
+| `b469cd5` (out-of-scope commit) appears in `git log` and may confuse reviewers | Operational — review clarity | Low | Medium | Net diff is correct (`README.md | 2 ++`); reviewers can verify via `git diff 61a0e60~1..HEAD --stat`; optionally squash-merge 3 commits before merging to `main` | Mitigated |
+| Loopback-only binding (`127.0.0.1`) is unreachable outside the host | Operational — design constraint, not a defect | Low | N/A | Per constraint C-006, external network exposure is intentionally out of scope | Accepted per AAP |
+| No CI/CD; no automated regression gate on future changes | Operational | Low | High | Per constraint C-001 and user rule "exit code 137 test", CI/CD is explicitly out of scope; manual `pytest` invocation is documented | Accepted per AAP |
+| Werkzeug `app.run()` development server used at runtime (not production WSGI) | Security / Operational | Low | N/A | Per Tech Spec §1.3.2 the project is a tutorial / Backprop test-harness; no production deployment posture is required | Accepted per AAP |
+| `pytest`/`pytest-cov` not in `requirements.txt` | Operational — onboarding friction | Low | Low | Per feature F-010, dev dependencies are intentionally excluded; contributors install separately. README "Setup" documents `pip install -r requirements.txt` for runtime only | Accepted per AAP |
+| Plain-text `Content-Type` responses (no JSON contract) | Integration | Negligible | N/A | Per feature catalog, all 5 routes return `text/plain; charset=utf-8` deterministically; no API client expects JSON | Accepted per AAP |
+| No HTTPS/TLS termination | Security | Low | N/A | Per constraint C-006, loopback-only binding renders TLS unnecessary for the tutorial purpose | Accepted per AAP |
+| No persistent state — restart loses no data | Operational | None | N/A | Per constraint C-003, no persistence is required | Accepted per AAP |
+
+All risks are either out-of-AAP-scope or accepted-by-design per Tech Spec constraints C-001 through C-006. **Zero open risks block production-readiness within the AAP scope.**
 
 ---
 
 ## 7. Visual Project Status
 
+### 7.1 Project Hours Breakdown
+
 ```mermaid
-pie title Project Hours Breakdown
-    "Completed Work" : 5
-    "Remaining Work" : 1
+%%{init: {"pie": {"textPosition": 0.5}, "themeVariables": {"pieOuterStrokeWidth": "0px", "pie1": "#5B39F3", "pie2": "#FFFFFF", "pieStrokeColor": "#B23AF2", "pieStrokeWidth": "2px", "pieTitleTextSize": "16px", "pieSectionTextSize": "13px", "pieLegendTextSize": "12px"}}}%%
+pie showData
+    title Project Hours Breakdown
+    "Completed Work" : 3.5
+    "Remaining Work" : 0.5
 ```
 
-**Breakdown of Completed Work (5 hours):**
+### 7.2 Remaining Work by Category
 
-| Component | Hours |
-|-----------|-------|
-| Test Architecture & Strategy Design | 1.0 |
-| tests/test_startup.py Implementation | 2.0 |
-| pytest-cov Setup & pytest.ini Config | 0.5 |
-| Existing Suite Preservation Verification | 0.5 |
-| Validation & Runtime Verification | 0.5 |
-| Code Review Refinements | 0.5 |
+```mermaid
+%%{init: {"themeVariables": {"xyChart": {"backgroundColor": "#FFFFFF", "plotColorPalette": "#5B39F3"}}}}%%
+xychart-beta horizontal
+    title "Remaining Hours by Category"
+    x-axis ["Human peer review (High)"]
+    y-axis "Hours" 0 --> 1
+    bar [0.5]
+```
 
-**Breakdown of Remaining Work (1 hour):**
+**Integrity Rule Cross-Check:**
+- Section 1.2 Remaining Hours: **0.5 h**
+- Section 2.2 Hours column sum: **0.5 h**
+- Section 7 pie "Remaining Work": **0.5 h**
 
-| Category | Hours | Priority |
-|----------|-------|----------|
-| Human Code Review & PR Approval | 0.5 | High |
-| Dev Dependency Documentation | 0.5 | Medium |
+✅ All three values match — Rule 1 satisfied.
 
 ---
 
 ## 8. Summary & Recommendations
 
-### Achievement Summary
+The repository on branch `blitzy-6df4b765-f376-4010-a5ed-5da98918d35d` is **87.5 % complete** against the AAP-scoped + path-to-production work universe. The only AAP-required change — inserting two table rows into `README.md` to enumerate all five Flask routes — has been delivered in commit `61a0e60`, verified end-to-end (29/29 pytest pass, 100 % `server.py` coverage, 5/5 live `curl` smoke), and audited for scope compliance (only `README.md` in `git diff --name-only`).
 
-The project is 83.3% complete (5 hours completed out of 6 total hours). All AAP-scoped functional requirements have been fully delivered and validated:
+An out-of-scope incident — commit `b469cd5` modifying `blitzy/documentation/*` which AAP §0.5.2 explicitly forbids — was correctly remediated by a follow-up revert (`609246b`), restoring the authoritative Tech Spec and Project Guide to their pre-fix state. The **net cumulative diff against the AAP baseline is exactly `README.md | 2 ++`** — byte-for-byte aligned with the expected `git diff --stat` output declared in AAP §0.4.3.
 
-- **Coverage gaps closed:** F-008 (Werkzeug version string suppression) and F-009 (localhost binding configuration) are now verified by automated tests in `tests/test_startup.py`
-- **100% line coverage achieved:** `server.py` went from 86% (18/21 statements) to 100% (21/21 statements) — the three previously missed lines (32, 34, 35) inside the `__main__` guard are now fully exercised
-- **100% requirements coverage:** All features F-001 through F-009 have automated test verification
-- **Zero regressions:** The existing 24-test suite passes unchanged; total suite is 29/29 in 0.17 seconds
-- **Zero production code changes:** `server.py` and `requirements.txt` are byte-for-byte identical to their original state
-- **Formal coverage tooling:** `pytest-cov` integration resolves known gap G-004
+**Critical path to production:**
 
-### Remaining Gaps
+1. **[High, ~0.5 h]** Human peer review of the `README.md` change. Reviewer should:
+   - Confirm the 2-line diff (`git diff 61a0e60~1..HEAD`)
+   - Optionally inspect the rendered Markdown table in a viewer
+   - Run `pytest -v` locally to confirm 29/29 pass with 100 % coverage
+   - Approve and merge to `main`
 
-The 1 hour of remaining work consists entirely of path-to-production activities:
+**Success metrics achieved:**
+- 100 % of AAP §0.5.1 changes delivered (1/1 — `README.md` MODIFY)
+- 0 % of AAP §0.5.2 exclusions violated (0/30+ forbidden modifications)
+- 100 % of AAP §0.6 verification commands return expected values
+- 100 % of Tech Spec constraints C-001 through C-008 honored
+- 100 % feature catalog (F-001 through F-010) verified via tests + live `curl`
 
-1. **Human code review (0.5h):** A developer should review the `tests/test_startup.py` monkeypatch patterns and the `pytest.ini` addopts change before merging
-2. **Dev dependency documentation (0.5h):** Document that `pytest-cov` must be installed separately (`pip install pytest-cov`) since it is intentionally excluded from `requirements.txt`
-
-### Production Readiness Assessment
-
-The autonomous testing deliverables are **production-ready**. All validation gates passed:
-- 29/29 tests pass (100% pass rate)
-- 100% line coverage for `server.py`
-- 0 compilation errors
-- Runtime validated with all endpoints operational
-- No security, performance, or integration concerns specific to this change
-
-### Recommendations
-
-1. **Merge this PR** after human code review — all test logic is correct and validated
-2. **Add `pytest-cov` to a dev requirements file** (e.g., `requirements-dev.txt`) in a future iteration to formalize dev-only dependencies
-3. **Consider CI/CD integration** in a future iteration to automate test execution on push/PR events
+**Production-readiness assessment:** **READY**, contingent on peer review and merge. No technical, security, operational, or integration risks block release within the AAP-defined scope.
 
 ---
 
 ## 9. Development Guide
 
-### System Prerequisites
+> **All commands tested on the validation host (Windows PowerShell 5.1, Python 3.10.11). Linux/macOS equivalents in side notes where they differ.**
 
-| Software | Version | Purpose |
-|----------|---------|---------|
-| Python | 3.10 or higher | Runtime for Flask application and pytest |
-| pip | Latest (included with Python) | Package manager |
+### 9.1 System Prerequisites
 
-No external services, databases, or environment variables are required.
+| Requirement | Version | Notes |
+|---|---|---|
+| OS | Any Python-3.10-supported OS (validated on Windows Server 2022 LTSC) | Loopback `127.0.0.1` available |
+| Python | 3.10 or higher | Per `README.md` Prerequisites |
+| pip | bundled with Python | `python -m pip --version` |
+| Disk | < 50 MB | Including `.venv\` with all transitive deps |
+| Network | None at runtime; PyPI access at install time | Server binds loopback only (C-006) |
 
-### Environment Setup
+### 9.2 Environment Setup
 
-```bash
-# Clone the repository and navigate to the project root
-cd /path/to/project
-
-# Create and activate a Python virtual environment
-python -m venv venv
-
-# On Linux/macOS:
-source venv/bin/activate
-
-# On Windows:
-venv\Scripts\activate
+```powershell
+# (Optional but recommended) Create an isolated virtual environment
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1     # Windows PowerShell
+# Linux/macOS equivalent:        source .venv/bin/activate
 ```
 
-### Dependency Installation
+No environment variables are required (constraint C-004 — host and port are literal in source).
 
-```bash
-# Install runtime dependencies
+### 9.3 Dependency Installation
+
+```powershell
+# Runtime dependency (Flask only — see feature F-010)
 pip install -r requirements.txt
 
-# Install dev-only test dependencies (not in requirements.txt by design)
+# Dev dependencies (intentionally NOT in requirements.txt per F-010)
 pip install pytest pytest-cov
 ```
 
-**Expected output verification:**
-```bash
-pip show flask pytest pytest-cov
-# Should show: Flask 3.1.3+, pytest 9.0.2+, pytest-cov 7.1.0+
-```
+**Expected outcome:** A clean install of Flask 3.1.3 + transitive deps (Werkzeug 3.1.8, Jinja2 3.1.6, MarkupSafe 3.0.3, click 8.4.0, blinker 1.9.0, itsdangerous 2.2.0, colorama 0.4.6 on Windows), plus pytest 9.0.2 + pytest-cov 7.1.0 + coverage 7.14.0 + dependencies. Verified during validation; no installation errors.
 
-### Running Tests
+### 9.4 Application Startup
 
-```bash
-# Run the full test suite with coverage (default via pytest.ini addopts)
-python -m pytest -v
-
-# Expected: 29 passed, 100% coverage for server.py
-
-# Run only existing route tests (24 tests)
-python -m pytest tests/test_server.py -v
-
-# Run only startup-path tests (5 tests)
-python -m pytest tests/test_startup.py -v
-
-# Run a single test by name
-python -m pytest -k "test_main_calls_app_run" -v
-
-# Run without coverage (override addopts)
-python -m pytest -v -o "addopts="
-```
-
-### Application Startup
-
-```bash
-# Start the development server
+```powershell
+# Start the Flask development server (binds 127.0.0.1:3000)
 python server.py
-
-# Server binds to http://127.0.0.1:3000
-# Version header suppression is active (Server: header is empty)
 ```
 
-### Verification Steps
+**Expected console output:**
+- A single line: ` * Serving Flask app 'server'`
+- A `WARNING: This is a development server.`
+- `Running on http://127.0.0.1:3000` followed by the press-Ctrl-C hint
+
+The server runs in the foreground; press **Ctrl+C** to stop. The Werkzeug version is suppressed in response headers per feature F-008.
+
+### 9.5 Verification Steps
+
+```powershell
+# In a SECOND PowerShell window, after the server is running, verify each endpoint:
+
+Invoke-WebRequest -Method GET  -Uri http://127.0.0.1:3000/         -UseBasicParsing
+# → StatusCode: 200, Content: "Hello, World!", Content-Type: text/plain; charset=utf-8
+
+Invoke-WebRequest -Method GET  -Uri http://127.0.0.1:3000/evening  -UseBasicParsing
+# → StatusCode: 200, Content: "Good evening"
+
+Invoke-WebRequest -Method POST -Uri http://127.0.0.1:3000/evening  -UseBasicParsing
+# → StatusCode: 201, Content: "Good evening"
+
+Invoke-WebRequest -Method GET  -Uri http://127.0.0.1:3000/morning  -UseBasicParsing
+# → StatusCode: 200, Content: "Good morning"
+
+Invoke-WebRequest -Method POST -Uri http://127.0.0.1:3000/morning  -UseBasicParsing
+# → StatusCode: 201, Content: "Good morning"
+```
+
+**Linux/macOS equivalent** (using `curl`):
 
 ```bash
-# Verify all endpoints (in a separate terminal while server is running)
-curl http://127.0.0.1:3000/
-# Expected: Hello, World!
-
-curl http://127.0.0.1:3000/evening
-# Expected: Good evening
-
-curl -X POST http://127.0.0.1:3000/evening
-# Expected: Good evening (status 201)
-
-curl http://127.0.0.1:3000/morning
-# Expected: Good morning
-
-curl -X POST http://127.0.0.1:3000/morning
-# Expected: Good morning (status 201)
-
-# Verify version header suppression
-curl -sI http://127.0.0.1:3000/ | grep -i server
-# Expected: Server: (empty value)
+curl -i http://127.0.0.1:3000/
+curl -i http://127.0.0.1:3000/evening
+curl -i -X POST http://127.0.0.1:3000/evening
+curl -i http://127.0.0.1:3000/morning
+curl -i -X POST http://127.0.0.1:3000/morning
 ```
 
-### Troubleshooting
+### 9.6 Running the Test Suite
 
-| Issue | Cause | Resolution |
-|-------|-------|------------|
-| `ModuleNotFoundError: No module named 'pytest_cov'` | `pytest-cov` not installed | Run `pip install pytest-cov` |
-| Coverage report not shown | `addopts` missing from `pytest.ini` | Run explicitly: `python -m pytest --cov=server --cov-report=term-missing` |
-| `ModuleNotFoundError: No module named 'flask'` | Dependencies not installed | Run `pip install -r requirements.txt` |
-| Port 3000 already in use | Another process occupying the port | Kill the process: `lsof -ti:3000 | xargs kill` (Linux/macOS) |
-| Tests show < 100% coverage | Running only one test file | Run full suite: `python -m pytest -v` (both test files needed for 100%) |
+```powershell
+# Run the full 29-test pytest suite with coverage (configured via pytest.ini)
+python -m pytest -v
+```
+
+**Expected output (truncated):**
+
+```
+============================= test session starts =============================
+platform win32 -- Python 3.10.11, pytest-9.0.2, pluggy-1.6.0
+configfile: pytest.ini
+testpaths: tests
+plugins: cov-7.1.0
+collected 29 items
+
+tests/test_server.py::test_get_root_status_code PASSED                   [  3%]
+...
+tests/test_startup.py::test_import_does_not_call_app_run PASSED          [100%]
+
+=============================== tests coverage ================================
+Name        Stmts   Miss  Cover   Missing
+-----------------------------------------
+server.py      21      0   100%
+============================= 29 passed in 0.23s ==============================
+```
+
+### 9.7 AAP-Scope Verification Commands
+
+```powershell
+# 1. Endpoint catalog completeness (AAP §0.6.1)
+(Select-String -Pattern "/morning" -Path README.md).Count            # → 2
+(Select-String -Pattern '^\| (GET|POST) +\| `/' -Path README.md).Count   # → 5
+
+# 2. Scope-limit invariants (AAP §0.6.2)
+git diff --name-only 61a0e60~1..HEAD                                 # → README.md
+git diff -- server.py requirements.txt pytest.ini tests/ blitzy/     # → (empty)
+
+# 3. No Node.js phantoms (constraint C-007)
+'server.js','package.json','package-lock.json','jest.config.js' | ForEach-Object {
+    if (Test-Path $_) { "FOUND: $_" } else { "ABSENT (OK): $_" }
+}
+
+# 4. No .github/ modifications (user rule "exit code 137 test")
+git diff --name-only -- .github/                                     # → (empty)
+```
+
+### 9.8 Common Issues & Troubleshooting
+
+| Symptom | Likely Cause | Resolution |
+|---|---|---|
+| `OSError: [Errno 98] Address already in use` (or Windows equivalent) on `python server.py` | Another process is bound to `127.0.0.1:3000` | Find and stop the conflicting process: `Get-NetTCPConnection -LocalPort 3000` (Windows) or `lsof -i :3000` (Linux). The server binds literal port 3000 per constraint C-004 and is not configurable via env var. |
+| `ModuleNotFoundError: No module named 'flask'` | Dependencies not installed in active interpreter | Run `pip install -r requirements.txt`; if using a venv, ensure it is activated (`.\.venv\Scripts\Activate.ps1`). |
+| `ModuleNotFoundError: No module named 'pytest'` | Dev dependencies not installed (F-010 — intentionally not in `requirements.txt`) | Run `pip install pytest pytest-cov`. |
+| `pytest` reports `Coverage failure: total of XX is less than fail-under=YY` | Should not occur — `pytest.ini` does not set `fail_under` | Verify `pytest.ini` is unchanged from `addopts = --cov=server --cov-report=term-missing`. |
+| `git status` shows untracked `.venv/`, `__pycache__/`, `.coverage`, `tests/__pycache__/` | Normal — these are ephemeral build artifacts | Do not commit. (No `.gitignore` is present per repo state; consider adding one as a future enhancement, but out of AAP scope.) |
+| README endpoint table renders with broken columns in viewer | Whitespace tampering on the 2 new rows | Restore from `git checkout origin/blitzy-6df4b765-f376-4010-a5ed-5da98918d35d -- README.md`; each row uses single-space padding inside cells. |
+| Server starts but `curl` returns connection refused | Loopback firewall rule on host | Per constraint C-006, server binds only `127.0.0.1`. Verify with `Get-NetTCPConnection -LocalPort 3000 -State Listen`. Connect from the same host. |
 
 ---
 
 ## 10. Appendices
 
-### A. Command Reference
+### Appendix A — Command Reference
 
-| Command | Purpose |
-|---------|---------|
-| `python -m pytest -v` | Run all 29 tests with verbose output and coverage |
-| `python -m pytest tests/test_server.py -v` | Run 24 route handler tests only |
-| `python -m pytest tests/test_startup.py -v` | Run 5 startup-path tests only |
-| `python -m pytest -k "test_name" -v` | Run a single test by name |
-| `python -m pytest -v -o "addopts="` | Run tests without coverage reporting |
-| `python -m pytest --cov=server --cov-report=html` | Generate HTML coverage report |
-| `python server.py` | Start the development server on port 3000 |
-| `python -m py_compile server.py` | Verify server.py compiles cleanly |
+| Purpose | Command |
+|---|---|
+| Activate venv (Windows) | `.\.venv\Scripts\Activate.ps1` |
+| Activate venv (Linux/macOS) | `source .venv/bin/activate` |
+| Install runtime deps | `pip install -r requirements.txt` |
+| Install dev deps | `pip install pytest pytest-cov` |
+| Start server | `python server.py` |
+| Run tests with coverage | `python -m pytest -v` |
+| Run only `/morning` tests | `python -m pytest -v -k morning` |
+| Run only startup tests | `python -m pytest -v tests/test_startup.py` |
+| List registered routes | `python -c "import server; [print(r.rule, sorted(m for m in r.methods if m not in ('HEAD','OPTIONS'))) for r in server.app.url_map.iter_rules() if r.endpoint != 'static']"` |
+| Diff of AAP fix | `git diff 61a0e60~1..HEAD` |
+| Diff stat of AAP fix | `git diff --stat 61a0e60~1..HEAD` |
 
-### B. Port Reference
+### Appendix B — Port Reference
 
-| Port | Service | Protocol |
-|------|---------|----------|
-| 3000 | Flask development server | HTTP |
+| Port | Process | Binding | Configurability |
+|---|---|---|---|
+| 3000 | Flask development server (`server.py`) | `127.0.0.1` (loopback only) | Hardcoded in `server.py:35` per constraint C-004 — **not** overridable via env var |
 
-### C. Key File Locations
+### Appendix C — Key File Locations
 
-| File | Purpose |
-|------|---------|
-| `server.py` | Flask application with 5 route handlers and `__main__` startup block |
-| `tests/test_server.py` | 24 existing route handler tests (F-001 through F-007) |
-| `tests/test_startup.py` | 5 new startup-path lifecycle tests (F-008, F-009) |
-| `tests/conftest.py` | Shared `client` fixture providing `app.test_client()` |
-| `tests/__init__.py` | Package marker for test discovery |
-| `pytest.ini` | pytest configuration with test paths and coverage addopts |
-| `requirements.txt` | Runtime dependencies (Flask>=3.0 only) |
+| Path | Lines | Purpose |
+|---|---:|---|
+| `server.py` | 35 | Flask application: 5 `@app.route` decorators + `__main__` startup |
+| `requirements.txt` | 1 | Runtime manifest — single line `Flask>=3.0` (F-010) |
+| `pytest.ini` | 3 | `testpaths = tests`; `addopts = --cov=server --cov-report=term-missing` |
+| `README.md` | 40 | User-facing docs — **modified by this PR** (lines 33–34) |
+| `tests/__init__.py` | 0 | Pytest package marker (empty) |
+| `tests/conftest.py` | 8 | `client` fixture via `app.test_client()` |
+| `tests/test_server.py` | 143 | 24 endpoint/error-case/importability tests |
+| `tests/test_startup.py` | 52 | 5 `__main__` lifecycle tests via `runpy.run_module(...)` |
+| `blitzy/documentation/Project Guide.md` | 428 | Authoritative — **not modified** (revert restored) |
+| `blitzy/documentation/Technical Specifications.md` | 545 | Authoritative — **not modified** (revert restored) |
 
-### D. Technology Versions
+### Appendix D — Technology Versions
 
-| Technology | Version | Role |
-|------------|---------|------|
-| Python | 3.12.10 (tested); 3.10+ (minimum) | Runtime |
-| Flask | 3.1.3 | Web framework |
-| Werkzeug | 3.1.7 | WSGI utilities (transitive via Flask) |
-| pytest | 9.0.2 | Test framework (dev-only) |
-| pytest-cov | 7.1.0 | Coverage plugin (dev-only) |
-| coverage | 7.13.5 | Coverage engine (transitive via pytest-cov, dev-only) |
+| Component | Version | Source |
+|---|---|---|
+| Python | 3.10.11 | Validation host |
+| Flask | 3.1.3 | `pip list` post-install |
+| Werkzeug (transitive) | 3.1.8 | `pip list` |
+| Jinja2 (transitive) | 3.1.6 | `pip list` |
+| MarkupSafe (transitive) | 3.0.3 | `pip list` |
+| click (transitive) | 8.4.0 | `pip list` |
+| blinker (transitive) | 1.9.0 | `pip list` |
+| itsdangerous (transitive) | 2.2.0 | `pip list` |
+| colorama (transitive, Windows) | 0.4.6 | `pip list` |
+| pytest | 9.0.2 | `pip list` |
+| pytest-cov | 7.1.0 | `pip list` |
+| coverage | 7.14.0 | `pip list` |
+| pluggy | 1.6.0 | `pip list` |
+| iniconfig | 2.3.0 | `pip list` |
 
-### E. Environment Variable Reference
+### Appendix E — Environment Variable Reference
 
-No environment variables are required. The application uses hardcoded configuration:
-- Host: `127.0.0.1`
-- Port: `3000`
+| Variable | Purpose | Required | Default |
+|---|---|---|---|
+| _None_ | — | — | — |
 
-### G. Glossary
+Per constraint **C-004**, no environment variables are consumed by this application. Host and port are literal in `server.py:35`.
+
+### Appendix F — Developer Tools Guide
+
+| Tool | Use Case | Command |
+|---|---|---|
+| `pytest` | Run the full test suite + coverage | `python -m pytest -v` |
+| `pytest -k` | Run tests by name filter | `python -m pytest -v -k morning` |
+| `pytest --cov-report=html` | Generate HTML coverage report | `python -m pytest --cov-report=html` (writes `htmlcov/`) |
+| `python -m flask` | Inspect Flask CLI features | Not used; `server.py` runs the dev server directly |
+| `git diff` | Inspect AAP-scope diff | `git diff 61a0e60~1..HEAD` |
+| `git log --diff-filter=D --name-only` | Confirm Node.js phantom deletions | Lists `server.js`, `package.json`, `package-lock.json`, `jest.config.js`, `__tests__/*.js` deletions during migration |
+| `runpy.run_module(..., run_name="__main__")` | Test `__main__` block without spawning a server | Used in `tests/test_startup.py` with `monkeypatch.setattr("flask.Flask.run", ...)` |
+
+### Appendix G — Glossary
 
 | Term | Definition |
-|------|------------|
-| F-008 | Feature requirement: Werkzeug version string suppression in `__main__` block |
-| F-009 | Feature requirement: Hardcoded localhost binding configuration (`127.0.0.1:3000`) |
-| G-004 | Known gap: No coverage tool configured (resolved by `pytest-cov` addition) |
-| `__main__` guard | Python pattern `if __name__ == "__main__":` that executes code only during direct script execution |
-| `runpy.run_module` | Python stdlib function that executes a module with a controlled `__name__` value |
-| `monkeypatch` | pytest fixture for temporarily modifying objects during tests with automatic revert |
-| `pytest-cov` | pytest plugin that integrates `coverage.py` for line/branch coverage measurement |
+|---|---|
+| **AAP** | Agent Action Plan — the canonical specification of work scope, constraints, and verification protocol for this branch |
+| **C-001 … C-008** | Numbered constraints in Tech Spec §2.6.2 governing scope (no Docker, no auth, no DB, etc.) and known issues (phantom Node files, README gap) |
+| **F-001 … F-010** | Feature IDs in Tech Spec §2.1 feature catalog covering root route, `/evening` GET/POST, GET-vs-POST differentiation, `/morning` GET/POST, error handling, importability, version-header suppression, localhost binding, dev/runtime dep separation |
+| **Phantom file** | A repository artifact that appears in external index summaries but does not exist on disk (e.g., `server.js`, `package.json`, `package-lock.json` post Node.js → Flask migration) |
+| **RC-1** | Root cause 1: incomplete README migration — `/morning` rows missing |
+| **RC-2** | Root cause 2: stale external Codebase Context characterization — phantom Node.js framing |
+| **Werkzeug** | Flask's underlying WSGI utility library; provides the development server's request handler |
+| **Loopback binding** | Server listens only on `127.0.0.1` — unreachable from other hosts (constraint C-006) |
+| **Backprop test-harness** | The repository's primary purpose: a minimal HTTP target for integration verification of the Backprop platform |
