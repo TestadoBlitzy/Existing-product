@@ -141,7 +141,9 @@ The following internal modules are required from `src/app.js` (lines 48–52):
   `src/app.js` line 48.
 - `./utils/logger` — Provides `logger.stream` (the Morgan-compatible write adapter)
   for HTTP access log forwarding to Winston. Source: `src/app.js` line 49;
-  `src/utils/logger.js` lines 110–121.
+  `src/utils/logger.js` lines 111–115 (stream object with `write` method that
+  calls `logger.http(message.trim())` on line 113) and line 122
+  (`logger.stream = stream;`).
 - `./routes` — The aggregated Express `router` mounted at `/`. Source: `src/app.js`
   line 50; `src/routes/index.js` line 76 (`module.exports = router;`).
 - `./middleware/errorHandler` — The 4-arg centralized error handler registered LAST
@@ -156,7 +158,7 @@ enforced by `server.js`, not by `src/app.js` itself. If `src/app.js` is required
 before environment variables are loaded, `./config` will fall back to its hardcoded
 defaults — the app still works, but operator overrides set in `.env` will be ignored.
 Source: `server.js` lines 27–31 (Phase 1 comment + `dotenv.config()`); `server.js`
-line 40 (`require('./src/app')`); `src/config/index.js` lines 24–36 (defaults
+line 40 (`require('./src/app')`); `src/config/index.js` lines 24–37 (defaults
 applied via `process.env.X || fallback`).
 
 ## Data Flow
@@ -181,7 +183,8 @@ correspond to the middleware-pipeline diagram above and to the numbered comments
    `config.bodyLimit` (default `10kb`). Source: `src/app.js` lines 112–113.
 7. **Step 5 — Morgan.** A `'combined'`-format access log line is emitted and
    forwarded through `logger.stream.write` into Winston at the `http` level. Source:
-   `src/app.js` lines 121–123; `src/utils/logger.js` lines 110–121.
+   `src/app.js` lines 121–123; `src/utils/logger.js` lines 111–115 (stream object,
+   `write` method on line 113) and line 122 (`logger.stream = stream;`).
 8. **Step 6 — Rate limiter.** Per-IP request count is checked against
    `config.rateLimit.windowMs` and `config.rateLimit.max`. On excess, a 429 JSON
    response matching the standardized error shape is returned by the custom handler.
@@ -200,7 +203,8 @@ correspond to the middleware-pipeline diagram above and to the numbered comments
 
 The Morgan HTTP access log is written to the same Winston logger used by application
 code, producing unified structured output in `logs/combined.log` and a colorized
-stream on `stdout`. Source: `src/utils/logger.js` lines 110–121.
+stream on `stdout`. Source: `src/utils/logger.js` lines 111–115 (stream object) and
+line 122 (`logger.stream = stream;`).
 
 Cross-reference: See `docs/architecture.md` for full sequence diagrams of the
 request and error lifecycles.
@@ -214,14 +218,15 @@ request and error lifecycles.
 - The environment variable contract is documented canonically in
   `src/config/README.md`. The full operator-facing variable list is `NODE_ENV`,
   `PORT`, `HOST`, `LOG_LEVEL`, `CORS_ORIGIN`, `BODY_LIMIT`, `RATE_LIMIT_WINDOW_MS`,
-  `RATE_LIMIT_MAX`. Source: `src/config/index.js` lines 24–36; `.env.example`.
+  `RATE_LIMIT_MAX`. Source: `src/config/index.js` lines 24–37; `.env.example`.
 - Defaults are defined inside `src/config/index.js` (e.g., `port=3000`,
   `host='0.0.0.0'`, `corsOrigin='*'`, `bodyLimit='10kb'`, `rateLimit.windowMs=900000`,
-  `rateLimit.max=100`). Source: `src/config/index.js` lines 24–36.
+  `rateLimit.max=100`). Source: `src/config/index.js` lines 24–37.
 - The configuration object is **frozen at module load** via `Object.freeze(config)`
   and `Object.freeze(rateLimit)`. Downstream modules — including this factory —
-  cannot mutate it at runtime. Source: `src/config/index.js` lines 32 (nested
-  freeze) and 38 (root freeze).
+  cannot mutate it at runtime. Source: `src/config/index.js` line 33 (nested
+  freeze, `rateLimit: Object.freeze({`) and line 40 (root freeze,
+  `module.exports = Object.freeze(config);`).
 - Changing any configuration value requires modifying environment variables and
   restarting the process. There is no live-reload mechanism.
 

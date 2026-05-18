@@ -28,7 +28,7 @@ configuration surface is small enough to fit in a single cohesive module.
     `config.rateLimit.{windowMs, max}` when registering CORS, body parsers,
     and the rate limiter. Source: `src/app.js` lines 48, 93, 112-113, 135-137.
   - `src/utils/logger.js` reads `config.logLevel` to set the Winston logger
-    level. Source: `src/utils/logger.js` line 39.
+    level. Source: `src/utils/logger.js` line 40.
   - `src/routes/api.js` reads `config.env` for the `GET /api/info` response
     payload. Source: `src/routes/api.js` line 76.
   - `server.js` reads `config.port`, `config.host`, and `config.env` for
@@ -60,7 +60,7 @@ Import forms (all CommonJS, all return the same frozen instance per Node.js
   Source: `src/app.js` line 48.
 - From `src/utils/logger.js` (relative up-one):
   `const config = require('../config');`
-  Source: `src/utils/logger.js` line 23.
+  Source: `src/utils/logger.js` line 24.
 - From `src/routes/api.js` (relative up-one):
   `const config = require('../config');`
   Source: `src/routes/api.js` line 15.
@@ -87,18 +87,19 @@ snippet, not runtime code):
 }
 ```
 
-Source: `src/config/index.js` lines 24-36.
+Source: `src/config/index.js` lines 24-37.
 
 Both the root object and the nested `rateLimit` object are frozen via
 `Object.freeze`. Attempting to assign a property in either fails silently in
 sloppy mode and throws a `TypeError` in strict mode. Source:
-`src/config/index.js` lines 32, 38.
+`src/config/index.js` line 33 (nested `rateLimit: Object.freeze({`) and
+line 40 (`module.exports = Object.freeze(config);`).
 
 ## Dependencies
 
 This module has **zero npm dependencies** and **zero internal module
 imports**. There are no `require(...)` calls anywhere in
-`src/config/index.js`. Source: `src/config/index.js` (full file, 38 lines).
+`src/config/index.js`. Source: `src/config/index.js` (full file, 40 lines).
 
 - The module is **effectively downstream** of `dotenv`, which is required by
   `server.js` BEFORE this module is loaded (transitively). If operators
@@ -119,17 +120,18 @@ The load-time data flow runs exactly once, when the module is first
      blocks (Source: `ecosystem.config.js`), shell environment, container
      env, or Kubernetes env.
 2. `src/config/index.js` reads each relevant variable, applying
-   `|| <default>` for string fields (Source: lines 25, 27, 28, 29, 31) and
-   `parseIntSafe(value, <default>)` for numeric fields (Source: lines 26,
-   33, 34).
-3. Values are assembled into a plain object literal (Source: lines 24-36).
+   `|| <default>` for string fields (Source: `src/config/index.js` lines 25,
+   27, 28, 29, 31) and `parseIntSafe(value, <default>)` for numeric fields
+   (Source: `src/config/index.js` lines 26, 34, 35).
+3. Values are assembled into a plain object literal (Source:
+   `src/config/index.js` lines 24-37).
 4. The nested `rateLimit` object is frozen first via the inline
    `Object.freeze({ ... })` wrapper (shallow freeze of the inner object).
-   Source: `src/config/index.js` line 32.
+   Source: `src/config/index.js` line 33.
 5. The root `config` object is frozen as a whole when it is exported.
-   Source: `src/config/index.js` line 38.
+   Source: `src/config/index.js` line 40.
 6. `module.exports = Object.freeze(config);` exposes the frozen object.
-   Source: `src/config/index.js` line 38.
+   Source: `src/config/index.js` line 40.
 
 This entire flow executes **once**, at module load time, because Node.js
 caches `require`d modules. Every subsequent `require('./config')` returns
@@ -149,8 +151,8 @@ All values match `src/config/index.js` and `.env.example` byte-for-byte.
 | `LOG_LEVEL` | string | `debug` | Winston log level (`error`, `warn`, `info`, `http`, `verbose`, `debug`, `silly`) | `src/config/index.js` line 28 |
 | `CORS_ORIGIN` | string | `*` | CORS allowed origin(s); narrow in production | `src/config/index.js` line 29 |
 | `BODY_LIMIT` | string | `10kb` | Max request body size for JSON and URL-encoded parsers | `src/config/index.js` line 31 |
-| `RATE_LIMIT_WINDOW_MS` | number | `900000` | Rate limit window in milliseconds (15 minutes) | `src/config/index.js` line 33 |
-| `RATE_LIMIT_MAX` | number | `100` | Max requests per IP per window | `src/config/index.js` line 34 |
+| `RATE_LIMIT_WINDOW_MS` | number | `900000` | Rate limit window in milliseconds (15 minutes) | `src/config/index.js` line 34 |
+| `RATE_LIMIT_MAX` | number | `100` | Max requests per IP per window | `src/config/index.js` line 35 |
 
 The canonical operator-facing template is `.env.example`. During initial
 setup, operators copy it via `cp .env.example .env` and then edit `.env`
@@ -186,7 +188,7 @@ This module does NOT throw under any documented condition. Specifically:
   `PORT=not-a-number`) fall back to the documented default via
   `parseIntSafe`, because `parseInt('not-a-number', 10)` returns `NaN` and
   the helper substitutes the fallback. Source: `src/config/index.js`
-  lines 19-22 + lines 26, 33, 34.
+  lines 19-22 + lines 26, 34, 35.
 - **A missing `.env` file is NOT an error** — `dotenv.config()` simply
   proceeds without loading anything (it returns a result object with an
   `error` property, but it does not throw), and `src/config/index.js` then
@@ -204,12 +206,13 @@ This module does NOT throw under any documented condition. Specifically:
   `config` object and the nested `rateLimit` sub-object. `Object.freeze` is
   shallow — freezing only the root would leave `config.rateLimit` mutable.
   Freezing both prevents tampering at both levels. Source:
-  `src/config/index.js` lines 32, 38.
+  `src/config/index.js` line 33 (nested) and line 40 (root).
 - **Rationale for freezing**: prevents runtime mutation by downstream
   modules, test suites, or plugins. Once the app boots, configuration is a
   stable contract; any attempt to "hot-patch" a setting fails (silently in
   sloppy mode, via `TypeError` in strict mode) rather than silently
-  corrupting shared state. Source: `src/config/index.js` lines 32, 38.
+  corrupting shared state. Source: `src/config/index.js` line 33 (nested)
+  and line 40 (root).
 - **Production masking dependency**: `src/middleware/errorHandler.js`
   reads `process.env.NODE_ENV` DIRECTLY (not via `config.env`) for the
   CWE-209 5xx masking check. Because `src/config/index.js` captures
@@ -244,7 +247,7 @@ config.port = 4000;                    // Fails silently in sloppy mode; throws 
 config.rateLimit.max = 200;            // Same — nested freeze prevents mutation.
 ```
 
-Source: `src/config/index.js` lines 24-38.
+Source: `src/config/index.js` lines 24-40.
 
 **Example 2 (`bash`) — overriding via environment:**
 
@@ -295,7 +298,7 @@ Source: `tests/helpers/setup.js` (`withEnv`, `backupEnv`, `restoreEnv`);
 - **No nested-path overrides via env**: the env variable naming scheme is
   flat plus one level of nesting (`RATE_LIMIT_*` keys map to
   `config.rateLimit.*`). There is no generic `RATE_LIMIT__SUB__FIELD`
-  convention or similar. Source: `src/config/index.js` lines 32-35.
+  convention or similar. Source: `src/config/index.js` lines 33-36.
 - **No per-environment config profiles inside this module**:
   per-environment overrides are handled by PM2's `env` and `env_production`
   blocks in `ecosystem.config.js`, not by this module. Source:

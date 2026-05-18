@@ -116,12 +116,13 @@ Source: `src/middleware/errorHandler.js` lines 56-99;
   request segments against the provided schemas using Zod's `safeParse`
   (non-throwing). On failure, returns HTTP 400 with
   `{ status: 'error', statusCode: 400, message: 'Validation failed: <details>' }`.
-  On success, calls `next()`. Source: lines 60, 77-81, 86.
+  On success, calls `next()`. Source: `src/middleware/validateInput.js`
+  lines 60 (`safeParse`), 77-81 (400 response), and 86 (`next()`).
 - `z` is the full Zod namespace re-exported for consumer convenience;
   route files can write `const { validateInput, z } = require('../middleware/validateInput')`
   instead of importing Zod separately.
 - Fail-fast: returns immediately on the first invalid segment. Source:
-  line 77 (`return res.status(400).json(...)`).
+  `src/middleware/validateInput.js` line 77 (`return res.status(400).json(...)`).
 - Non-mutating: does NOT assign `req.body = result.data` (or equivalent).
   Handlers receive the raw, unparsed request values.
 
@@ -160,14 +161,15 @@ Three parallel flows correspond to the three middleware modules.
    object. Source: `src/middleware/validateInput.js` lines 44-45.
 3. On each request, the middleware iterates over the keys in `schemas`
    (`body`, `query`, `params`) and calls `schema.safeParse(req[key])`.
-   Source: lines 53-60.
+   Source: `src/middleware/validateInput.js` lines 53-60.
 4. On the first `!result.success`, the middleware builds an error message
-   from `result.error.errors` (Source: lines 67-74) and returns 400 with
+   from `result.error.errors` (Source: `src/middleware/validateInput.js`
+   lines 67-74) and returns 400 with
    `{ status: 'error', statusCode: 400, message: 'Validation failed: <details>' }`.
-   Source: lines 77-81.
+   Source: `src/middleware/validateInput.js` lines 77-81.
 5. Remaining schemas are NOT validated (fail-fast).
 6. On full success, `next()` is called to hand off to the next middleware
-   or the route handler. Source: line 86.
+   or the route handler. Source: `src/middleware/validateInput.js` line 86.
 7. Request properties (`req.body`, `req.query`, `req.params`) are NEVER
    mutated — handlers receive the raw, unparsed request values.
 
@@ -180,7 +182,7 @@ Three parallel flows correspond to the three middleware modules.
    Source: `src/middleware/notFound.js` line 44.
 3. The middleware emits a 404 JSON response with
    `{ status: 'error', statusCode: 404, message: 'Not Found - <sanitized-url>' }`.
-   Source: lines 47-51.
+   Source: `src/middleware/notFound.js` lines 47-51.
 4. The middleware does NOT call `next()` — the cycle terminates here.
 
 ### 3. Error flow (`errorHandler`, last-resort)
@@ -195,17 +197,17 @@ Three parallel flows correspond to the three middleware modules.
    `src/middleware/errorHandler.js` line 56.
 3. The error is logged with `logger.error` using both
    `sanitizeLogInput(req.originalUrl)` AND `sanitizeLogInput(req.method)`.
-   Source: line 65.
+   Source: `src/middleware/errorHandler.js` line 65.
 4. The message is determined by the `isServerError && isProduction`
-   short-circuit (Source: lines 75-79):
+   short-circuit (Source: `src/middleware/errorHandler.js` lines 75-79):
    - 5xx + production → `'Internal Server Error'` (CWE-209 masking).
    - 4xx or non-production → original `err.message`.
 5. The response is built as `{ status: 'error', statusCode, message }`.
-   Source: lines 81-85.
+   Source: `src/middleware/errorHandler.js` lines 81-85.
 6. In non-production, `response.stack = err.stack` is added. Source:
-   lines 92-94.
+   `src/middleware/errorHandler.js` lines 92-94.
 7. `res.status(statusCode).json(response)` sends the response. Source:
-   line 99. `next()` is NOT called.
+   `src/middleware/errorHandler.js` line 99. `next()` is NOT called.
 
 ## Configuration
 
@@ -216,7 +218,8 @@ No other environment variables are read directly by these files.
   `errorHandler.js`:
   - 5xx message masking to `'Internal Server Error'`. Source:
     `src/middleware/errorHandler.js` lines 75-79.
-  - Stack trace exclusion from the response body. Source: lines 92-94.
+  - Stack trace exclusion from the response body. Source:
+    `src/middleware/errorHandler.js` lines 92-94.
 - Any other value (`'development'`, `'test'`, `'staging'`, or any custom
   value) preserves the full error message AND includes the stack in the
   response.
