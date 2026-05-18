@@ -4,12 +4,30 @@
     "description": "Express.js server with Hello World and Good Evening endpoints",
     "main": "server.js",
     "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1",
+        "test": "jest",
+        "test:coverage": "jest --coverage",
         "start": "node server.js"
     },
     "dependencies": {
         "express": "^5.2.1"
     },
+    "devDependencies": {
+        "jest": "^29.7.0",
+        "supertest": "^7.1.4"
+    },
     "author": "hxu",
-    "license": "MIT"
+    "license": "MIT",
+    "jest": {
+        "testEnvironment": "node",
+        "testMatch": ["**/tests/**/*.test.js"],
+        "collectCoverageFrom": ["server.js"],
+        "coverageThreshold": {
+            "global": {
+                "statements": 90,
+                "branches": 90,
+                "functions": 90,
+                "lines": 90
+            }
+        }
+    }
 }
