@@ -440,10 +440,11 @@ fields are returned:
 | `data.environment` | `string` | Value of `config.env` (e.g., `"development"`, `"production"`) | `src/routes/api.js` line 76    |
 | `data.nodeVersion` | `string` | Value of `process.version`, e.g., `"v20.20.1"`              | `src/routes/api.js` line 77       |
 
-The `data.version` field is read dynamically from `require('../../package.json').version`
-on every request, so a hot package.json change is reflected without a process
-restart (though in practice `package.json` is read at module-load time by
-Node's `require` cache and only re-evaluated on restart).
+The `data.version` field is read from `require('../../package.json').version`
+inside the handler. Node's `require` cache stores the parsed `package.json` on
+first load and serves the cached object on every subsequent `require` call, so
+in normal operation a change to `package.json` on disk is **not** reflected
+until the process restarts (or the cache entry is explicitly invalidated).
 
 Source: `src/routes/api.js` lines 71-80.
 
@@ -705,7 +706,6 @@ from `src/app.js` (pipeline order), `src/middleware/validateInput.js`
 flowchart TD
     R[Incoming Request] --> H[Helmet headers + CORS]
     H --> B[Body parser<br/>limit BODY_LIMIT default 10kb]
-    B -->|oversized body| E500[500 via errorHandler<br/>or 413 from body-parser]
     B --> L[Rate limiter]
     L -->|exceeds limit| E429[429 Too Many Requests]
     L --> RT{Route matches<br/>requested path?}
@@ -716,14 +716,20 @@ flowchart TD
     V -->|fail| E400[400 Validation failed]
     V -->|pass| OK[Route handler runs]
     OK -->|success| R200[200 OK<br/>route-specific body]
-    OK -->|throws or next-err| E500
+    OK -->|throws or next-err| E500[500 via errorHandler]
 ```
 
-> Note: `413 Payload Too Large` is the default Express body-parser response
-> when a request body exceeds `BODY_LIMIT`. This is built-in Express behavior
-> rather than a first-class custom contract in this service; it is mentioned
-> here for completeness but not enumerated as a dedicated error contract.
-> Source: `src/app.js` lines 112-113.
+> The diagram enumerates the five documented service-level error contracts:
+> `400`, `404`, `405`, `429`, and `500`. The `errorHandler` preserves any
+> `err.statusCode` or `err.status` set by upstream middleware before falling
+> back to `500` (Source: `src/middleware/errorHandler.js` lines 52-56), so
+> errors propagated through `next(err)` can resolve to any of those documented
+> contracts. The body-parser `BODY_LIMIT` is registered in `src/app.js`
+> lines 112-113 as defense-in-depth against payload-based denial-of-service
+> (CWE-400); the precise HTTP response for an oversized body is not enumerated
+> as a first-class service contract here because the service does not define
+> a custom handler for that case. See [`./security.md`](./security.md) for
+> the body-size limit's security rationale.
 
 ## Request Lifecycle
 

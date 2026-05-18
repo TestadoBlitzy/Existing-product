@@ -136,7 +136,7 @@ pm2 stop hello-world
 
 ## Project Structure
 
-```
+```bash
 ├── server.js                    # Application entry point (app.listen + signal handlers)
 ├── src/
 │   ├── README.md                # src module README — Express application layer

@@ -210,11 +210,15 @@ corsOrigin: process.env.CORS_ORIGIN || '*',
   `CORS_ORIGIN=https://app.example.com` — when the API is consumed only
   by known browser front-ends. Source: `.env.example` lines 32–37
   (operator-facing description of `CORS_ORIGIN`).
-- The `.env.example` file documents comma-separated origins as a valid
-  input format (Source: `.env.example` line 36). Multi-origin behavior
-  is delegated to the `cors` package's handling of string inputs; this
-  service does not parse or transform the value before passing it to
-  `cors`.
+- `CORS_ORIGIN` is passed to the `cors` middleware as **one raw string**.
+  The service does not parse or split the value before calling
+  `cors({ origin: config.corsOrigin })` (Source: `src/config/index.js`
+  line 29; `src/app.js` lines 92–94). To support multiple origins,
+  code changes would be required — for example, splitting the
+  variable into an array or supplying a function for the `origin`
+  option in `src/app.js`. Although `.env.example` line 36 mentions
+  comma-separated input, the running service does not currently
+  consume that format.
 - Preflight `OPTIONS` requests are automatically handled by the `cors`
   middleware before reaching any route handler. The handshake is
   asserted by `tests/app.test.js` lines 94–100, which sends a preflight
@@ -770,15 +774,26 @@ nine-step pipeline documented in `src/app.js` lines 8–17 and in
 | API-hardened CSP (`default-src 'none'`, `frame-ancestors 'none'`) | Middleware step 1 | `src/app.js` |
 | `X-Powered-By` removal | Middleware step 1 | `src/app.js` |
 | CORS policy | Middleware step 2 | `src/app.js`, `src/config/index.js` |
-| Response compression (mitigates timing/length-oracle exposure for equal-size payloads) | Middleware step 3 | `src/app.js` |
 | Body-size limit (CWE-400) | Middleware step 4 | `src/app.js`, `src/config/index.js` |
-| HTTP access logging with sanitized input | Middleware step 5 | `src/app.js`, `src/utils/logger.js`, `src/utils/sanitizer.js` |
+| HTTP access logging (Morgan → Winston `logger.stream`) | Middleware step 5 | `src/app.js`, `src/utils/logger.js` |
 | Rate limiting | Middleware step 6 | `src/app.js`, `src/config/index.js` |
 | Zod empty-body / empty-query validation | Route-level (step 7) | `src/routes/index.js`, `src/routes/health.js`, `src/routes/api.js`, `src/middleware/validateInput.js` |
 | 405 method guards (`router.all()` after `router.get()`) | Route-level (step 7) | `src/routes/index.js`, `src/routes/health.js`, `src/routes/api.js` |
 | 404 with sanitized URL reflection | Terminal middleware (step 8) | `src/middleware/notFound.js`, `src/utils/sanitizer.js` |
 | 5xx error masking in production (CWE-209) | Error handler (step 9) | `src/middleware/errorHandler.js` |
-| Log-injection sanitization (CWE-117) | Logging call sites | `src/middleware/errorHandler.js`, `src/middleware/notFound.js`, `src/utils/sanitizer.js` |
+| Log-injection sanitization in error paths (CWE-117) | `errorHandler` and `notFound` middleware | `src/middleware/errorHandler.js`, `src/middleware/notFound.js`, `src/utils/sanitizer.js` |
+
+> Note: Response compression (`compression()`) is registered at middleware
+> step 3 (Source: `src/app.js` line 100) **as performance middleware**, not
+> as a security control. Compression of attacker-controlled input alongside
+> secrets in the same response can theoretically enable BREACH-style oracle
+> attacks; see the **Limitations** section below for the operator caveat.
+> Note also that `sanitizeLogInput` is **only** applied in `errorHandler`
+> and `notFound` (i.e., the error and 404 paths). Morgan-formatted access
+> logs are forwarded through `logger.stream.write(message) =>
+> logger.http(message.trim())` (Source: `src/utils/logger.js` lines
+> 110–114), which only trims trailing whitespace and does **not** invoke
+> `sanitizeLogInput`.
 
 The layered approach means a single missing or bypassed control does
 not collapse the entire posture — for example, even if the rate
@@ -868,7 +883,10 @@ current revision of these files.
   `MAX_URL_LENGTH = 2048`, `TRUNCATION_INDICATOR = '...[truncated]'`,
   HTML-entity encoding for `&`, `<`, `>`, `"`, `'`.
 - `src/utils/logger.js` — Winston logger and `logger.stream` adapter
-  through which Morgan emits sanitized access logs.
+  through which Morgan emits HTTP access log lines at the `http` level.
+  The stream's `write(message)` callback applies `message.trim()` only —
+  it does **not** invoke `sanitizeLogInput`. Sanitization in this service
+  is limited to `errorHandler` and `notFound`.
 - `ecosystem.config.js` — `env_production.NODE_ENV = 'production'`
   triggers the error-masking path.
 - `.env.example` — operator-facing security-relevant variables

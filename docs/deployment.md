@@ -297,9 +297,8 @@ process.on('SIGINT', () => {
 
 Sources of each signal:
 
-- **`SIGTERM`** — sent by PM2 during `pm2 reload` and `pm2 stop`, and by
-  container orchestrators on shutdown (Source: `server.js` lines 63–65 inline
-  comment).
+- **`SIGTERM`** — sent by PM2 during `pm2 reload` and `pm2 stop` (Source:
+  `server.js` lines 63–65 inline comment).
 - **`SIGINT`** — sent when **Ctrl+C** is pressed in an interactive terminal
   (Source: `server.js` lines 64–65 inline comment).
 
@@ -443,10 +442,6 @@ for the full logging architecture.
 
 ## Limitations
 
-- No `Dockerfile`, container orchestration manifests, or Helm charts ship in
-  the repository.
-- No CI/CD workflow files (`.github/workflows/`, `.gitlab-ci.yml`,
-  `Jenkinsfile`) are present.
 - No load balancer or reverse-proxy configuration is included. Operators
   exposing the service publicly must provide one externally.
 - TLS is **not** terminated inside the Node process. Terminate TLS at a

@@ -698,8 +698,8 @@ The states:
 - **Listening** — The `app.listen` callback fires and `logger.info('Server
   running on http://...')` is emitted (Source: `server.js` line 57). At this
   point the process serves traffic.
-- **Draining** — On `SIGTERM` (sent by PM2 during `pm2 reload` / `pm2 stop`
-  or by Docker/Kubernetes on shutdown) or `SIGINT` (Ctrl+C in dev), the
+- **Draining** — On `SIGTERM` (sent by PM2 during `pm2 reload` and
+  `pm2 stop`) or `SIGINT` (Ctrl+C in an interactive terminal), the
   handler logs the signal and calls `server.close(cb)` (Source: `server.js`
   lines 72–78 and 80–86). `server.close` stops accepting new connections and
   waits for in-flight requests to finish.

@@ -196,7 +196,7 @@ behavior that does not belong to any single module:
 
 The full `tests/` tree exactly matches:
 
-```
+```bash
 tests/
 ├── app.test.js
 ├── server.test.js
