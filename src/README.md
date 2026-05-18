@@ -159,7 +159,7 @@ enforced by `server.js`, not by `src/app.js` itself. If `src/app.js` is required
 before environment variables are loaded, `./config` will fall back to its hardcoded
 defaults — the app still works, but operator overrides set in `.env` will be ignored.
 Source: `server.js` lines 27–31 (Phase 1 comment + `dotenv.config()`); `server.js`
-line 40 (`require('./src/app')`); `src/config/index.js` lines 24–37 (defaults
+line 40 (`require('./src/app')`); `src/config/index.js` lines 26–39 (defaults
 applied via `process.env.X || fallback`).
 
 ## Data Flow
@@ -219,14 +219,14 @@ request and error lifecycles.
 - The environment variable contract is documented canonically in
   `src/config/README.md`. The full operator-facing variable list is `NODE_ENV`,
   `PORT`, `HOST`, `LOG_LEVEL`, `CORS_ORIGIN`, `BODY_LIMIT`, `RATE_LIMIT_WINDOW_MS`,
-  `RATE_LIMIT_MAX`. Source: `src/config/index.js` lines 24–37; `.env.example`.
+  `RATE_LIMIT_MAX`. Source: `src/config/index.js` lines 26–39; `.env.example`.
 - Defaults are defined inside `src/config/index.js` (e.g., `port=3000`,
   `host='0.0.0.0'`, `corsOrigin='*'`, `bodyLimit='10kb'`, `rateLimit.windowMs=900000`,
-  `rateLimit.max=100`). Source: `src/config/index.js` lines 24–37.
+  `rateLimit.max=100`). Source: `src/config/index.js` lines 26–39.
 - The configuration object is **frozen at module load** via `Object.freeze(config)`
   and `Object.freeze(rateLimit)`. Downstream modules — including this factory —
-  cannot mutate it at runtime. Source: `src/config/index.js` line 33 (nested
-  freeze, `rateLimit: Object.freeze({`) and line 40 (root freeze,
+  cannot mutate it at runtime. Source: `src/config/index.js` line 35 (nested
+  freeze, `rateLimit: Object.freeze({`) and line 42 (root freeze,
   `module.exports = Object.freeze(config);`).
 - Changing any configuration value requires modifying environment variables and
   restarting the process. There is no live-reload mechanism.
@@ -306,7 +306,7 @@ and utilities.
   with a `router.all('/')` catch-all that returns 405 + `Allow: GET, HEAD`. Without
   these guards, non-GET methods would fall through to the 404 handler with a
   misleading status code. Source: `src/routes/index.js` lines 54–60;
-  `src/routes/health.js` lines 55–61; `src/routes/api.js` lines 47–53 and 85–91.
+  `src/routes/health.js` lines 55–61; `src/routes/api.js` lines 52–58 and 95–101.
 - **Log injection prevention (CWE-117).** The shared `sanitizeLogInput` helper
   strips ANSI escape sequences and ASCII control characters before any
   user-controlled value (such as `req.originalUrl` or `req.method`) is written to
@@ -367,7 +367,7 @@ curl -i http://localhost:3000/does-not-exist
 
 Source: `src/routes/index.js` line 46 (root plain-text contract);
 `src/routes/health.js` lines 41–49 (health JSON shape); `src/routes/api.js` lines
-33–38 and 71–80 (API welcome and info shapes); `src/routes/index.js` lines 54–60
+39–42 and 80–87 (API welcome and info shapes); `src/routes/index.js` lines 54–60
 (405 with `Allow` header); `src/middleware/notFound.js` lines 47–51 (404 JSON
 shape).
 

@@ -51,7 +51,7 @@ Each of the three files exports a single Express `Router` instance via CommonJS 
 
 - `src/routes/index.js` line 76: `module.exports = router;`
 - `src/routes/health.js` line 63: `module.exports = router;`
-- `src/routes/api.js` line 93: `module.exports = router;`
+- `src/routes/api.js` line 103: `module.exports = router;`
 
 The root router is consumed by `src/app.js` exactly once:
 
@@ -69,13 +69,13 @@ Because `require('./routes')` resolves to `./routes/index.js` (Node.js default `
 
 **External (npm):**
 
-- `express` — Router factory (`express.Router()`) used by all three files (Source: `src/routes/index.js` line 19; `src/routes/health.js` line 16; `src/routes/api.js` line 14).
+- `express` — Router factory (`express.Router()`) used by all three files (Source: `src/routes/index.js` line 19; `src/routes/health.js` line 16; `src/routes/api.js` line 16).
 
 **Internal (relative):**
 
-- `../middleware/validateInput` — Provides `{ validateInput, z }`; consumed by all three files (Source: `src/routes/index.js` line 22; `src/routes/health.js` line 17; `src/routes/api.js` line 16).
-- `../config` — Consumed ONLY by `src/routes/api.js` line 15 for `config.env` in the `/api/info` payload.
-- `../../package.json` — Consumed ONLY by `src/routes/api.js` line 75 (dynamic `require` at request time) for `data.version`.
+- `../middleware/validateInput` — Provides `{ validateInput, z }`; consumed by all three files (Source: `src/routes/index.js` line 22; `src/routes/health.js` line 17; `src/routes/api.js` line 18).
+- `../config` — Consumed ONLY by `src/routes/api.js` line 17 for `config.env` in the `/api/info` payload.
+- `../../package.json` — Consumed ONLY by `src/routes/api.js` line 83 (dynamic `require` at request time) for `data.version`.
 - `./health` — Consumed by `src/routes/index.js` line 20 for mounting at `/health`.
 - `./api` — Consumed by `src/routes/index.js` line 21 for mounting at `/api`.
 
@@ -104,10 +104,10 @@ This folder is largely free of environment-driven configuration; the four handle
 
 - **`GET /`** — No runtime reads; the response body `'Hello, World!\n'` is a static literal (Source: `src/routes/index.js` line 46).
 - **`GET /health`** — Reads `process.uptime()`, `process.memoryUsage()`, `process.version`, and the current wall-clock time via `new Date().toISOString()` (Source: `src/routes/health.js` lines 44–47). No environment variables are read directly.
-- **`GET /api`** — No runtime reads; the response body is static (Source: `src/routes/api.js` lines 34–37).
-- **`GET /api/info`** — Reads `require('../../package.json').version` (Source: `src/routes/api.js` line 75), `config.env` (Source: line 76), and `process.version` (Source: line 77). `config.env` is derived from `process.env.NODE_ENV || 'development'` via the frozen config at `src/config/index.js`.
+- **`GET /api`** — No runtime reads; the response body is static (Source: `src/routes/api.js` lines 39–42).
+- **`GET /api/info`** — Reads `require('../../package.json').version` (Source: `src/routes/api.js` line 83), `config.env` (Source: line 84), and `process.version` (Source: line 85). `config.env` is derived from `process.env.NODE_ENV || 'development'` via the frozen config at `src/config/index.js`.
 
-All validation schemas are constructed once per module-load via `z.object({}).strict().optional()` / `z.object({}).strict()` — no per-request schema compilation. Source: `src/routes/index.js` line 44; `src/routes/health.js` line 41; `src/routes/api.js` lines 33, 71.
+All validation schemas are constructed once per module-load via `z.object({}).strict().optional()` / `z.object({}).strict()` — no per-request schema compilation. Source: `src/routes/index.js` line 44; `src/routes/health.js` line 41; `src/routes/api.js` lines 38, 79.
 
 ## Error Handling
 
@@ -115,7 +115,7 @@ The routing layer has three error paths, all converging on the centralized error
 
 - **Centralized handler**: Any synchronous throw, explicit `next(err)` call, or rejected Promise in any route handler flows to the centralized error handler at `src/middleware/errorHandler.js`. Express 5 auto-forwards async promise rejections to error middleware. The error handler is registered last in `src/app.js` line 183 (`app.use(errorHandler)`).
 - **400 from `validateInput`**: Validation failures short-circuit BEFORE the route handler runs, returning the standardized shape `{ status: 'error', statusCode: 400, message: 'Validation failed: ...' }` (Source: `src/middleware/validateInput.js` lines 77–81).
-- **405 from method guards**: The `router.all(...)` 405 guards return a synchronous response with `{ status: 'error', statusCode: 405, message: 'Method Not Allowed' }` and the `Allow: GET, HEAD` header — they never call `next()` (Source: `src/routes/index.js` lines 54–60; `src/routes/health.js` lines 55–61; `src/routes/api.js` lines 47–53, 85–91).
+- **405 from method guards**: The `router.all(...)` 405 guards return a synchronous response with `{ status: 'error', statusCode: 405, message: 'Method Not Allowed' }` and the `Allow: GET, HEAD` header — they never call `next()` (Source: `src/routes/index.js` lines 54–60; `src/routes/health.js` lines 55–61; `src/routes/api.js` lines 52–58, 95–101).
 
 Route handlers in this folder do NOT currently throw or call `next(err)` — all response paths are straight-line synchronous `res.json(...)` or `res.type('text/plain').send(...)` calls.
 
@@ -123,8 +123,8 @@ Route handlers in this folder do NOT currently throw or call `next(err)` — all
 
 ## Security Notes
 
-- **Method rejection with 405**: Every `router.get('/...')` is paired with a `router.all('/...')` that returns 405 with the `Allow: GET, HEAD` header (Source: `src/routes/index.js` lines 54–60; `src/routes/health.js` lines 55–61; `src/routes/api.js` lines 47–53, 85–91). Rationale: Express `router.get()` matches only GET/HEAD; other methods bypass the route chain (including `validateInput`) and would otherwise fall through to `notFound`, returning a misleading 404. RFC 9110 §15.5.6 requires the `Allow` header on 405 responses.
-- **Strict Zod input validation**: Every `router.get` applies `validateInput({ body: z.object({}).strict().optional(), query: z.object({}).strict() })`. Unknown keys in either `body` or `query` are rejected with a 400. Rationale: defense-in-depth against parameter probing, reflected-parameter vulnerabilities, and accidental request shape drift. This is unusual for a simple hello-world service but consistent with the project's security posture. (Source: `src/routes/index.js` line 44; `src/routes/health.js` line 41; `src/routes/api.js` lines 33, 71.)
+- **Method rejection with 405**: Every `router.get('/...')` is paired with a `router.all('/...')` that returns 405 with the `Allow: GET, HEAD` header (Source: `src/routes/index.js` lines 54–60; `src/routes/health.js` lines 55–61; `src/routes/api.js` lines 52–58, 95–101). Rationale: Express `router.get()` matches only GET/HEAD; other methods bypass the route chain (including `validateInput`) and would otherwise fall through to `notFound`, returning a misleading 404. RFC 9110 §15.5.6 requires the `Allow` header on 405 responses.
+- **Strict Zod input validation**: Every `router.get` applies `validateInput({ body: z.object({}).strict().optional(), query: z.object({}).strict() })`. Unknown keys in either `body` or `query` are rejected with a 400. Rationale: defense-in-depth against parameter probing, reflected-parameter vulnerabilities, and accidental request shape drift. This is unusual for a simple hello-world service but consistent with the project's security posture. (Source: `src/routes/index.js` line 44; `src/routes/health.js` line 41; `src/routes/api.js` lines 38, 79.)
 - **Byte-identical `GET /` contract**: `src/routes/index.js` line 46 returns `res.type('text/plain').send('Hello, World!\n');` — the exact body including trailing newline is test-enforced by `tests/routes/index.test.js`. Any change to the body or content-type breaks the contract.
 - **`/health` is unauthenticated by design**: The JSDoc header at `src/routes/health.js` lines 8–9 explicitly states that this endpoint requires no authentication and must remain freely accessible for automated monitoring systems. This is intended for PM2 probes, Kubernetes `livenessProbe`/`readinessProbe`, AWS ALB health checks, etc. Rate limiting still applies — `/health` is NOT exempt.
 - **No reflected user input**: None of the handlers in this folder reflect `req.body`, `req.query`, `req.params`, or any header into the response. The 404 reflection is handled by `src/middleware/notFound.js`, not by any route in this folder.
@@ -227,7 +227,7 @@ The routing layer intentionally omits the following — every bullet below refle
 - **No request bodies accepted on GETs.** The `body: z.object({}).strict().optional()` schema allows an absent/empty body but rejects ANY keys.
 - **No pagination, sorting, or filtering.** No list endpoints exist; every successful response is either static or a single fixed-shape JSON object.
 - **No API versioning in the URL path.** There is no `/api/v1` or `/api/v2` prefix; `/api` is unversioned. Version is reported via `GET /api/info` as `data.version`, which reads `package.json`.
-- **`/api/info` reads `package.json` at request time.** The `require('../../package.json')` call on `src/routes/api.js` line 75 is inside the handler. Node.js caches `require` results, so the file is read from disk only on the first request — subsequent requests return the cached value. To force a re-read, restart the process.
+- **`/api/info` reads `package.json` at request time.** The `require('../../package.json')` call on `src/routes/api.js` line 83 is inside the handler. Node.js caches `require` results, so the file is read from disk only on the first request — subsequent requests return the cached value. To force a re-read, restart the process.
 - **`/health` reports per-worker state in PM2 cluster mode.** Each worker reports ONLY its own `process.uptime()` and `process.memoryUsage()`. A single `GET /health` hits ONE worker and reflects its state, not the cluster's aggregate.
 - **Rate limiting is NOT route-specific.** The 100 requests / 15 minutes default from `express-rate-limit` applies uniformly; `/health` is NOT exempt, so high-frequency probes from many sources can consume the window.
 - **No authentication, authorization, or session management.** There is no auth layer in this folder or in the broader application.

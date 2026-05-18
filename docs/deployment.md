@@ -66,22 +66,22 @@ cp .env.example .env
 
 Defaults below come directly from `src/config/index.js`. When an environment
 variable is unset, the value in the **Default** column applies (Source:
-`src/config/index.js` lines 24–36).
+`src/config/index.js` lines 26–39).
 
 | Variable | Default | Purpose | Source |
 |---|---|---|---|
-| `NODE_ENV` | `development` | App mode; `production` enables CWE-209 error masking | `src/config/index.js` line 25 |
-| `PORT` | `3000` | HTTP listening port | `src/config/index.js` line 26 |
-| `HOST` | `0.0.0.0` | Bind address; `0.0.0.0` listens on all interfaces | `src/config/index.js` line 27 |
-| `LOG_LEVEL` | `debug` | Winston level; see [`./observability.md`](./observability.md) | `src/config/index.js` line 28 |
-| `CORS_ORIGIN` | `*` | Allowed origin(s); narrow in production | `src/config/index.js` line 29 |
-| `BODY_LIMIT` | `10kb` | Maximum request body size | `src/config/index.js` line 31 |
-| `RATE_LIMIT_WINDOW_MS` | `900000` | Rate-limit window in ms (15 minutes) | `src/config/index.js` line 33 |
-| `RATE_LIMIT_MAX` | `100` | Maximum requests per IP per window | `src/config/index.js` line 34 |
+| `NODE_ENV` | `development` | App mode; `production` enables CWE-209 error masking | `src/config/index.js` line 27 |
+| `PORT` | `3000` | HTTP listening port | `src/config/index.js` line 28 |
+| `HOST` | `0.0.0.0` | Bind address; `0.0.0.0` listens on all interfaces | `src/config/index.js` line 29 |
+| `LOG_LEVEL` | `debug` | Winston level; see [`./observability.md`](./observability.md) | `src/config/index.js` line 30 |
+| `CORS_ORIGIN` | `*` | Allowed origin(s); narrow in production | `src/config/index.js` line 31 |
+| `BODY_LIMIT` | `10kb` | Maximum request body size | `src/config/index.js` line 33 |
+| `RATE_LIMIT_WINDOW_MS` | `900000` | Rate-limit window in ms (15 minutes) | `src/config/index.js` line 36 |
+| `RATE_LIMIT_MAX` | `100` | Maximum requests per IP per window | `src/config/index.js` line 37 |
 
 The exported config object is **frozen at module load** (Source:
-`src/config/index.js` line 38 — `module.exports = Object.freeze(config)`). The
-nested `rateLimit` object is also frozen (Source: `src/config/index.js` line 32).
+`src/config/index.js` line 42 — `module.exports = Object.freeze(config)`). The
+nested `rateLimit` object is also frozen (Source: `src/config/index.js` line 35).
 Mutating environment variables at runtime has **no effect** until the process
 restarts.
 
@@ -413,7 +413,7 @@ tail -f logs/error.log        # Winston error-only stream
 
 The Winston file transports write to `logs/combined.log` (level `http` and
 above, rotating at 5 MB × 5 files) and `logs/error.log` (level `error` only,
-rotating at 5 MB × 5 files) (Source: `src/utils/logger.js` lines 63–79). PM2's
+rotating at 5 MB × 5 files) (Source: `src/utils/logger.js` lines 64–80). PM2's
 own logs at `logs/pm2-combined.log`, `logs/pm2-out.log`, and
 `logs/pm2-error.log` are separate from Winston output (Source:
 `ecosystem.config.js` lines 88–90). See [`./observability.md`](./observability.md)
@@ -435,7 +435,7 @@ for the full logging architecture.
    ```
 
 3. The frozen config object is re-read on every process start (Source:
-   `src/config/index.js` line 38). Mutating `process.env` in a running worker
+   `src/config/index.js` line 42). Mutating `process.env` in a running worker
    has no effect on the existing frozen config.
 
 ---
@@ -449,7 +449,7 @@ for the full logging architecture.
 - PM2 does **not** rotate its own log files by default. Install
   `pm2-logrotate` (`pm2 install pm2-logrotate`) if rotation of the
   `logs/pm2-*.log` files is required. The Winston file transports rotate
-  independently at 5 MB × 5 files (Source: `src/utils/logger.js` lines 67, 78).
+  independently at 5 MB × 5 files (Source: `src/utils/logger.js` lines 68, 79).
 - `pm2 startup` / `pm2 save` (boot-time PM2 registration) is **not**
   pre-configured. Operators must run these commands manually to persist the
   process list across host reboots.

@@ -50,8 +50,8 @@ override these via the `HOST` and `PORT` environment variables.
 
 | Setting | Default | Override                  | Source                                    |
 |---------|---------|---------------------------|-------------------------------------------|
-| Host    | `0.0.0.0` | `HOST` env var          | `src/config/index.js` line 27             |
-| Port    | `3000`  | `PORT` env var            | `src/config/index.js` line 26             |
+| Host    | `0.0.0.0` | `HOST` env var          | `src/config/index.js` line 29             |
+| Port    | `3000`  | `PORT` env var            | `src/config/index.js` line 28             |
 
 Because `0.0.0.0` resolves to the loopback interface for in-process clients,
 local examples use `http://localhost:3000`.
@@ -66,7 +66,7 @@ explicitly rejected with `405 Method Not Allowed` by a `router.all()` catch-all
 registered immediately after the corresponding `router.get()`.
 
 Source: `src/routes/index.js` lines 54-60; `src/routes/health.js` lines 55-61;
-`src/routes/api.js` lines 47-53 and 85-91.
+`src/routes/api.js` lines 52-58 and 95-101.
 
 ### Content Types
 
@@ -74,8 +74,8 @@ Source: `src/routes/index.js` lines 54-60; `src/routes/health.js` lines 55-61;
 |-----------------|---------------------------------------|-------------------------------------|
 | `GET /`         | `text/plain; charset=utf-8`           | `src/routes/index.js` line 46       |
 | `GET /health`   | `application/json; charset=utf-8`     | `src/routes/health.js` lines 42-48  |
-| `GET /api`      | `application/json; charset=utf-8`     | `src/routes/api.js` lines 34-37     |
-| `GET /api/info` | `application/json; charset=utf-8`     | `src/routes/api.js` lines 72-79     |
+| `GET /api`      | `application/json; charset=utf-8`     | `src/routes/api.js` lines 39-42     |
+| `GET /api/info` | `application/json; charset=utf-8`     | `src/routes/api.js` lines 80-87     |
 | All error bodies (400, 404, 405, 429, 500) | `application/json; charset=utf-8` | `src/middleware/errorHandler.js`, `src/middleware/notFound.js`, `src/middleware/validateInput.js`, `src/routes/index.js`, `src/routes/health.js`, `src/routes/api.js`, `src/app.js` |
 
 `GET /` is the only `text/plain` endpoint in the service. It is set explicitly
@@ -110,7 +110,7 @@ Source: `src/middleware/errorHandler.js` lines 75-94;
 `src/middleware/validateInput.js` lines 77-81;
 `src/app.js` lines 140-146 (rate-limit handler);
 `src/routes/index.js` lines 54-60, `src/routes/health.js` lines 55-61,
-`src/routes/api.js` lines 47-53 and 85-91 (405 handlers).
+`src/routes/api.js` lines 52-58 and 95-101 (405 handlers).
 
 ### Rate Limiting Headers
 
@@ -130,7 +130,7 @@ Defaults: `100` requests per `900000 ms` (15 minutes) per IP. Operators tune
 this via `RATE_LIMIT_MAX` and `RATE_LIMIT_WINDOW_MS`.
 
 Source: `src/app.js` lines 135-148 (limiter configuration);
-`src/config/index.js` lines 32-35 (`rateLimit.windowMs` default 900000,
+`src/config/index.js` lines 35-38 (`rateLimit.windowMs` default 900000,
 `rateLimit.max` default 100).
 
 ### Security Headers
@@ -347,7 +347,7 @@ curl -i http://localhost:3000/api
 - Query parameters: **none accepted**.
 - Request body: **none accepted**.
 
-Source: `src/routes/api.js` line 33.
+Source: `src/routes/api.js` line 38.
 
 #### Response — 200 OK
 
@@ -365,10 +365,10 @@ Source: `src/routes/api.js` line 33.
 
 | Field     | Type     | Meaning                       | Source                            |
 |-----------|----------|-------------------------------|-----------------------------------|
-| `status`  | `string` | Always `"success"`            | `src/routes/api.js` line 35       |
-| `message` | `string` | Always `"Welcome to the API"` | `src/routes/api.js` line 36       |
+| `status`  | `string` | Always `"success"`            | `src/routes/api.js` line 40       |
+| `message` | `string` | Always `"Welcome to the API"` | `src/routes/api.js` line 41       |
 
-Source: `src/routes/api.js` lines 33-37.
+Source: `src/routes/api.js` lines 38-43.
 
 #### Response — 405 Method Not Allowed
 
@@ -384,14 +384,14 @@ Content-Type: application/json; charset=utf-8
 {"status":"error","statusCode":405,"message":"Method Not Allowed"}
 ```
 
-Source: `src/routes/api.js` lines 47-53.
+Source: `src/routes/api.js` lines 52-58.
 
 #### Response — 400 Bad Request (Validation Error)
 
 Same shape as `GET /` 400. Triggered by unexpected query parameters.
 
 Source: `src/middleware/validateInput.js` lines 62-82;
-`src/routes/api.js` line 33.
+`src/routes/api.js` line 38.
 
 ### `GET /api/info`
 
@@ -410,7 +410,7 @@ curl -i http://localhost:3000/api/info
 - Query parameters: **none accepted**.
 - Request body: **none accepted**.
 
-Source: `src/routes/api.js` line 71.
+Source: `src/routes/api.js` line 79.
 
 #### Response — 200 OK
 
@@ -435,10 +435,10 @@ fields are returned:
 
 | Field               | Type     | Meaning                                                    | Source                            |
 |---------------------|----------|------------------------------------------------------------|-----------------------------------|
-| `status`            | `string` | Always `"success"`                                         | `src/routes/api.js` line 73       |
-| `data.version`      | `string` | Read from `package.json` at request time (e.g., `"1.0.0"`) | `src/routes/api.js` line 75       |
-| `data.environment` | `string` | Value of `config.env` (e.g., `"development"`, `"production"`) | `src/routes/api.js` line 76    |
-| `data.nodeVersion` | `string` | Value of `process.version`, e.g., `"v20.20.1"`              | `src/routes/api.js` line 77       |
+| `status`            | `string` | Always `"success"`                                         | `src/routes/api.js` line 81       |
+| `data.version`      | `string` | Read from `package.json` at request time (e.g., `"1.0.0"`) | `src/routes/api.js` line 83       |
+| `data.environment` | `string` | Value of `config.env` (e.g., `"development"`, `"production"`) | `src/routes/api.js` line 84    |
+| `data.nodeVersion` | `string` | Value of `process.version`, e.g., `"v20.20.1"`              | `src/routes/api.js` line 85       |
 
 The `data.version` field is read from `require('../../package.json').version`
 inside the handler. Node's `require` cache stores the parsed `package.json` on
@@ -446,7 +446,7 @@ first load and serves the cached object on every subsequent `require` call, so
 in normal operation a change to `package.json` on disk is **not** reflected
 until the process restarts (or the cache entry is explicitly invalidated).
 
-Source: `src/routes/api.js` lines 71-80.
+Source: `src/routes/api.js` lines 79-88.
 
 #### Response — 405 Method Not Allowed
 
@@ -458,14 +458,14 @@ Content-Type: application/json; charset=utf-8
 {"status":"error","statusCode":405,"message":"Method Not Allowed"}
 ```
 
-Source: `src/routes/api.js` lines 85-91.
+Source: `src/routes/api.js` lines 95-101.
 
 #### Response — 400 Bad Request (Validation Error)
 
 Same shape as `GET /` 400. Triggered by unexpected query parameters.
 
 Source: `src/middleware/validateInput.js` lines 62-82;
-`src/routes/api.js` line 71.
+`src/routes/api.js` line 79.
 
 ## Error Contracts
 
@@ -555,9 +555,34 @@ curl -i http://localhost:3000/does/not/exist
 
 Example — HTML-unsafe characters are encoded:
 
+The `sanitizeUrl` helper HTML-entity-encodes the five characters `&`, `<`,
+`>`, `"`, and `'` before reflecting the URL into the response body. Verifying
+this behavior in practice requires sending the **raw** characters on the
+request line, because `curl` URL-encodes such characters (`<` → `%3C`,
+`>` → `%3E`) by default. Pass `--request-target` to curl to preserve them, or
+use Node's `http` module directly:
+
 ```bash
-curl -i 'http://localhost:3000/<script>'
+# --request-target sends the literal path bytes without URL-encoding them.
+curl -i --request-target '/<script>' http://localhost:3000
 ```
+
+```js
+// Equivalent Node example using the raw http module.
+const http = require('http');
+const req = http.request(
+  { host: 'localhost', port: 3000, method: 'GET', path: '/<script>' },
+  (res) => {
+    let body = '';
+    res.on('data', (chunk) => { body += chunk; });
+    res.on('end', () => { console.log(res.statusCode, body); });
+  }
+);
+req.end();
+```
+
+Either approach produces the following response body — note `&lt;` and `&gt;`
+in the `message` rather than the literal `<` and `>`:
 
 ```json
 {
@@ -567,12 +592,23 @@ curl -i 'http://localhost:3000/<script>'
 }
 ```
 
+> If the request URL is URL-encoded on the wire (as a default `curl` request
+> would be — e.g., `curl http://localhost:3000/'<script>'` actually sends
+> `/%3Cscript%3E`), Express decodes it into `req.originalUrl` as the
+> URL-encoded form, and the response body will contain `%3Cscript%3E` rather
+> than `&lt;script&gt;`. The `sanitizeUrl` HTML-encoding step always runs;
+> the question is whether the upstream client preserves or pre-encodes the
+> raw characters.
+
 > Consumers that need the original path can decode the HTML entities
 > client-side, but they should generally rely on `statusCode === 404` and not
-> parse the `message` for routing logic.
+> parse the `message` for routing logic. The unit-test contract in
+> `tests/middleware/notFound.test.js` covers both the raw and pre-encoded
+> request paths.
 
 Source: `src/middleware/notFound.js` lines 42-52 (response);
-`src/utils/sanitizer.js` lines 149-186 (`sanitizeUrl` implementation).
+`src/utils/sanitizer.js` lines 149-186 (`sanitizeUrl` implementation);
+`tests/middleware/notFound.test.js` (raw-characters test cases).
 
 ### 405 Method Not Allowed
 
@@ -610,7 +646,7 @@ Triggered on any of these paths when called with `POST`, `PUT`, `PATCH`,
 
 Source: `src/routes/index.js` lines 54-60 (`/`);
 `src/routes/health.js` lines 55-61 (`/health`);
-`src/routes/api.js` lines 47-53 (`/api`) and 85-91 (`/api/info`).
+`src/routes/api.js` lines 52-58 (`/api`) and 95-101 (`/api/info`).
 
 ### 429 Too Many Requests
 
@@ -619,8 +655,8 @@ Returned by the `express-rate-limit` middleware when an IP exceeds
 
 | Setting          | Default     | Override env var          | Source                              |
 |------------------|-------------|---------------------------|-------------------------------------|
-| Max requests     | `100`       | `RATE_LIMIT_MAX`          | `src/config/index.js` line 34       |
-| Window (ms)      | `900000`    | `RATE_LIMIT_WINDOW_MS`    | `src/config/index.js` line 33       |
+| Max requests     | `100`       | `RATE_LIMIT_MAX`          | `src/config/index.js` line 37       |
+| Window (ms)      | `900000`    | `RATE_LIMIT_WINDOW_MS`    | `src/config/index.js` line 36       |
 | Window (minutes) | `15`        | derived                   | derived from window above           |
 
 Response shape:
@@ -642,7 +678,7 @@ client's current quota and reset time (see [Rate Limiting Headers](#rate-limitin
 > from a single source should stay well below 100 req / 15 min per IP.
 
 Source: `src/app.js` lines 135-148 (limiter and custom JSON handler);
-`src/config/index.js` lines 32-35 (rate-limit defaults).
+`src/config/index.js` lines 35-38 (rate-limit defaults).
 
 ### 500 Internal Server Error
 

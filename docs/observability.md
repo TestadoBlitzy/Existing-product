@@ -42,13 +42,13 @@ The Winston logger is created once during module load by
 `src/utils/logger.js` and exported as the module's default `module.exports`,
 with a `stream` adapter attached for Morgan integration. The same logger
 instance is shared by every consumer in `src/`. Source: `src/utils/logger.js`
-lines 34–127.
+lines 35–128.
 
 ### Log Level Selection
 
 The logger's `level` is sourced from `config.logLevel`, which is derived from
 the `LOG_LEVEL` environment variable with a default of `'debug'`. Source:
-`src/utils/logger.js` line 39; `src/config/index.js` line 28.
+`src/utils/logger.js` line 40; `src/config/index.js` line 30.
 
 ```js
 const logger = winston.createLogger({
@@ -57,7 +57,7 @@ const logger = winston.createLogger({
 });
 ```
 
-`config.logLevel` is set as follows (Source: `src/config/index.js` line 28):
+`config.logLevel` is set as follows (Source: `src/config/index.js` line 30):
 
 ```js
 logLevel: process.env.LOG_LEVEL || 'debug',
@@ -94,16 +94,16 @@ priority number — so `error` (0) through `debug` (5) are emitted but `silly`
 > `level` filters independently of the logger's top-level `level`; a
 > transport with **no** explicit level inherits the logger's level when it
 > is added to the logger. In this service (Source: `src/utils/logger.js`
-> lines 63–91):
+> lines 64–91):
 >
-> - `logs/combined.log` has an **explicit** `level: 'http'` (line 65). It
+> - `logs/combined.log` has an **explicit** `level: 'http'` (line 66). It
 >   therefore persists `error`, `warn`, `info`, and `http` entries
 >   regardless of the logger's top-level `level`. Morgan access logs (sent
 >   at `http`) **are** persisted to `logs/combined.log` even in production
 >   when `LOG_LEVEL=warn`.
-> - `logs/error.log` has an **explicit** `level: 'error'` (line 76). It
+> - `logs/error.log` has an **explicit** `level: 'error'` (line 77). It
 >   only ever persists `error` entries.
-> - The **console** transport (lines 85–90) does **not** set its own level
+> - The **console** transport (lines 86–91) does **not** set its own level
 >   and therefore inherits the logger's top-level `level` (`config.logLevel`).
 >   In production with `LOG_LEVEL=warn`, the console transport emits only
 >   `error` and `warn` — Morgan `http` lines are **not** shown on the
@@ -118,7 +118,7 @@ priority number — so `error` (0) through `debug` (5) are emitted but `silly`
 
 A single base format pipeline is shared by all transports that do not
 override the format at the transport level. The pipeline is composed of
-three Winston format helpers. Source: `src/utils/logger.js` lines 45–49.
+three Winston format helpers. Source: `src/utils/logger.js` lines 46–50.
 
 ```js
 format: winston.format.combine(
@@ -130,9 +130,9 @@ format: winston.format.combine(
 
 | Format helper          | Effect                                                                 | Source |
 | ---------------------- | ---------------------------------------------------------------------- | ------ |
-| `timestamp()`          | Adds an ISO-8601 `timestamp` field to every entry                      | `src/utils/logger.js` line 46 |
-| `errors({stack:true})` | Serializes `Error` instances and includes the full `stack` property    | `src/utils/logger.js` line 47 |
-| `json()`               | Produces a single newline-delimited JSON object per log entry          | `src/utils/logger.js` line 48 |
+| `timestamp()`          | Adds an ISO-8601 `timestamp` field to every entry                      | `src/utils/logger.js` line 47 |
+| `errors({stack:true})` | Serializes `Error` instances and includes the full `stack` property    | `src/utils/logger.js` line 48 |
+| `json()`               | Produces a single newline-delimited JSON object per log entry          | `src/utils/logger.js` line 49 |
 
 The pipeline applies to the two file transports
 ([Combined](#combined-file-transport-logscombinedlog) and
@@ -160,7 +160,7 @@ by the `errors({ stack: true })` format helper when the logged value is an
 ### Default Metadata
 
 Every log entry is automatically tagged with a `service` field via the
-logger's `defaultMeta` option. Source: `src/utils/logger.js` line 53.
+logger's `defaultMeta` option. Source: `src/utils/logger.js` line 54.
 
 ```js
 defaultMeta: { service: 'hello-world' },
@@ -176,11 +176,11 @@ external to this repository. No other default fields are added.
 The logger is configured with three transports — two file transports for
 persistent storage and one console transport for interactive output. Each
 transport may override the base format and/or the base level. Source:
-`src/utils/logger.js` lines 57–91.
+`src/utils/logger.js` lines 58–92.
 
 ### Combined File Transport (`logs/combined.log`)
 
-Source: `src/utils/logger.js` lines 63–68.
+Source: `src/utils/logger.js` lines 64–69.
 
 ```js
 new winston.transports.File({
@@ -214,7 +214,7 @@ this transport is approximately 25 MB
 
 ### Error-Only File Transport (`logs/error.log`)
 
-Source: `src/utils/logger.js` lines 74–79.
+Source: `src/utils/logger.js` lines 75–80.
 
 ```js
 new winston.transports.File({
@@ -251,7 +251,7 @@ approximately 25 MB.
 
 ### Console Transport
 
-Source: `src/utils/logger.js` lines 85–90.
+Source: `src/utils/logger.js` lines 86–91.
 
 ```js
 new winston.transports.Console({
@@ -309,7 +309,7 @@ Source: `src/app.js` lines 115–123 inline comments.
 The second argument to `morgan(...)` provides a `stream` option — Morgan
 writes each formatted log line to that stream instead of `process.stdout`.
 The service supplies the Winston logger's attached stream adapter, defined
-in `src/utils/logger.js` lines 110–121:
+in `src/utils/logger.js` lines 111–122:
 
 ```js
 const stream = {
@@ -410,7 +410,7 @@ The two log families have different rotation behaviors:
 | Winston | Yes      | Built-in `maxsize: 5242880, maxFiles: 5`    |
 | PM2     | No (by default) | None unless the `pm2-logrotate` module is installed separately |
 
-Source: `src/utils/logger.js` lines 63–79 (Winston file transports);
+Source: `src/utils/logger.js` lines 64–80 (Winston file transports);
 `ecosystem.config.js` lines 73–92 (PM2 log configuration — no rotation
 fields are set).
 
@@ -467,10 +467,10 @@ logger's top-level `level`) only emits `error` (0) and `warn` (1). The
 and are unaffected by the change in `LOG_LEVEL`:
 
 - `logs/combined.log` (transport `level: 'http'`, Source: `src/utils/logger.js`
-  line 65) continues to persist `error`, `warn`, `info`, and `http` entries —
+  line 66) continues to persist `error`, `warn`, `info`, and `http` entries —
   including Morgan HTTP access logs for successful requests — in production.
 - `logs/error.log` (transport `level: 'error'`, Source: `src/utils/logger.js`
-  line 76) continues to persist only `error` entries.
+  line 77) continues to persist only `error` entries.
 
 In other words, `LOG_LEVEL=warn` in production reduces **console** verbosity
 without losing HTTP access logs on disk. Failed requests still log at
@@ -485,7 +485,7 @@ on the **console** as well, raise `LOG_LEVEL` to `'http'` or below (see
 The runtime log level is read once from `process.env.LOG_LEVEL` when
 `src/config/index.js` is first required, and the resulting config object is
 deeply frozen — see `module.exports = Object.freeze(config);` at
-`src/config/index.js` line 38. Consequently:
+`src/config/index.js` line 42. Consequently:
 
 - Setting `LOG_LEVEL` and **restarting** the process takes effect.
 - Mutating `config.logLevel` at runtime has no effect (the frozen object
@@ -508,7 +508,7 @@ LOG_LEVEL=info pm2 reload ecosystem.config.js
 ```
 
 Source: `.env.example` line 30 (`LOG_LEVEL=debug`); `src/config/index.js`
-lines 28 and 38; `ecosystem.config.js` lines 108–135.
+lines 30 and 42; `ecosystem.config.js` lines 108–135.
 
 ## Log Data Flow Diagram
 
@@ -518,7 +518,7 @@ transports and the PM2 log files. Application code calls
 logger through the `logger.stream` adapter at the `http` level. The console
 transport's output is in turn captured by PM2 into `pm2-out.log` and
 `pm2-error.log`. Source: `src/app.js` lines 121–123; `src/utils/logger.js`
-lines 34–127; `ecosystem.config.js` lines 88–92.
+lines 35–128; `ecosystem.config.js` lines 88–92.
 
 ```mermaid
 flowchart LR
@@ -627,7 +627,7 @@ configuration that is explicitly out of scope for this codebase:
   environment provides it (PM2 will create it on first write when the
   process's working directory is writable).
 - **Log-level changes require process restart.** `config` is read once at
-  module load and then frozen (Source: `src/config/index.js` line 38);
+  module load and then frozen (Source: `src/config/index.js` line 42);
   there is no SIGHUP handler or admin endpoint that reloads the log level.
 - **Only one `defaultMeta` field is set.** The logger attaches only
   `service: 'hello-world'`. No `version`, `hostname`, `pid`, or

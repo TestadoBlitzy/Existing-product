@@ -53,12 +53,12 @@ intentionally narrow.
   the production stack omission in lines 92–94.
 - CORS misconfiguration. Bounded by the centralized
   `config.corsOrigin` value read in `src/app.js` lines 92–94 and sourced
-  from `process.env.CORS_ORIGIN` in `src/config/index.js` line 29.
+  from `process.env.CORS_ORIGIN` in `src/config/index.js` line 31.
 - HTTP method abuse (e.g., `DELETE /` falling through to a misleading
   404). Mitigated by the explicit `router.all()` 405 method guards in
   every route file — `src/routes/index.js` lines 54–60,
   `src/routes/health.js` lines 55–61, and `src/routes/api.js` lines
-  47–53 and 85–91.
+  52–58 and 95–101.
 - Clickjacking via `<iframe>` embedding of API responses. Mitigated by
   the `frame-ancestors 'none'` directive in `src/app.js` lines 79–86.
 - MIME-type sniffing. Mitigated by Helmet's default
@@ -67,8 +67,8 @@ intentionally narrow.
 - Unexpected query parameters or request bodies on GET endpoints.
   Mitigated by strict empty-body / empty-query Zod schemas applied via
   `validateInput` in `src/routes/index.js` line 44,
-  `src/routes/health.js` line 41, and `src/routes/api.js` lines 33 and
-  71.
+  `src/routes/health.js` line 41, and `src/routes/api.js` lines 38 and
+  79.
 
 **Out-of-scope — not implemented in this service:**
 
@@ -194,7 +194,7 @@ app.use(cors({
 ```
 
 The `config.corsOrigin` value comes from `process.env.CORS_ORIGIN` with a
-default of `'*'` (Source: `src/config/index.js` line 29):
+default of `'*'` (Source: `src/config/index.js` line 31):
 
 ```js
 corsOrigin: process.env.CORS_ORIGIN || '*',
@@ -213,7 +213,7 @@ corsOrigin: process.env.CORS_ORIGIN || '*',
 - `CORS_ORIGIN` is passed to the `cors` middleware as **one raw string**.
   The service does not parse or split the value before calling
   `cors({ origin: config.corsOrigin })` (Source: `src/config/index.js`
-  line 29; `src/app.js` lines 92–94). To support multiple origins,
+  line 31; `src/app.js` lines 92–94). To support multiple origins,
   code changes would be required — for example, splitting the
   variable into an array or supplying a function for the `origin`
   option in `src/app.js`. Although `.env.example` line 36 mentions
@@ -256,7 +256,7 @@ const limiter = rateLimit({
 app.use(limiter);
 ```
 
-Defaults read from `src/config/index.js` lines 32–35:
+Defaults read from `src/config/index.js` lines 35–38:
 
 | Setting               | Default Value | Environment Variable    |
 |-----------------------|---------------|-------------------------|
@@ -264,10 +264,10 @@ Defaults read from `src/config/index.js` lines 32–35:
 | `rateLimit.max`       | `100` requests        | `RATE_LIMIT_MAX`       |
 
 Both values are parsed through `parseIntSafe` (Source:
-`src/config/index.js` lines 19–22), which preserves the literal value
+`src/config/index.js` lines 21–24), which preserves the literal value
 `0` correctly — useful for tests that need to exercise the rate
 limiter immediately. The `rateLimit` object is itself frozen via
-`Object.freeze(...)` in `src/config/index.js` line 32 to prevent
+`Object.freeze(...)` in `src/config/index.js` line 35 to prevent
 mutation by downstream modules.
 
 ### 429 Response Contract
@@ -333,7 +333,7 @@ Defaults and behavior:
 - The control mitigates **CWE-400 (Uncontrolled Resource
   Consumption)** by capping the maximum memory and parse time that
   any single request can consume. Source: `src/app.js` lines 107–111
-  inline comment, and `src/config/index.js` line 30 (`SECURITY:
+  inline comment, and `src/config/index.js` line 32 (`SECURITY:
   Configurable body parser size limit to prevent payload-based DoS
   attacks`).
 - The `.env.example` file flags this variable as security-relevant in
@@ -361,8 +361,8 @@ Application sites:
 
 - `src/routes/index.js` line 44 — `GET /` (root welcome).
 - `src/routes/health.js` line 41 — `GET /health`.
-- `src/routes/api.js` line 33 — `GET /api`.
-- `src/routes/api.js` line 71 — `GET /api/info`.
+- `src/routes/api.js` line 38 — `GET /api`.
+- `src/routes/api.js` line 79 — `GET /api/info`.
 
 Behavior:
 
@@ -376,7 +376,7 @@ Behavior:
 
 Rationale (drawn from the inline `SECURITY:` comments — e.g.,
 `src/routes/index.js` line 32, `src/routes/health.js` line 21,
-`src/routes/api.js` line 21): GETs traditionally ignore unknown query
+`src/routes/api.js` line 23): GETs traditionally ignore unknown query
 parameters, and many web frameworks silently discard them. This
 service makes the opposite choice as defense-in-depth — strict
 rejection prevents attackers from using unexpected parameters for
@@ -718,8 +718,8 @@ Application sites:
 |-------------|------------------------------|-----------------------------------|
 | `/`         | `src/routes/index.js` L44    | `src/routes/index.js` L54–60      |
 | `/health`   | `src/routes/health.js` L41   | `src/routes/health.js` L55–61     |
-| `/api`      | `src/routes/api.js` L33      | `src/routes/api.js` L47–53        |
-| `/api/info` | `src/routes/api.js` L71      | `src/routes/api.js` L85–91        |
+| `/api`      | `src/routes/api.js` L38      | `src/routes/api.js` L52–58        |
+| `/api/info` | `src/routes/api.js` L79      | `src/routes/api.js` L95–101       |
 
 The response contract returned by every 405 catch-all is identical:
 
@@ -733,12 +733,12 @@ The response contract returned by every 405 catch-all is identical:
 
 with the response header `Allow: GET, HEAD` (Source:
 `src/routes/index.js` line 55, `src/routes/health.js` line 56,
-`src/routes/api.js` lines 48 and 86).
+`src/routes/api.js` lines 53 and 96).
 
 Rationale (drawn verbatim-safe from the inline comments in
 `src/routes/index.js` lines 49–53, with equivalent text in
 `src/routes/health.js` lines 51–54 and `src/routes/api.js` lines
-40–46 and 82–84):
+45–51 and 90–94):
 
 - Express's `router.get('/')` only matches `GET` and `HEAD` requests.
   All other HTTP methods (`POST`, `PUT`, `DELETE`, `PATCH`,
@@ -793,7 +793,7 @@ nine-step pipeline documented in `src/app.js` lines 8–17 and in
 > and `notFound` (i.e., the error and 404 paths). Morgan-formatted access
 > logs are forwarded through `logger.stream.write(message) =>
 > logger.http(message.trim())` (Source: `src/utils/logger.js` lines
-> 110–114), which only trims trailing whitespace and does **not** invoke
+> 111–115), which only trims trailing whitespace and does **not** invoke
 > `sanitizeLogInput`.
 
 The layered approach means a single missing or bypassed control does

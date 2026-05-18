@@ -53,7 +53,7 @@ of the application.
   `router.get('/', validateInput(schema), handler)`. This scopes validation
   to specific endpoints rather than applying a single schema globally.
   Source: `src/routes/index.js` line 44; `src/routes/health.js` line 41;
-  `src/routes/api.js` lines 33 and 71.
+  `src/routes/api.js` lines 38 and 79.
 
 The diagram below traces every path by which a response leaves the application
 through one of the three middleware modules.
@@ -157,7 +157,7 @@ Three parallel flows correspond to the three middleware modules.
 1. A route handler declares validation via
    `router.get(path, validateInput(schema), handler)`. Source:
    `src/routes/index.js` line 44; `src/routes/health.js` line 41;
-   `src/routes/api.js` lines 33 and 71.
+   `src/routes/api.js` lines 38 and 79.
 2. The factory returns a middleware function bound to the given `schemas`
    object. Source: `src/middleware/validateInput.js` lines 44-45.
 3. On each request, the middleware iterates over the keys in `schemas`

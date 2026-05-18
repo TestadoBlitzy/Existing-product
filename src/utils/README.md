@@ -228,8 +228,8 @@ Environment-driven configuration:
 
 - `logger.js` reads `config.logLevel` once at module load and uses it as
   the root Winston logger level. Source: `src/utils/logger.js` line 40;
-  `src/config/index.js` line 28.
-  - Default: `'debug'` (from `src/config/index.js` line 28, fallback used
+  `src/config/index.js` line 30.
+  - Default: `'debug'` (from `src/config/index.js` line 30, fallback used
     when `LOG_LEVEL` is unset).
   - Override: set `LOG_LEVEL` in `.env` (or in the relevant
     `ecosystem.config.js` env block) to any of the npm Winston levels:
@@ -237,7 +237,7 @@ Environment-driven configuration:
     Source: `.env.example` lines 29-30.
   - Constraint: the `config` object is `Object.freeze`-d, so the level
     cannot be changed at runtime — a process restart is required.
-    Source: `src/config/index.js` line 40.
+    Source: `src/config/index.js` line 42.
 
 Hardcoded file paths (not configurable):
 
@@ -490,7 +490,7 @@ matches the current source code.
   (no decoding call appears anywhere in the file).
 - **Log level cannot be changed at runtime.** The `config` object is
   frozen at module load, so changing `LOG_LEVEL` requires restarting
-  the process. Source: `src/config/index.js` line 40
+  the process. Source: `src/config/index.js` line 42
   (`module.exports = Object.freeze(config);`).
 - **`logs/combined.log` is capped at the `http` level.** Even when
   `config.logLevel = 'debug'` causes the root logger to emit `debug`

@@ -244,7 +244,7 @@ CORS is registered immediately after Helmet so that **preflight `OPTIONS`
 requests are handled early** — before any downstream middleware that would
 mistakenly treat them as application traffic. The allowed origin is read from
 `config.corsOrigin` (Source: `src/app.js` line 93; `src/config/index.js` line
-29 — default `'*'`).
+31 — default `'*'`).
 
 ```js
 // src/app.js lines 92-94
@@ -271,7 +271,7 @@ app.use(compression());
 Source: `src/app.js` lines 112–113.
 
 Two body parsers are registered with **explicit size limits** sourced from
-`config.bodyLimit` (default `'10kb'` per `src/config/index.js` line 31). The
+`config.bodyLimit` (default `'10kb'` per `src/config/index.js` line 33). The
 explicit limit prevents payload-based DoS attacks (`CWE-400`) — without it,
 Express 5 defaults to 100 KB, which is more than this service needs (Source:
 `src/app.js` inline comment lines 107–111).
@@ -302,7 +302,7 @@ app.use(morgan('combined', {
 }));
 ```
 
-The `logger.stream` adapter is defined in `src/utils/logger.js` lines 110–114
+The `logger.stream` adapter is defined in `src/utils/logger.js` lines 111–115
 and forwards each Morgan-formatted line to `logger.http(message.trim())`. See
 [`./observability.md`](./observability.md) for the full logging pipeline.
 
@@ -312,7 +312,7 @@ Source: `src/app.js` lines 135–148.
 
 Throttles requests per source IP using the configured window and maximum from
 `config.rateLimit` (defaults: `windowMs: 900000` ms / 15 minutes, `max: 100`
-per window — Source: `src/config/index.js` lines 32–35).
+per window — Source: `src/config/index.js` lines 35–38).
 
 ```js
 // src/app.js lines 135-148
@@ -429,8 +429,8 @@ Each sub-router (`src/routes/health.js`, `src/routes/api.js`) follows the same
 pattern: a `router.get('/', validateInput({...}), handler)` paired with a
 `router.all('/', ...)` 405 guard. `src/routes/api.js` additionally defines
 the `/info` endpoint with the same `get` + `all` pairing (Source:
-`src/routes/health.js` lines 41, 55–61; `src/routes/api.js` lines 33, 47–53,
-71–80, 85–91).
+`src/routes/health.js` lines 41, 55–61; `src/routes/api.js` lines 38, 52–58,
+79–88, 95–101).
 
 ### Route Diagram
 
@@ -457,7 +457,7 @@ Every `router.get` in the routing layer applies the same defense-in-depth
 validation factory:
 
 ```js
-// From src/routes/index.js line 44, health.js line 41, api.js lines 33 and 71
+// From src/routes/index.js line 44, health.js line 41, api.js lines 38 and 79
 router.get('/',
   validateInput({ body: z.object({}).strict().optional(), query: z.object({}).strict() }),
   (req, res) => { /* handler */ });
@@ -481,7 +481,7 @@ and **does not** invoke the route handler (Source:
 Every `router.get` is paired with a `router.all(path, handler405)` whose
 handler returns HTTP 405 with `Allow: GET, HEAD` and the same JSON envelope
 (Source: `src/routes/index.js` lines 54–60; `src/routes/health.js` lines
-55–61; `src/routes/api.js` lines 47–53, 85–91). The `router.all` declarations
+55–61; `src/routes/api.js` lines 52–58, 95–101). The `router.all` declarations
 sit **after** their matching `router.get` declarations because Express
 matches the first declared handler that accepts the request method —
 `router.get` claims GET/HEAD first, leaving `router.all` to claim every other
@@ -564,7 +564,7 @@ lines 70–74).
 
 `src/config/index.js` reads `process.env` during module initialization — every
 field of the exported object is computed at `require()` time (Source:
-`src/config/index.js` lines 24–36). If `dotenv.config()` were called **after**
+`src/config/index.js` lines 26–39). If `dotenv.config()` were called **after**
 `require('./src/config')`, the config module would see only the variables
 that the shell already exported, and any `.env`-only overrides would be
 ignored.
@@ -597,20 +597,20 @@ const config = {
   logLevel: process.env.LOG_LEVEL || 'debug',
   corsOrigin: process.env.CORS_ORIGIN || '*',
   bodyLimit: process.env.BODY_LIMIT || '10kb',
-  rateLimit: Object.freeze({                   // line 32 — inner freeze
+  rateLimit: Object.freeze({                   // line 35 — inner freeze
     windowMs: parseIntSafe(process.env.RATE_LIMIT_WINDOW_MS, 900000),
     max: parseIntSafe(process.env.RATE_LIMIT_MAX, 100),
   }),
 };
 
-module.exports = Object.freeze(config);        // line 38 — outer freeze
+module.exports = Object.freeze(config);        // line 42 — outer freeze
 ```
 
 Two `Object.freeze` calls are deliberate. `Object.freeze(config)` only
 shallow-freezes the outer object — the nested `rateLimit` object would remain
-mutable. The inner `Object.freeze({ windowMs, max })` on line 32 ensures the
+mutable. The inner `Object.freeze({ windowMs, max })` on line 35 ensures the
 **deep** immutability that downstream modules rely on (Source:
-`src/config/index.js` lines 32 and 38).
+`src/config/index.js` lines 35 and 42).
 
 Rationale:
 
@@ -622,7 +622,7 @@ Rationale:
   tests in the same Jest process.
 - **`parseIntSafe` zero-preservation** — Numeric env vars go through
   `parseIntSafe(value, fallback)` (Source: `src/config/index.js` lines
-  19–22), which uses an explicit `Number.isNaN` check instead of the more
+  21–24), which uses an explicit `Number.isNaN` check instead of the more
   common `parseInt(val, 10) || fallback` pattern. This preserves a legitimate
   value of `0` (which is falsy) rather than substituting the fallback.
 
@@ -632,19 +632,19 @@ operator-facing details.
 
 ## Logging Architecture
 
-The logger is constructed in `src/utils/logger.js` lines 34–92. Key facts
+The logger is constructed in `src/utils/logger.js` lines 35–93. Key facts
 distilled here for architectural context; see [`./observability.md`](./observability.md)
 for the full operator-facing reference.
 
 - **Single Winston instance** — `winston.createLogger({...})` (Source:
-  `src/utils/logger.js` line 34).
+  `src/utils/logger.js` line 35).
 - **Level from config** — `level: config.logLevel` (Source: `src/utils/logger.js`
-  line 39), which is `'debug'` in development and `'warn'` in production per
+  line 40), which is `'debug'` in development and `'warn'` in production per
   `ecosystem.config.js` lines 108–113 (dev) and 130–135 (prod).
 - **Default metadata** — `defaultMeta: { service: 'hello-world' }` attaches a
   service tag to every log line, supporting multi-service log aggregation
-  (Source: `src/utils/logger.js` line 53).
-- **Three transports** (Source: `src/utils/logger.js` lines 57–91):
+  (Source: `src/utils/logger.js` line 54).
+- **Three transports** (Source: `src/utils/logger.js` lines 58–92):
   - `logs/combined.log` — file transport at `http` level and above
     (`http`, `info`, `warn`, `error`), 5 MB × 5 rotating files.
   - `logs/error.log` — file transport restricted to `error` level only,
@@ -653,7 +653,7 @@ for the full operator-facing reference.
     the base JSON format used by the file transports.
 - **Morgan bridge** — `logger.stream.write(message)` forwards each Morgan
   access line into `logger.http(message.trim())` (Source:
-  `src/utils/logger.js` lines 110–114, 121). `.trim()` strips Morgan's
+  `src/utils/logger.js` lines 111–115, 122). `.trim()` strips Morgan's
   trailing newline to avoid double-spaced log entries.
 
 ```mermaid
@@ -783,7 +783,7 @@ Behavioral notes:
   line includes the final status code, so the Morgan arrow in the diagram
   represents the per-line `logger.stream.write` call that fires at response
   completion (Source: `src/app.js` lines 121–123; `src/utils/logger.js`
-  lines 110–114).
+  lines 111–115).
 
 ## Limitations
 
@@ -802,7 +802,7 @@ service concerns. These are not bugs; they are out-of-scope by design.
   or worker-threads imports).
 - **No distributed tracing** — There is no OpenTelemetry, Datadog APM, or
   similar instrumentation. Logs include the `service: 'hello-world'` tag
-  but no `traceId` / `spanId` (Source: `src/utils/logger.js` line 53).
+  but no `traceId` / `spanId` (Source: `src/utils/logger.js` line 54).
 - **Single-host cluster only** — PM2 cluster mode (Source:
   `ecosystem.config.js` lines 46–47) forks one worker per CPU core on the
   current host. Cross-host scaling, container orchestration, and service
