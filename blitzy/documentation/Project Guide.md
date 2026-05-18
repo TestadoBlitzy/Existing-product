@@ -49,7 +49,6 @@ No access issues identified. All testing operates within the local Python/Flask 
 
 1. **[High]** Review and approve the PR — verify `tests/test_startup.py` test logic and `pytest.ini` configuration change (2 files, 53 lines added)
 2. **[Medium]** Document dev-only dependency installation — add a note for developers to `pip install pytest-cov` for coverage reporting
-3. **[Low]** Consider adding `/morning` endpoints to `README.md` endpoint table (currently documents 3 of 5 endpoints — noted as out of scope per AAP)
 
 ---
 
