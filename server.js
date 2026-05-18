@@ -8,8 +8,8 @@
  * Public API (CommonJS): { server, createServer, startServer, PORT, HOST }.
  *
  * Dual-mode execution: when run directly (`node server.js`) the module
- * auto-starts via the `require.main === module` guard; when imported via
- * `require('./server')` the exported `server` instance is returned in a
+ * auto-starts via the `require.main === module` guard; when loaded as a
+ * module by another file the exported `server` instance is returned in a
  * non-listening state and the consumer controls the lifecycle.
  */
 
