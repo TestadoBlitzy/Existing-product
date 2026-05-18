@@ -249,12 +249,44 @@ describe('server.js', () => {
       });
     });
 
-    it('logs the active environment on startup', () => {
-      runServerWithMocks(({ infoSpy }) => {
+    it('logs the active environment value (Environment: ${config.nodeEnv}) on startup', () => {
+      runServerWithMocks(({ infoSpy, config }) => {
         const calls = infoSpy.mock.calls.map((c) => c[0]).join(' | ');
-        // Production code formats this as 'Environment: <nodeEnv>'.
-        // We assert on the stable prefix only.
-        expect(calls).toEqual(expect.stringContaining('Environment'));
+        // Production code at server.js line 59 formats this as
+        //   `Environment: ${config.nodeEnv}`
+        // The full fragment (label + colon + space + actual value) must
+        // appear verbatim in the captured logger.info calls. Asserting on
+        // only 'Environment' (the label) would let regressions such as
+        //   logger.info('Environment')                 // missing value
+        //   logger.info('Environment: wrong')          // wrong value
+        //   logger.info('Environment: '+ otherVar)     // wrong source
+        // pass silently. Using config.nodeEnv (the same value the
+        // production code reads) keeps the assertion correct under any
+        // NODE_ENV the Jest worker happens to be running with.
+        expect(calls).toEqual(
+          expect.stringContaining(`Environment: ${config.nodeEnv}`)
+        );
+      });
+    });
+
+    it('logs the overridden environment value when NODE_ENV is set', () => {
+      // Override NODE_ENV before the server module loads so config.nodeEnv
+      // reflects the override on re-import inside runServerWithMocks's
+      // jest.isolateModules sandbox. This proves the environment-log
+      // assertion is genuinely value-sensitive (not just label-sensitive)
+      // by exercising a non-default NODE_ENV value end-to-end.
+      process.env.NODE_ENV = 'production';
+      runServerWithMocks(({ infoSpy, config }) => {
+        // Sanity check that the config module observed the override.
+        expect(config.nodeEnv).toBe('production');
+        const calls = infoSpy.mock.calls.map((c) => c[0]).join(' | ');
+        // The full fragment must include the override value, proving the
+        // log message reflects config.nodeEnv at startup time rather than
+        // a hardcoded default. A regression that hardcoded 'development'
+        // (or any other literal) would fail this assertion.
+        expect(calls).toEqual(
+          expect.stringContaining('Environment: production')
+        );
       });
     });
 

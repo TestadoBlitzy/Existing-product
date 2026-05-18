@@ -15,8 +15,10 @@
  * This file is the PATTERN SEED for the test suite per AAP § 0.10.4 — other
  * test files mirror its conventions (CommonJS, 2-space indent, single quotes,
  * semicolons, file-level JSDoc, top-level describe(<source-path>), nested
- * describe per behaviour family, async/await Supertest calls, beforeAll/
- * afterAll for Winston logger silencing).
+ * describe per behaviour family, async/await Supertest calls, beforeEach/
+ * afterEach for Winston logger silencing — the per-test lifecycle is required
+ * because jest.config.js sets restoreMocks: true and would otherwise restore
+ * beforeAll-installed spies before every test).
  *
  * Authoritative blueprint: AAP §§ 0.1.1, 0.4.2, 0.5.2, 0.7.1, 0.10.4, 0.10.5,
  * 0.10.9.
@@ -28,23 +30,41 @@ const request = require('supertest');
 // cached logger singleton in the next import.
 const app = require('../../src/app');
 const logger = require('../../src/utils/logger');
+// Load package.json so the /api/info shape tests can cross-verify the
+// `name` and `version` fields against the canonical npm manifest (the
+// route returns them as hardcoded literals in src/routes/api.js, and
+// those literals MUST track package.json — package metadata mirroring
+// is the documented intent per AAP § 0.3.1). The `description` field
+// is intentionally NOT mirrored from package.json: the route exposes a
+// short-form summary distinct from package.json's longer description,
+// and this asymmetry is pinned in a dedicated test below so any future
+// drift on either side fails loudly.
+const pkg = require('../../package.json');
 
 describe('src/routes/api.js', () => {
-  // Install Winston spies once for the entire suite. jest.config.js sets
-  // restoreMocks: true so spies are auto-restored between tests, but the
-  // explicit afterAll documents intent and protects against config drift.
-  // Spy targets cover the four Winston levels that Morgan's stream adapter
-  // and the rest of the application can route messages to during a Supertest
-  // request lifecycle (info, http, error, warn). logger.debug is not spied
-  // because the production code under test never invokes it.
-  beforeAll(() => {
+  // Install Winston spies in beforeEach (NOT beforeAll). jest.config.js sets
+  // restoreMocks: true, which calls jest.restoreAllMocks() before EVERY test;
+  // installing the spies in beforeAll would therefore see them restored before
+  // the first it() runs, defeating the silencing and letting Morgan's stream
+  // adapter flood the test console with HTTP access lines on every request.
+  // Re-installing the spies in beforeEach guarantees each test starts with
+  // active silencing while leaving restoreMocks: true intact for the rest of
+  // the Jest worker's isolation guarantees. Spy targets cover the four Winston
+  // levels Morgan's stream adapter and the application can route messages to
+  // during a Supertest request lifecycle (info, http, error, warn);
+  // logger.debug is not spied because the production code under test never
+  // invokes it.
+  beforeEach(() => {
     jest.spyOn(logger, 'info').mockImplementation(() => {});
     jest.spyOn(logger, 'http').mockImplementation(() => {});
     jest.spyOn(logger, 'error').mockImplementation(() => {});
     jest.spyOn(logger, 'warn').mockImplementation(() => {});
   });
 
-  afterAll(() => {
+  afterEach(() => {
+    // restoreMocks: true in jest.config.js already restores spies before the
+    // next test, but the explicit call documents intent and protects against
+    // config drift, per AAP § 0.10.5 mocking discipline.
     jest.restoreAllMocks();
   });
 
@@ -113,16 +133,52 @@ describe('src/routes/api.js', () => {
       expect(typeof response.body.description).toBe('string');
     });
 
-    it('returns the exact hardcoded metadata values on GET /api/info', async () => {
+    it('returns name and version that mirror package.json', async () => {
       const response = await request(app).get('/api/info');
-      // Values mirror the literals in src/routes/api.js lines 27-29 byte-for-
-      // byte. Deep equality is used so any drift in either the keys or the
-      // values fails the test.
-      expect(response.body).toEqual({
-        name: 'hello_world',
-        version: '1.0.0',
-        description: 'Production-ready Express.js web server',
-      });
+      // The route returns name and version as hardcoded literals in
+      // src/routes/api.js lines 27-28, but per AAP § 0.3.1 those values
+      // MUST mirror package.json. Asserting against the loaded pkg object
+      // (rather than hardcoded literals in the test) makes the test the
+      // single source of truth for the mirror invariant: any future drift
+      // between the route literals and package.json will fail this test
+      // even if both the test literal and the route literal are updated
+      // in lockstep but package.json is not.
+      expect(response.body.name).toBe(pkg.name);
+      expect(response.body.version).toBe(pkg.version);
+    });
+
+    it('returns the short-form description hardcoded in the /api/info route (NOT package.json.description)', async () => {
+      const response = await request(app).get('/api/info');
+      // Documented asymmetry: package.json.description is the long-form
+      //   'Production-ready Express.js web server with structured logging,
+      //    security hardening, and PM2 deployment'
+      // while /api/info returns the short-form
+      //   'Production-ready Express.js web server'
+      // This test pins the route's hardcoded short-form value so any drift
+      // in src/routes/api.js fails loudly, while ALSO documenting (via the
+      // not-equal assertion against pkg.description) that the route is
+      // intentionally divergent from package.json.description. If a future
+      // change deliberately aligns the two, BOTH assertions must be updated
+      // together — preventing accidental silent reconvergence or divergence.
+      expect(response.body.description).toBe('Production-ready Express.js web server');
+      expect(response.body.description).not.toBe(pkg.description);
+    });
+
+    it('returns exactly three keys (name, version, description) on GET /api/info', async () => {
+      const response = await request(app).get('/api/info');
+      // Sorted-keys equality is the strictest body-shape assertion that does
+      // not depend on JSON key ordering. It rejects both missing keys and
+      // accidental extra fields — a looser toMatchObject would silently allow
+      // a superset and let regressions through. Combined with the per-field
+      // tests above, this gives layered regression protection on the public
+      // /api/info contract: shape is locked, mirror-from-package.json is
+      // verified for name/version, and the divergent description literal is
+      // pinned.
+      expect(Object.keys(response.body).sort()).toEqual([
+        'description',
+        'name',
+        'version',
+      ]);
     });
   });
 

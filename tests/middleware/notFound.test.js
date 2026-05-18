@@ -16,7 +16,10 @@
  * Mirrors the house style established by tests/routes/api.test.js (PATTERN
  * SEED) per AAP § 0.10.4: CommonJS require, 2-space indentation, single
  * quotes, semicolons, top-level describe(<source-path>), nested describe per
- * behaviour family, beforeAll/afterAll for Winston logger silencing.
+ * behaviour family, beforeEach/afterEach for Winston logger silencing — the
+ * per-test lifecycle is required because jest.config.js sets restoreMocks:
+ * true and would otherwise restore beforeAll-installed spies before every
+ * test, defeating the silencing.
  *
  * Authoritative blueprint: AAP §§ 0.1.1, 0.4.2, 0.5.2, 0.7.1, 0.10.4, 0.10.5.
  */
@@ -31,21 +34,28 @@ const logger = require('../../src/utils/logger');
 const { createMockRequest, createMockResponse } = require('../helpers/mockResponse');
 
 describe('src/middleware/notFound.js', () => {
-  // Install Winston spies once for the entire suite. jest.config.js sets
-  // restoreMocks: true so spies are auto-restored between tests, but the
-  // explicit afterAll documents intent and protects against config drift.
-  // Spy targets cover the four Winston levels that Morgan's stream adapter
-  // and the rest of the application can route messages to during a Supertest
-  // request lifecycle (info, http, error, warn). logger.debug is not spied
-  // because the production code under test never invokes it.
-  beforeAll(() => {
+  // Install Winston spies in beforeEach (NOT beforeAll). jest.config.js sets
+  // restoreMocks: true, which calls jest.restoreAllMocks() before EVERY test;
+  // installing the spies in beforeAll would therefore see them restored before
+  // the first it() runs, defeating the silencing and letting Morgan's stream
+  // adapter flood the test console with HTTP access lines on every integration
+  // request. Re-installing the spies in beforeEach guarantees each test starts
+  // with active silencing. Spy targets cover the four Winston levels that
+  // Morgan's stream adapter and the rest of the application can route messages
+  // to during a Supertest request lifecycle (info, http, error, warn);
+  // logger.debug is not spied because the production code under test never
+  // invokes it.
+  beforeEach(() => {
     jest.spyOn(logger, 'info').mockImplementation(() => {});
     jest.spyOn(logger, 'http').mockImplementation(() => {});
     jest.spyOn(logger, 'error').mockImplementation(() => {});
     jest.spyOn(logger, 'warn').mockImplementation(() => {});
   });
 
-  afterAll(() => {
+  afterEach(() => {
+    // restoreMocks: true in jest.config.js already restores spies before the
+    // next test, but the explicit call documents intent and protects against
+    // config drift, per AAP § 0.10.5 mocking discipline.
     jest.restoreAllMocks();
   });
 
