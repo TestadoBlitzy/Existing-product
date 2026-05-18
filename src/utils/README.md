@@ -235,6 +235,16 @@ Environment-driven configuration:
     `ecosystem.config.js` env block) to any of the npm Winston levels:
     `error`, `warn`, `info`, `http`, `verbose`, `debug`, `silly`.
     Source: `.env.example` lines 29-30.
+  - **Scope: console transport only.** `LOG_LEVEL` (and therefore
+    `config.logLevel`) affects the **console transport only** in this
+    service. Both file transports declare their own explicit `level`
+    (`logs/combined.log` → `'http'` at line 66; `logs/error.log` →
+    `'error'` at line 77), which **overrides** the root logger level for
+    those transports per Winston 3.x semantics. A change to `LOG_LEVEL`
+    does **not** change what is written to the file transports. To change
+    file-transport behavior, edit the hardcoded `level` field in
+    `src/utils/logger.js` — that is a source-code change, not a runtime
+    knob. Cross-reference: [observability guide — LOG_LEVEL Scope](../../docs/observability.md#log-level-selection).
   - Constraint: the `config` object is `Object.freeze`-d, so the level
     cannot be changed at runtime — a process restart is required.
     Source: `src/config/index.js` line 42.

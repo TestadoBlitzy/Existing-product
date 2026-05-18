@@ -46,6 +46,25 @@ lines 35–128.
 
 ### Log Level Selection
 
+> **⚠️ LOG_LEVEL Scope — Read This First.**
+> `LOG_LEVEL` controls **only** the **console transport** in this service.
+> The two **file transports** (`logs/combined.log` and `logs/error.log`) have
+> their own **explicit, hardcoded** `level` values (`'http'` and `'error'`,
+> respectively) that are **independent of `LOG_LEVEL`**. Setting
+> `LOG_LEVEL=warn` reduces console verbosity but does **not** change what is
+> written to the file transports. In particular, **Morgan HTTP access logs
+> continue to be persisted to `logs/combined.log` in production** even when
+> `LOG_LEVEL=warn`. There is no global "hide HTTP access logs in production"
+> switch — that suppression applies to the console only. To suppress
+> http-level entries in `logs/combined.log` you would have to change the
+> hardcoded transport `level` in `src/utils/logger.js` line 66, which is a
+> source-code change. Detailed rationale follows immediately below; the
+> short summary above is the operative scope statement.
+>
+> Source: `src/utils/logger.js` lines 40 (logger level), 66 (combined
+> transport level), 77 (error transport level), 86–91 (console transport,
+> no explicit level).
+
 The logger's `level` is sourced from `config.logLevel`, which is derived from
 the `LOG_LEVEL` environment variable with a default of `'debug'`. Source:
 `src/utils/logger.js` line 40; `src/config/index.js` line 30.
@@ -69,6 +88,18 @@ Environment-specific defaults are supplied by `ecosystem.config.js`:
 | --- | --- | --- |
 | `env` (default) | `'debug'` | `ecosystem.config.js` line 112 |
 | `env_production` | `'warn'` | `ecosystem.config.js` line 134 |
+
+Per-transport scope summary (the authoritative scope of `LOG_LEVEL`):
+
+| Transport | Affected by `LOG_LEVEL`? | Effective level | Source |
+| --- | --- | --- | --- |
+| Console (terminal stdout/stderr) | **Yes** — inherits `logger.level` (= `config.logLevel`) | Whatever `LOG_LEVEL` resolves to (default `'debug'`, production `'warn'`) | `src/utils/logger.js` lines 86–91 (no explicit `level`) |
+| `logs/combined.log` (file) | **No** — explicit transport `level` overrides | Always `'http'` and above (`error`, `warn`, `info`, `http`) | `src/utils/logger.js` line 66 |
+| `logs/error.log` (file) | **No** — explicit transport `level` overrides | Always `'error'` only | `src/utils/logger.js` line 77 |
+
+In short: changing `LOG_LEVEL` is a **console-only** verbosity dial. To change
+file-transport behavior, edit the hardcoded `level` field on the corresponding
+`winston.transports.File({ ... })` block in `src/utils/logger.js`.
 
 Winston's npm-default level hierarchy (Source: `src/utils/logger.js` lines
 10–12 header comment):
@@ -461,23 +492,38 @@ Applied with:
 pm2 start ecosystem.config.js --env production
 ```
 
-With `LOG_LEVEL=warn`, the **console transport** (which inherits the
-logger's top-level `level`) only emits `error` (0) and `warn` (1). The
-**file transports**, however, retain their own explicit `level` settings
-and are unaffected by the change in `LOG_LEVEL`:
+**What `LOG_LEVEL=warn` actually changes in production (per the LOG_LEVEL
+Scope callout earlier in this section):**
 
-- `logs/combined.log` (transport `level: 'http'`, Source: `src/utils/logger.js`
-  line 66) continues to persist `error`, `warn`, `info`, and `http` entries —
-  including Morgan HTTP access logs for successful requests — in production.
-- `logs/error.log` (transport `level: 'error'`, Source: `src/utils/logger.js`
-  line 77) continues to persist only `error` entries.
+- **Console transport (the only transport `LOG_LEVEL` affects).** The
+  console transport has **no** explicit `level`, so it inherits the
+  logger's top-level `level` (= `config.logLevel`). With `LOG_LEVEL=warn`
+  it emits **only** `error` (0) and `warn` (1). HTTP access lines at
+  `http` (3) are silenced on the terminal/PM2-captured stdout (Source:
+  `src/utils/logger.js` lines 86–91).
+- **`logs/combined.log` file transport (unaffected by `LOG_LEVEL`).** This
+  transport has an **explicit** `level: 'http'` (Source: `src/utils/logger.js`
+  line 66), so it continues to persist `error`, `warn`, `info`, and `http`
+  entries — including every Morgan HTTP access log line — in production.
+  This is **by design** so that production troubleshooting and post-incident
+  forensics retain the full request stream on disk. To suppress http-level
+  entries in this file as well, change the hardcoded transport `level` in
+  `src/utils/logger.js` (a source-code change, not a configuration knob).
+- **`logs/error.log` file transport (unaffected by `LOG_LEVEL`).** This
+  transport has an **explicit** `level: 'error'` (Source:
+  `src/utils/logger.js` line 77), so it continues to persist **only**
+  `error` entries in production.
 
-In other words, `LOG_LEVEL=warn` in production reduces **console** verbosity
-without losing HTTP access logs on disk. Failed requests still log at
-`error` via the centralized error handler (Source:
-`src/middleware/errorHandler.js` line 65) and land in both
-`logs/combined.log` and `logs/error.log`. If access logs need to be visible
-on the **console** as well, raise `LOG_LEVEL` to `'http'` or below (see
+**Net summary:** `LOG_LEVEL=warn` in production is a **console-only** dial
+that reduces terminal/PM2-captured noise. It does **not** alter file-based
+log retention. There is no implicit promise that "production hides HTTP
+access logs" system-wide — that suppression applies to the console transport
+only. Operators monitoring requests in production should `tail -f
+logs/combined.log` (or pipe through `jq`) rather than relying on console
+output. Failed requests additionally land in `logs/error.log` via the
+centralized error handler (Source: `src/middleware/errorHandler.js` line 65).
+If access logs need to be visible on the **console** as well in production,
+raise `LOG_LEVEL` to `'http'` or below (see
 [Tuning at Runtime](#tuning-at-runtime)).
 
 ### Tuning at Runtime

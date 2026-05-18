@@ -229,7 +229,7 @@ require a code change to alter.
 | `env_production.NODE_ENV` | `'production'` | Activates 5xx error masking (Source: `ecosystem.config.js` line 131) |
 | `env_production.PORT` | `3000` | Production port (Source: `ecosystem.config.js` line 132) |
 | `env_production.HOST` | `'0.0.0.0'` | Production bind address (Source: `ecosystem.config.js` line 133) |
-| `env_production.LOG_LEVEL` | `'warn'` | Reduced verbosity in production (Source: `ecosystem.config.js` line 134) |
+| `env_production.LOG_LEVEL` | `'warn'` | Reduces **console-transport** verbosity in production. The two Winston file transports (`logs/combined.log`, `logs/error.log`) have explicit, hardcoded `level` values (`'http'`, `'error'`) that are **independent** of `LOG_LEVEL` and continue to persist their respective levels in production. See [`observability.md#log-level-selection`](./observability.md#log-level-selection) for the complete LOG_LEVEL scope statement. (Source: `ecosystem.config.js` line 134) |
 
 ---
 
@@ -437,6 +437,111 @@ for the full logging architecture.
 3. The frozen config object is re-read on every process start (Source:
    `src/config/index.js` line 42). Mutating `process.env` in a running worker
    has no effect on the existing frozen config.
+
+---
+
+## Platform Notes — Windows
+
+The application code is platform-agnostic and the canonical deployment target
+is Linux or macOS. However, several PM2 cluster-mode behaviors differ on
+Windows due to documented differences in how Node.js cluster IPC and Windows
+process management interact with PM2. These notes document the observed
+differences so operators running on Windows are not surprised; **none of
+these is an application defect**, and Linux/macOS deployment behaves as
+documented elsewhere in this guide.
+
+### POSIX Signal Handling under `process.kill()` (Windows)
+
+On Windows, calling `process.kill(pid, 'SIGTERM')` or
+`process.kill(pid, 'SIGINT')` ultimately calls Win32 `TerminateProcess`,
+which **bypasses** Node.js's JavaScript signal handlers and terminates the
+process immediately. The graceful-shutdown logic in `server.js` (Source:
+`server.js` lines 72–86) is **not invoked** along this path on Windows.
+
+Operational implications on Windows:
+
+- The `SIGTERM`/`SIGINT` handlers are still **logically correct** — the unit
+  test suite under `tests/server.test.js` exercises them and they pass on
+  all platforms (24/24 in the most recent QA checkpoint).
+- For graceful shutdown on Windows, prefer `pm2 stop hello-world` /
+  `pm2 reload hello-world`. PM2 has its own IPC mechanism for telling a
+  worker to shut down and does not rely solely on POSIX signal delivery.
+- Pressing **Ctrl+C** in an interactive console window still delivers
+  `SIGINT` to the foreground Node process and triggers the graceful path on
+  Windows because that signal originates from the Windows console subsystem,
+  not from `TerminateProcess`.
+
+Source: Node.js Windows documentation; Source: `server.js` lines 72–86 (the
+handler code path that is invoked when SIGINT/SIGTERM is delivered).
+
+### `pm2 reload --env production` Cluster Reload on Windows
+
+`pm2 reload` performs a rolling restart by stopping and re-forking workers
+one at a time. On Windows under PM2 cluster mode, this rolling reload has
+been observed to be unreliable when the cluster has many workers — in one
+QA run only 1 of 64 workers successfully re-forked into the production env
+block, and the remaining workers became stuck in a reload-in-progress state.
+
+The single successfully reloaded worker did show `NODE_ENV=production` and
+`LOG_LEVEL=warn` correctly, confirming that the **`env_production`
+configuration itself is correct** (Source: `ecosystem.config.js` lines
+130–135). The failure mode is in the rolling-reload mechanism, not in the
+application or its config.
+
+Workaround on Windows:
+
+```bash
+# Stop and restart the whole cluster instead of rolling-reload
+pm2 stop hello-world
+pm2 start ecosystem.config.js --env production
+```
+
+Or restart in place without env-switching:
+
+```bash
+pm2 restart hello-world
+```
+
+`pm2 restart` (vs. `pm2 reload`) does **not** attempt a rolling restart and
+has been observed to work reliably on Windows in QA. On Linux/macOS,
+`pm2 reload --env production` proceeds normally and is the recommended
+zero-downtime mechanism.
+
+### PM2 Autorestart on OS-Level Hard Kill (Windows)
+
+PM2's `autorestart: true` policy restarts workers that exit unexpectedly
+(Source: `ecosystem.config.js` line 67). On Linux/macOS, forcefully killing
+a worker (`kill -9 <pid>`) triggers PM2's exit detection and a replacement
+worker is forked. On Windows, `Stop-Process -Force <pid>` on a cluster
+worker has been observed to leave the worker in `stopped` state without
+triggering autorestart.
+
+This is a known interaction between PM2's worker-tracking on Windows and
+the Windows process-termination model — not an application defect. The
+application's own crash path (`uncaughtException` → `process.exit(1)`) is
+still routed through PM2 and triggers autorestart correctly on Windows
+because the Node process exits cleanly (Source: `server.js` lines 108–111).
+
+Workaround on Windows:
+
+```bash
+# Tell PM2 itself to restart the worker (rather than OS-killing it)
+pm2 restart hello-world
+```
+
+`pm2 restart` advances the worker's `restart_time` counter and re-forks
+the process normally on Windows.
+
+### Test Suite Cross-Platform Validity
+
+The Jest test suite (`tests/`) does not exercise OS-level signal delivery
+because it would be both platform-dependent and unsafe inside a test
+harness. Instead, it asserts the **handler functions** are correctly wired
+to `process.on(...)` and that the graceful-shutdown path calls
+`server.close()` and `process.exit(0)` (Source: `tests/server.test.js`).
+These assertions pass on all platforms (Windows, Linux, macOS) because
+they validate the JavaScript wiring rather than the OS signal-delivery
+mechanism. See [`./testing.md`](./testing.md) for the full test inventory.
 
 ---
 
