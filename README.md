@@ -36,3 +36,21 @@ The server will start at **http://127.0.0.1:3000/**.
 |--------|------------|-------------------|
 | GET    | `/`        | `Hello, World!\n` |
 | GET    | `/evening` | `Good evening`    |
+
+## Testing
+
+This project uses [Jest](https://jestjs.io/) and [Supertest](https://github.com/ladjs/supertest) for automated tests.
+
+Run the full test suite:
+
+```bash
+npm test
+```
+
+Run tests with coverage reporting:
+
+```bash
+npm run test:coverage
+```
+
+Coverage reports are written to the `coverage/` directory.
