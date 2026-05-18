@@ -883,10 +883,11 @@ was authored is reproduced below verbatim. Operators should re-run
 `npm audit` against the current `/package-lock.json` to obtain a
 fresh count, because the GHSA database is updated continuously.
 
-```text
-3 moderate severity vulnerabilities
-1 high severity vulnerability
-0 critical
+```bash
+# npm audit --json summary at the time of writing
+# 3 moderate severity vulnerabilities
+# 1 high severity vulnerability
+# 0 critical
 ```
 
 ### Suggested remediation (out of scope for this revision)
