@@ -1,0 +1,302 @@
+# =============================================================================
+# .gitignore for hao-backprop-test
+# =============================================================================
+# This is a minimal Python 3 / Flask HTTP server project. Historically this
+# repository hosted a Node.js implementation which was fully migrated to
+# Python/Flask; the Node.js artifacts (server.js, package.json,
+# package-lock.json) were deleted as part of that completed migration.
+#
+# This .gitignore file serves THREE purposes:
+#   1. (PRIMARY) Defensive guardrail — prevent accidental reintroduction of
+#      Node.js artifacts by tools like `npm init`, IDE project wizards, or
+#      JavaScript scaffolders. See AAP Section 0.4.1 Layer 3.
+#   2. Ignore standard Python build/test artifacts (bytecode, __pycache__,
+#      pytest cache, coverage reports, virtual environments).
+#   3. Ignore per-contributor IDE / OS metadata that should not be shared.
+#
+# Traceability:
+#   - AAP Section 0.2.2  — Secondary Root Cause: Absence of Defensive Guardrails
+#   - AAP Section 0.3.2  — Repository File Analysis (confirmed .gitignore absent)
+#   - AAP Section 0.3.3  — Case C: accidental future reintroduction mitigation
+#   - AAP Section 0.4.1  — Layer 3: Reintroduction guardrail (defensive hardening)
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Section 1: Node.js reintroduction guardrails (CRITICAL — primary purpose)
+# -----------------------------------------------------------------------------
+# These patterns prevent the accidental reintroduction of legacy Node.js
+# artifacts that were removed during the completed Node.js → Python/Flask
+# migration. See AAP Section 0.2.2 (Secondary Root Cause) and Section 0.4.1
+# Layer 3. Without these entries, git would silently track regenerated Node.js
+# artifacts produced by commands such as `npm init`, `npm install`, IDE
+# project wizards, or JavaScript scaffolders — reintroducing the exact
+# documentation-drift/tooling-misclassification bug this fix resolves.
+#
+# Historical context: package.json was deleted in commit a8bf8c0 and
+# package-lock.json was deleted in commit 220d211 (both 2026-03-25) as part
+# of the completed Node.js → Python/Flask migration. The patterns below
+# cover every Node.js-tooling-generated file that would otherwise be auto-
+# created in the repository root by npm or Yarn.
+
+# npm-installed dependency directory — auto-created by `npm install`.
+node_modules/
+
+# npm package manifest — auto-created by `npm init` or IDE wizards.
+# This is the EXACT file deleted per commit a8bf8c0 during the migration.
+package.json
+
+# npm dependency lockfile — auto-created by `npm install`.
+# This is the EXACT file deleted per commit 220d211 during the migration.
+package-lock.json
+
+# npm error/debug logs — auto-created by npm when a command fails.
+npm-debug.log*
+
+# Yarn package manager lockfile — parallel to npm's package-lock.json.
+yarn.lock
+
+# Yarn debug log — created by `yarn` on failures.
+yarn-debug.log*
+
+# Yarn error log — created by `yarn` on failures.
+yarn-error.log*
+
+# Yarn Plug'n'Play runtime artifacts (Yarn 2+ zero-installs).
+.pnp.*
+
+# -----------------------------------------------------------------------------
+# Section 2: Python bytecode and import cache
+# -----------------------------------------------------------------------------
+# Standard Python bytecode and import cache artifacts that should never be
+# committed. These are regenerated automatically by the Python interpreter
+# (CPython) whenever a module is imported and should remain developer-local.
+
+# Python bytecode cache directory — CPython auto-creates one per package.
+__pycache__/
+
+# Compiled Python bytecode files (.pyc), optimized (.pyo), and pyd extensions.
+*.py[cod]
+
+# Jython class files.
+*$py.class
+
+# Compiled shared object extensions (C extensions, Cython output).
+*.so
+
+# -----------------------------------------------------------------------------
+# Section 3: Python distribution / packaging artifacts
+# -----------------------------------------------------------------------------
+# Build artifacts from Python packaging tools (setup.py, build, wheel,
+# setuptools). These directories and files are produced by running package
+# build commands (e.g., `python -m build`, `python setup.py sdist bdist_wheel`)
+# and must never be tracked, as they are regenerated at release time.
+
+# Legacy Python installer marker file.
+.Python
+
+# Generic build output directory.
+build/
+
+# setuptools develop-mode egg cache.
+develop-eggs/
+
+# Final distribution output (wheels, tarballs).
+dist/
+
+# Downloaded source artifacts cache.
+downloads/
+
+# setuptools egg cache.
+eggs/
+
+# Modern setuptools egg cache.
+.eggs/
+
+# setuptools-installed library paths (legacy layout).
+lib/
+lib64/
+
+# zc.buildout parts.
+parts/
+
+# Source distribution output.
+sdist/
+
+# Variable-state directory used by buildout.
+var/
+
+# Wheel build output.
+wheels/
+
+# setuptools egg metadata directory.
+*.egg-info/
+
+# setuptools installation marker.
+.installed.cfg
+
+# Standalone egg files.
+*.egg
+
+# setuptools MANIFEST file (auto-generated from MANIFEST.in).
+MANIFEST
+
+# -----------------------------------------------------------------------------
+# Section 4: pytest and coverage artifacts
+# -----------------------------------------------------------------------------
+# pytest and coverage.py artifacts generated when running the test suite
+# (pytest per pytest.ini; pytest-cov per requirements-test.txt). The repo
+# already contains .coverage and .pytest_cache/ artifacts after test runs
+# that should not be tracked — these patterns ensure they are ignored.
+
+# pytest cache directory (test collection metadata, last-failed tracking).
+.pytest_cache/
+
+# coverage.py binary data file.
+.coverage
+
+# coverage.py parallel-run data files.
+.coverage.*
+
+# HTML coverage report output directory.
+htmlcov/
+
+# Cobertura-style XML coverage report.
+coverage.xml
+
+# Line-level coverage reports.
+*.cover
+
+# Hypothesis (property-based testing) database.
+.hypothesis/
+
+# nose test runner XML reports (legacy).
+nosetests.xml
+
+# -----------------------------------------------------------------------------
+# Section 5: Python virtual environments
+# -----------------------------------------------------------------------------
+# Python virtual environment directories — developers may create these
+# locally with various tools (venv, virtualenv, pyenv-virtualenv). Virtual
+# environments are large, platform-specific, and reproducible from
+# requirements.txt / requirements-test.txt, so they must never be committed.
+
+# PEP 405 standard venv directory (hidden variant).
+.venv/
+
+# Standard venv directory used by this repo's setup.
+venv/
+
+# Uppercase ENV directory (historical convention).
+ENV/
+
+# Lowercase env directory (historical convention).
+env/
+
+# Backup environment directories created by tool-assisted upgrades.
+env.bak/
+venv.bak/
+
+# -----------------------------------------------------------------------------
+# Section 6: IDE and editor local configuration
+# -----------------------------------------------------------------------------
+# Editor / IDE local configuration and workspace files that vary per
+# contributor. These settings are personal preferences (window layouts,
+# run configurations, local indexes) and do not belong in shared source
+# control.
+
+# JetBrains IDEs (PyCharm, IntelliJ IDEA, WebStorm, etc.).
+.idea/
+
+# Visual Studio Code workspace settings.
+.vscode/
+
+# Vim swap files (created while editing).
+*.swp
+*.swo
+
+# Generic backup files from many editors.
+*~
+
+# Eclipse project metadata.
+.project
+
+# PyDev (Eclipse Python plugin) project metadata.
+.pydevproject
+
+# Spyder IDE project metadata (older format).
+.spyderproject
+
+# Spyder IDE project metadata (newer format).
+.spyproject
+
+# -----------------------------------------------------------------------------
+# Section 7: Operating-system metadata
+# -----------------------------------------------------------------------------
+# Operating-system metadata files that have no place in source control.
+# These are auto-generated by macOS Finder, Windows Explorer, and similar
+# shells whenever a directory is browsed; they pollute commits with
+# machine-specific state.
+
+# macOS Finder metadata file.
+.DS_Store
+
+# macOS Finder metadata variant.
+.DS_Store?
+
+# macOS AppleDouble resource-fork files.
+._*
+
+# macOS Spotlight index.
+.Spotlight-V100
+
+# macOS Trash metadata.
+.Trashes
+
+# Windows Explorer thumbnail cache (variant).
+ehthumbs.db
+
+# Windows Explorer thumbnail cache.
+Thumbs.db
+
+# Windows folder customization.
+Desktop.ini
+
+# -----------------------------------------------------------------------------
+# Section 8: Local environment / secrets
+# -----------------------------------------------------------------------------
+# Local environment variable files that may contain secrets — never commit.
+# These files typically hold API keys, database passwords, and other
+# credentials that must remain outside version control.
+
+# Primary dotenv file.
+.env
+
+# Local override dotenv.
+.env.local
+
+# Environment-specific local overrides (.env.development.local, etc.).
+.env.*.local
+
+# PEM-format keys and certificates.
+*.pem
+
+# Private key files.
+*.key
+
+# -----------------------------------------------------------------------------
+# Section 9: Miscellaneous
+# -----------------------------------------------------------------------------
+# Other commonly-ignored artifacts that show up across many projects —
+# generic log files, temporary files, and editor/merge backup files.
+
+# Generic log files from any tool.
+*.log
+
+# Temporary files.
+*.tmp
+
+# Generic backup files.
+*.bak
+
+# Merge/patch backup files (e.g., from `patch`, `git mergetool`).
+*.orig

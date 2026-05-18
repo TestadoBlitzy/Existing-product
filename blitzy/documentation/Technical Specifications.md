@@ -2,660 +2,774 @@
 
 # 0. Agent Action Plan
 
-## 0.1 Intent Clarification
+## 0.1 Executive Summary
 
+Based on the bug description, the Blitzy platform understands that the bug is a **repository-hygiene and tooling-discovery defect** resulting from incomplete cleanup of the Node.js → Python/Flask migration. Specifically, the user reports that three legacy Node.js placeholder files — `server.js`, `package.json`, and `package-lock.json` — remain in the repository even though the active runtime is Python/Flask (`app.py` + `requirements.txt`), and that these empty files mislead tooling, contributors, and automation agents into treating the repository as a Node.js project or searching for a non-existent Node runtime.
 
-### 0.1.1 Core Testing Objective
+### 0.1.1 Precise Technical Translation of the User's Language
 
-Based on the provided requirements, the Blitzy platform understands that the testing objective is to **introduce the first-ever automated test suite** for the `hao-backprop-test` project — a minimal Python 3 / Flask HTTP server (`app.py`, 64 lines) that currently has zero automated tests. The codebase relies solely on manual and runtime validation (10/10 curl-based tests passing) and has no `tests/` directory, no test configuration, and no test dependencies declared.
+| User's Description | Blitzy Technical Interpretation |
+|--------------------|---------------------------------|
+| "Legacy Node.js placeholder files remain in the repository" | Orphaned repository artifacts (filesystem entries) and/or orphaned documentation references (narrative claims of existence) that imply a Node.js runtime or npm package manager is part of the active system |
+| "Can confuse tools, contributors, and automation agents" | Repository-detection heuristics (language classifiers, dependency scanners, IDE project wizards, Backprop ingestion) read either the filesystem listing or the Technical Specification prose and infer Node.js/npm where only Python/pip is active |
+| "Occurs during project discovery, dependency detection, Backprop ingestion, or any workflow that scans the repository to infer language, framework, entrypoint, or package manager" | The bug surface is any read-side inference path: `ls`, `git ls-files`, dependency-manifest globbing (`package.json` glob), language-popularity heuristics, or direct reading of `blitzy/documentation/Technical Specifications.md` |
+| "Expected behavior" | Repository and its canonical documentation present Python 3.9+ / Flask 3.1.3 as the sole active runtime; `app.py` and `requirements.txt` are the single source of truth |
+| "Actual behavior" | Filesystem presents Python-only (verified), but the Technical Specification narrative still asserts `server.js`, `package.json`, `package-lock.json` are present as "empty placeholders that must remain non-executing" — directly contradicting the filesystem state |
+| "Consistent" frequency | Deterministic: any process that reads the stale documentation is misled 100% of the time |
 
-**Request Category:** Add new tests (greenfield test suite creation)
+### 0.1.2 Reproduction Steps as Executable Commands
 
-The testing requirements, restated with enhanced clarity:
+The bug is reproduced and confirmed by the following deterministic command sequence from the repository root:
 
-- **HTTP Contract Verification** — Every HTTP request to any path, using any method, must return `200 OK` with `Content-Type: text/plain; charset=utf-8` and the exact body `Hello, World!\n` (14 bytes). This universal behavior is implemented via the `@app.before_request` hook in `app.py` (lines 34–53), which short-circuits all Flask routing and method validation.
-- **HEAD Request Semantics** — HEAD requests must return `200 OK` with `Content-Length: 14` and an empty body, preserving standard HTTP semantics as enforced by Werkzeug's response handling.
-- **Structural Impossibility Guarantees** — No request path produces `404 Not Found` and no method produces `405 Method Not Allowed`, because the `before_request` hook intercepts before Flask's URL dispatcher and method validator can execute.
-- **Import Safety** — Importing `app.py` as a module (e.g., `from app import app`) must not auto-start the HTTP server, thanks to the `if __name__ == '__main__':` guard at line 59.
-- **Startup Behavior** — When executed directly (`python app.py`), the module must print exactly `Server running at http://127.0.0.1:3000/` to stdout before binding to `127.0.0.1:3000`.
-- **Startup Configuration** — The `app.run()` call must use `host='127.0.0.1'` and `port=3000`, matching the original Node.js server's binding configuration.
+```bash
+# Step 1 — confirm no Node.js files physically present
 
-**Implicit Testing Needs Surfaced:**
+find . -maxdepth 2 -not -path "./.git*" \( -name "server.js" -o -name "package.json" -o -name "package-lock.json" -o -name "node_modules" \)
+# Expected output: empty (no Node.js artifacts found)
 
-- Edge case coverage for query strings, trailing slashes, and deeply nested paths — all must produce the same invariant response
-- Verification that sequential/repeated requests produce identical results (statelessness confirmation)
-- Content-Length header accuracy (exactly `14`) for standard body-bearing responses
-- Response body byte-level accuracy (14 bytes: `48 65 6c 6c 6f 2c 20 57 6f 72 6c 64 21 0a`)
+#### Step 2 — confirm no Node.js files tracked by git
 
-### 0.1.2 Special Instructions and Constraints
+git ls-files | grep -E "^(server\.js|package\.json|package-lock\.json|node_modules)"
+# Expected output: empty
 
-**Minimal Change Clause (User-Specified, Critical):**
-- ONLY add test files and minimal test infrastructure; do NOT modify existing production code (`app.py`) unless absolutely required for testability
-- Do not refactor production code, expand the application architecture, or introduce new runtime features
-- Preserve the flat single-file app structure exactly as-is
+#### Step 3 — demonstrate the drift: documentation still claims these files exist
 
-**Testing Discipline Guidelines (User-Specified):**
-- Use Flask's built-in `test_client()` for real in-process behavior — prefer little to no mocking
-- Mock only where strictly necessary: capturing startup `print()` output, preventing actual server startup during `__main__` path tests, and isolating `app.run()` invocation
-- Do not mock Flask routing/request behavior in ways that weaken confidence in the universal interceptor contract
-- Keep naming explicit and lightweight
-- No browser tests, database tests, external API tests, or deployment/infrastructure tests
-- Tests must be synchronous and deterministic — no timing-based assertions or real network binding
-- Tests should run cleanly with standard `pytest` commands, CI-friendly but without creating CI/CD pipelines
-
-**Implementation Rule (User-Specified):**
-- User Example: "Do not make any updates or changes in GitHub App to create or update a workflow." — This explicitly prohibits creating or modifying any GitHub Actions workflow files (`.github/workflows/`)
-
-**Existing Pattern Adherence:**
-- No existing test patterns to follow (greenfield); establish clean, minimal conventions
-- Use `tests/` directory with explicit file names per user specification
-- Use `conftest.py` only if shared fixtures are genuinely helpful
-
-### 0.1.3 Technical Interpretation
-
-These testing requirements translate to the following technical test implementation strategy:
-
-- To **verify the HTTP contract**, we will **create** `tests/test_http_contract.py` using Flask's `app.test_client()` to simulate HTTP requests across all standard methods (GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD) and multiple path patterns (root, arbitrary, nested, query-string-bearing), asserting status code `200`, content type `text/plain; charset=utf-8`, and body `Hello, World!\n` for each
-- To **verify HEAD request semantics**, we will **add test cases** within `tests/test_http_contract.py` that assert HEAD returns `200` with `Content-Length: 14` and an empty body (`b''`)
-- To **verify structural impossibilities** (no 404, no 405), we will **add negative test cases** within `tests/test_http_contract.py` that explicitly assert unknown paths and uncommon methods do not produce error status codes
-- To **verify import safety**, we will **create** `tests/test_startup.py` with a test that imports `app.py` as a module and confirms no server binding occurs
-- To **verify startup behavior**, we will **add test cases** within `tests/test_startup.py` that use `unittest.mock.patch` to capture `print()` output and intercept `app.run()` invocation, verifying the exact startup message string and host/port configuration
-- To **provide shared fixtures**, we will **create** `tests/conftest.py` with a reusable `client` fixture that provides the Flask test client and optionally a response-assertion helper
-
-### 0.1.4 Coverage Requirements Interpretation
-
-**Explicit User Targets:**
-- **90%+ line/function coverage** of `app.py`
-- **100% coverage** of all externally visible HTTP behavior (universal response contract)
-- **100% coverage** of startup message behavior (`print()` call at line 62)
-
-**Implicit Coverage Expectations:**
-- Based on Python/pytest industry standards for minimal applications, 90%+ coverage is highly achievable since `app.py` has only ~10 executable lines outside the `__main__` guard
-- The `__main__` guard block (lines 59–64) should be tested via mock-based startup path verification, which will cover `print()` and `app.run()` calls and bring total coverage above 90%
-- Existing repository coverage: **0%** (no automated tests exist)
-- The tech spec (Section 6.6.5.1) identifies 100% line coverage (excluding `__main__`) and 100% branch/function/path coverage as achievable targets
-
-To achieve comprehensive testing, coverage should include:
-- All lines within the `hello_world()` before_request handler (line 53)
-- The Flask app instantiation (line 18)
-- Module-level imports (line 11)
-- The `__main__` guard branch including `print()` and `app.run()` (lines 59–64) via mock-isolated execution
-- Full enumeration of HTTP methods and URL path patterns through the test client
-
-
-## 0.2 Test Discovery and Analysis
-
-
-### 0.2.1 Existing Test Infrastructure Assessment
-
-A comprehensive repository search was conducted to assess the current testing state. The repository at `/tmp/blitzy/Existing-product/exit-code-137-test-9_76c7d6` was examined for any test-related files, configuration, or infrastructure.
-
-**Search Results:**
-
-All files in the repository (excluding `.git/` and `__pycache__/`):
-
-| File Path | Purpose | Test-Related |
-|-----------|---------|-------------|
-| `app.py` | Flask application source (64 lines) | Target of tests, not a test file |
-| `requirements.txt` | Dependency manifest (`Flask==3.1.3`) | No test dependencies declared |
-| `README.md` | Project documentation | No testing instructions |
-| `blitzy/documentation/Project Guide.md` | Migration status report | Documents 10/10 manual runtime tests |
-| `blitzy/documentation/Technical Specifications.md` | Migration contract | Explicitly excludes test suite creation from scope |
-
-**Test Infrastructure Findings:**
-
-- **Test files found:** None — no files matching `*test*`, `*spec*`, `test_*`, `*_test.*`, `*_spec.*` patterns exist anywhere in the repository
-- **Test directories found:** None — no `tests/`, `test/`, `spec/`, or `__tests__/` directories exist
-- **Testing framework in dependencies:** None — `requirements.txt` contains only `Flask==3.1.3` with no pytest, unittest, or any test-related package
-- **Test configuration files found:** None — no `pytest.ini`, `pyproject.toml` (with pytest config), `setup.cfg`, `tox.ini`, `conftest.py`, or `.coveragerc` files exist
-- **Coverage tools in use:** None
-- **Mock/stub libraries detected:** None
-- **Test data fixtures or factories present:** None
-- **CI/CD configuration:** None — no `.github/workflows/`, `Jenkinsfile`, `.circleci/`, or similar files exist
-
-**Existing Validation (Non-Automated):**
-
-Repository analysis reveals **zero automated test infrastructure** with validation performed exclusively through runtime/manual testing. The tech spec (Section 6.6.2.1) documents 10/10 HTTP validation tests passing using `curl` and the Blitzy Validator, covering:
-
-| # | Validation | Method | Result |
-|---|------------|--------|--------|
-| 1 | Root path GET | `GET /` | 200 ✅ |
-| 2 | Random path GET | `GET /random-path` | 200 ✅ |
-| 3 | POST request | `POST /test` | 200 ✅ |
-| 4 | PUT request | `PUT /data` | 200 ✅ |
-| 5 | DELETE request | `DELETE /resource` | 200 ✅ |
-| 6 | PATCH request | `PATCH /item` | 200 ✅ |
-| 7 | OPTIONS request | `OPTIONS /` | 200 ✅ |
-| 8 | HEAD request | `HEAD /` | 200, Content-Length: 14 ✅ |
-| 9 | TRACE request | `TRACE /` | 200 ✅ |
-| 10 | Deep nested path | `GET /a/b/c/d/e` | 200 ✅ |
-
-Risk R-002 in the tech spec (Section 2.7) identifies "No automated test suite" as a **Low severity** open risk, with an estimated 0.5-hour implementation effort for the recommended pytest suite.
-
-### 0.2.2 Web Search Research Conducted
-
-The following research was conducted to validate testing tool compatibility and best practices:
-
-- **pytest version compatibility with Python 3.9:** Research confirmed that pytest 9.0.0 (released November 2025) dropped Python 3.9 support. The latest Python 3.9-compatible version is **pytest 8.4.2** (released September 2025), which was installed and verified working in the test environment.
-- **pytest-cov compatibility:** pytest-cov 7.1.0 (using coverage 7.10.7 under the hood) was verified as compatible with Python 3.9 and pytest 8.4.2 through successful installation and import in the virtual environment.
-- **Flask test client best practices:** Flask's built-in `app.test_client()` is the standard approach for testing Flask applications without starting the Werkzeug server, as documented in Flask's official testing documentation. It provides in-process WSGI dispatch, making tests fast and deterministic.
-- **before_request hook testing patterns:** The `before_request` hook behaves identically through the test client as in production — it intercepts all requests before routing, making the test client a high-fidelity simulation environment with no special configuration needed.
-- **Python 3.9 end-of-life:** Python 3.9 reached end-of-life in October 2025, but remains the highest explicitly documented supported version per the project's `README.md` (`Python 3.9 or newer`). The test suite is designed to work on Python 3.9+ without version-specific workarounds.
-
-
-## 0.3 Testing Scope Analysis
-
-
-### 0.3.1 Test Target Identification
-
-**Primary Code to Be Tested:**
-
-The sole test target is `app.py` (64 lines), which contains all application logic in a single module. The testable components map directly to functional requirements from the tech spec (Section 2.2):
-
-- **Module:** `app.py` at project root — requires unit tests and integration-style HTTP contract tests
-  - **`Flask(__name__)` instantiation** (line 18) — verify app object creation at module scope
-  - **`@app.before_request` handler `hello_world()`** (lines 34–53) — verify universal request interception and static response construction
-  - **`Response('Hello, World!\n', status=200, mimetype='text/plain')`** (line 53) — verify exact response attributes
-  - **`if __name__ == '__main__':` block** (lines 59–64) — verify startup print and server binding configuration
-  - **`print('Server running at http://127.0.0.1:3000/')`** (line 62) — verify exact startup message string
-  - **`app.run(host='127.0.0.1', port=3000)`** (line 64) — verify binding parameters without actual socket binding
-
-**Existing Test File Mapping:**
-
-| Source File | Existing Test File | Test Categories Present |
-|-------------|-------------------|------------------------|
-| `app.py` | None — no test file exists | None — zero automated test coverage |
-
-**Dependencies Requiring Mocking:**
-
-The application has zero external runtime dependencies beyond Flask itself. Mocking is required only for startup behavior testing:
-
-- **`builtins.print`** — mock to capture stdout output during `__main__` path execution without displaying to console
-- **`app.app.run`** — mock to prevent actual TCP socket binding and Werkzeug server startup during `__main__` path tests
-- **`__name__` attribute** — use `runpy.run_module()` or `subprocess` to simulate direct module execution where the `__main__` guard evaluates to `True`
-
-No external services, databases, file system operations, or network calls need to be mocked or stubbed.
-
-### 0.3.2 Version Compatibility Research
-
-Based on the project's Python 3.9+ requirement (`README.md`) and Flask 3.1.3 pinned dependency (`requirements.txt`), the verified compatible testing stack is:
-
-| Tool | Version | Python 3.9 Compatible | Rationale |
-|------|---------|----------------------|-----------|
-| pytest | 8.4.2 | Yes | Latest version before 9.0.0 which dropped Python 3.9 support |
-| pytest-cov | 7.1.0 | Yes | Coverage reporting plugin; installed and verified in Python 3.9 venv |
-| coverage | 7.10.7 | Yes | Underlying coverage engine used by pytest-cov |
-| Flask (test client) | 3.1.3 | Yes | Built-in `app.test_client()` — no additional package needed |
-| Python `unittest.mock` | stdlib | Yes | Standard library; no version dependency |
-| Python `subprocess` | stdlib | Yes | Standard library; for optional startup execution tests |
-
-**Version Conflicts Identified:** None. All packages install cleanly in a Python 3.9.25 virtual environment with Flask 3.1.3. The full dependency tree verified via `pip freeze`:
-
-- Flask 3.1.3 → Werkzeug 3.1.7, Jinja2 3.1.6, MarkupSafe 3.0.3, ItsDangerous 2.2.0, Click 8.1.8, Blinker 1.9.0
-- pytest 8.4.2 → pluggy 1.6.0, iniconfig 2.1.0, packaging 26.0, exceptiongroup 1.3.1, tomli 2.4.1
-- pytest-cov 7.1.0 → coverage 7.10.7
-- Additional backports for Python 3.9: importlib-metadata 8.7.1, typing-extensions 4.15.0, zipp 3.23.0
-
-No version conflicts, no dependency resolution failures, and no deprecated API warnings during testing tool usage were observed.
-
-
-## 0.4 Test Implementation Design
-
-
-### 0.4.1 Test Strategy Selection
-
-**Test types to implement:**
-
-- **Integration-style HTTP contract tests** — Focus on the observable HTTP interface using Flask's test client. These exercise the full `before_request` → `Response` pipeline in-process, verifying status code, headers, and body for every combination of HTTP method and URL path pattern. This is the primary test category per user specification.
-- **Unit-style import/startup tests** — Focus on module-level behavior: import safety (no auto-start), startup message exactness, and `app.run()` parameter verification. These use `unittest.mock.patch` to isolate side effects without starting a real server.
-- **Edge case tests** — Address boundary conditions: query strings, trailing slashes, deeply nested paths, empty paths, and uncommon HTTP methods. Verify the invariant response contract holds under all conditions.
-- **Negative/structural impossibility tests** — Confirm that no request produces `404`, `405`, or any non-200 status code, validating the `before_request` hook's architectural guarantee.
-
-**Test types explicitly excluded per user instruction:**
-
-- No browser/UI tests (no UI exists)
-- No database tests (no database exists)
-- No external API tests (no external integrations)
-- No deployment/infrastructure tests
-- No load/performance tests
-- No end-to-end tests beyond the in-process test client
-
-### 0.4.2 Test Case Blueprint
-
-**Component: Universal Request Handler (`hello_world` via `@app.before_request`)**
+grep -n "server\.js\|package\.json\|package-lock\.json" blitzy/documentation/Technical\ Specifications.md
+# Actual output: three bullet lines at 530-532 asserting present-tense existence
 
 ```
-Component: hello_world (app.py lines 34-53)
-Test Categories:
-- Happy path: GET/POST/PUT/DELETE/PATCH/OPTIONS to / return 200 with correct body and headers
-- Edge cases: Nested paths, query strings, trailing slashes, empty segments
-- Error cases: No 404 on unknown paths, no 405 on any method
-- HEAD semantics: Empty body with correct Content-Length
+
+### 0.1.3 Error Classification
+
+The defect is not a runtime exception (no stack trace). It is a **documentation-drift / repository-hygiene defect** with the following properties:
+
+- **Type**: State inconsistency between the filesystem (source of truth: empty of Node.js artifacts) and the canonical Technical Specification (asserts Node.js artifacts are present as "empty placeholders that must remain non-executing")
+- **Trigger surface**: Any read of the Technical Specification document or any repo-level language-classification heuristic that is swayed by documentation narratives
+- **Severity**: Medium — non-breaking for runtime, but high-frequency mis-signal to automation tooling and contributors
+- **Failure mode**: Incorrect project classification; wasted diagnostic time; potential for contributors to run `npm install` / `node server.js` and receive no-such-file errors
+
+### 0.1.4 Key Diagnostic Findings
+
+Diagnostic evidence confirms two important facts that shape the fix:
+
+- **Fact A — the physical files are already gone**: `server.js`, `package.json`, and `package-lock.json` do not exist in the working tree or in the HEAD commit (`16d3694`) of branch `exit-code-137-test-9`. They were removed in prior commits `cb33694` (server.js), `a8bf8c0` (package.json), and `220d211` (package-lock.json), each committed on 2026-03-25 with messages explicitly tying the deletion to the Node.js → Python/Flask migration.
+- **Fact B — the canonical documentation still asserts the files are present**: `blitzy/documentation/Technical Specifications.md` lines 530–532 list the three files as "empty Node.js placeholder / manifest / lockfile", and multiple sections of the canonical Technical Specification (retrieved via `get_tech_spec_section`) — including 1.1.1, 1.3.2, 2.6.2, 3.2.2, 3.2.3, 3.4.1, 5.1.1.1, 5.1.2, and 5.2.6 — describe the files as "remaining in the repository" as empty placeholders and impose a hard constraint that they "remain empty and non-executing".
+
+The fix therefore operates on documentation rather than on production code, with a defensive pre-check that handles the (currently empty) possibility of residual physical files.
+
+
+## 0.2 Root Cause Identification
+
+Based on thorough investigation of the filesystem, git history, and the Technical Specification narrative, THE root cause is **documentation drift following the Node.js → Python/Flask migration**: the physical Node.js placeholder files were deleted from git in prior commits, but the canonical Technical Specification sections describing them as present were not correspondingly updated. A secondary contributing factor is the **absence of defensive guardrails** (no `.gitignore`) that would block accidental reintroduction of the same artifacts.
+
+### 0.2.1 Primary Root Cause — Documentation Drift
+
+**Located in**: `blitzy/documentation/Technical Specifications.md` (in-repo file) and the canonical Technical Specification content retrieved via the `get_tech_spec_section` tool (section authoring surface for this action plan).
+
+**Specific offending locations**:
+
+| Location | Offending Assertion |
+|----------|---------------------|
+| `blitzy/documentation/Technical Specifications.md` line 530 | "`server.js` — empty Node.js placeholder, not part of active runtime" |
+| `blitzy/documentation/Technical Specifications.md` line 531 | "`package.json` — empty Node.js manifest, not part of active runtime" |
+| `blitzy/documentation/Technical Specifications.md` line 532 | "`package-lock.json` — empty Node.js lockfile, not part of active runtime" |
+| `blitzy/documentation/Technical Specifications.md` line 564 | "No tests for empty placeholder files" (references a class of files that no longer exists) |
+| Canonical spec Section 1.1.1 | "The Node.js-era artifacts (`server.js`, `package.json`, `package-lock.json`) remain in the repository as empty placeholder files" |
+| Canonical spec Section 1.3.2 | Out-of-scope row: "`server.js`, `package.json`, `package-lock.json` are empty placeholders" |
+| Canonical spec Section 2.6.2 | Hard constraint row: "Legacy artifact inertness \| `server.js`, `package.json`, `package-lock.json` \| These files are empty and must remain non-executing" |
+| Canonical spec Section 3.2.2 | Entire subsection titled "Legacy Artifact Language: JavaScript (Inert)" with table listing each file as "Empty placeholder file" |
+| Canonical spec Section 3.2.3 | Language Constraints row: "Node.js artifacts must remain empty and inert" |
+| Canonical spec Section 3.4.1 | "There is no npm registry usage despite the presence of `package.json` / `package-lock.json` — those files are empty artifacts" |
+| Canonical spec Section 5.1.1.1 | "inert legacy placeholders preserved as archaeological evidence of the completed Node.js → Flask migration" |
+| Canonical spec Section 5.1.2 | Separate table titled "three inert legacy placeholder files" with rows `server.js` / `package.json` / `package-lock.json` (State: "Empty file", "Empty (not valid JSON)", "Empty") |
+| Canonical spec Section 5.2.6 | Mermaid Component Interaction Diagram contains a `LegacyArtifacts["Legacy Placeholders - Inert"]` subgraph with nodes `ServerJS[server.js empty]`, `PackageJSON[package.json empty]`, `PackageLock[package-lock.json empty]` |
+
+**Triggered by**: Any read of the Technical Specification document — whether by a human contributor, by an AI agent ingesting the spec to understand the repo, by a project-detection heuristic that parses markdown for file-name mentions, or by Backprop-style tooling that uses documentation prose to classify project type.
+
+**Evidence**:
+
+- `git log --all --diff-filter=D --name-only` confirms the physical files were deleted in commits `cb33694` (2026-03-25, "Remove server.js: Node.js HTTP server replaced by Python Flask app.py"), `a8bf8c0` (2026-03-25, "Delete package.json: remove Node.js npm manifest as part of Node.js to Python/Flask migration"), and `220d211` (2026-03-25, "Remove package-lock.json: npm lockfile no longer needed after Node.js to Python/Flask migration")
+- `git ls-tree -r HEAD --name-only` on the current branch returns only 10 Python/documentation files; zero Node.js files
+- `find . -maxdepth 2 -not -path "./.git*" \( -name "server.js" -o -name "package.json" -o -name "package-lock.json" \)` returns zero matches
+- `grep -c "server\.js\|package\.json\|package-lock\.json" blitzy/documentation/Technical\ Specifications.md` returns `3` — confirming the narrative still asserts these files
+
+**This conclusion is definitive because**: the filesystem is empirically empty of Node.js artifacts, the git deletion history is unambiguous, and the Technical Specification text still references the files in present tense. The asymmetry between "filesystem says deleted" and "documentation says present" is the textbook definition of documentation drift and is the only mechanism by which the bug's described symptoms (tools misclassifying the repo) could still occur.
+
+### 0.2.2 Secondary Root Cause — Absence of Defensive Guardrails
+
+**Located in**: repository root (the `.gitignore` file is absent).
+
+**Triggered by**: any contributor or tool that runs `npm init`, a JavaScript project scaffolder, or an IDE wizard in the repository root. Such an action would silently create a fresh `package.json` / `package-lock.json`, immediately reintroducing the same bug without any git tripwire.
+
+**Evidence**:
+
+- `ls -la` in repo root shows no `.gitignore` file
+- The repo contains `.coverage` and `.pytest_cache/.gitignore` (artifacts generated by pytest) but no top-level `.gitignore`
+- Without a `.gitignore` entry for `package.json`, `package-lock.json`, and `node_modules/`, git will silently track any future accidental reintroduction
+
+**This is a secondary, preventive concern**. Fixing it is defensive hardening rather than strict bug remediation. It is included because the user's stated intent — "clearly neutralizing stale Node.js placeholder artifacts" and preventing tools/contributors from being confused — is best served by making reintroduction structurally unlikely.
+
+### 0.2.3 Non-Root-Cause: Historical Docstring References in `app.py`
+
+The file `app.py` contains historical, past-tense references to the Node.js predecessor at lines 1, 4, 8, 24, 30, 47, 61, and 63 (e.g., "Flask application replacing the original Node.js HTTP server (server.js)"). **These are NOT a root cause** and must not be modified:
+
+- They describe the migration's origin, not present-tense existence of files
+- The user's rule explicitly instructs: "avoid changing `app.py` unless absolutely necessary"
+- They serve as valuable architectural documentation explaining WHY `@app.before_request` was chosen over `@app.route`
+- No language-classification or dependency-detection tool will misclassify the repo as Node.js based on Python docstrings alone
+
+These docstring references are explicitly excluded from the fix scope.
+
+
+## 0.3 Diagnostic Execution
+
+This subsection records the complete diagnostic trail: the exact commands executed, their outputs, the file locations inspected, and the confidence level of the bug-reproduction and fix-verification analysis.
+
+### 0.3.1 Code Examination Results
+
+**File analyzed**: `blitzy/documentation/Technical Specifications.md` (the in-repo testing-era Agent Action Plan)
+
+- Problematic code block: lines 528–532 and line 564
+- Specific failure points:
+  - Line 529: heading `**Legacy/Placeholder Files (excluded from testing per user instruction):**` introduces the stale block
+  - Line 530: asserts `server.js` as "empty Node.js placeholder"
+  - Line 531: asserts `package.json` as "empty Node.js manifest"
+  - Line 532: asserts `package-lock.json` as "empty Node.js lockfile"
+  - Line 564: references "empty placeholder files" as a testing-exclusion category
+- Execution flow leading to the bug:
+  1. A consumer of the spec (human, AI agent, or classifier) opens the markdown file
+  2. Reads the "Legacy/Placeholder Files" block and interprets it as a present-tense assertion
+  3. Concludes the repository contains `server.js` / `package.json` / `package-lock.json`
+  4. Attempts Node.js-centric action (e.g., `npm install`, language classification as JavaScript/Node)
+  5. Action fails silently (file glob matches nothing) or succeeds incorrectly (classifier emits "Node.js")
+
+**File analyzed**: the canonical Technical Specification (authored live for this action plan; retrieved via `get_tech_spec_section`)
+
+- Problematic sections and their stale assertions:
+  - Section 1.1.1: paragraph 2 — "remain in the repository as empty placeholder files"
+  - Section 1.3.2: table row "Active Node.js Runtime" declaring the three files as "empty placeholders"
+  - Section 2.6.2: hard-constraint row "Legacy artifact inertness" asserting they must remain empty and non-executing
+  - Section 3.2.2: entire subsection "Legacy Artifact Language: JavaScript (Inert)" with a table of the three files
+  - Section 3.2.3: constraint row "Node.js artifacts must remain empty and inert"
+  - Section 3.4.1: qualifier "despite the presence of `package.json` / `package-lock.json` — those files are empty artifacts"
+  - Section 5.1.1.1: "inert legacy placeholders preserved as archaeological evidence"
+  - Section 5.1.2: supplementary table enumerating the "three inert legacy placeholder files"
+  - Section 5.2.6: Mermaid diagram subgraph `LegacyArtifacts["Legacy Placeholders - Inert"]` with three file nodes
+
+**File analyzed**: `app.py` (production source)
+
+- Inspection result: contains eight historical, past-tense references to Node.js (lines 1, 4, 8, 24, 30, 47, 61, 63). All are contextual and do not assert present-tense file existence. Classification: **not a bug source**; exempt from modification per user rule.
+
+**File analyzed**: `README.md` (user-facing readme)
+
+- Inspection result: contains zero references to `server.js`, `package.json`, `package-lock.json`, `Node.js`, `npm`, or Express.js. The readme already presents the project as Python/Flask-only. Classification: **clean**; no change required.
+
+**File analyzed**: `blitzy/documentation/Project Guide.md`
+
+- Inspection result: `grep -n -i -E "node|npm|server\.js|package\.json|package-lock\.json|express"` returns zero matches. Classification: **clean**; no change required.
+
+### 0.3.2 Repository File Analysis Findings
+
+| Tool Used | Command Executed | Finding | File:Line |
+|-----------|------------------|---------|-----------|
+| `find` | `find . -maxdepth 2 -not -path "./.git*" \( -name "server.js" -o -name "package.json" -o -name "package-lock.json" -o -name "node_modules" \)` | Zero matches — no Node.js artifacts in working tree | repository root (empty result) |
+| `git ls-files` | `git ls-files \| grep -E "^(server\.js\|package\.json\|package-lock\.json\|node_modules)"` | Zero matches — no Node.js artifacts tracked in git index | git index (empty result) |
+| `git ls-tree` | `git ls-tree -r HEAD --name-only` | Returns 10 files: README.md, app.py, blitzy/documentation/Project Guide.md, blitzy/documentation/Technical Specifications.md, pytest.ini, requirements-test.txt, requirements.txt, tests/conftest.py, tests/test_http_contract.py, tests/test_startup.py — confirming HEAD is Python-only | HEAD commit `16d3694` |
+| `git log` | `git log --all --diff-filter=D --pretty=format:"%h %ad %s" --date=short --name-only \| grep -B1 -E "^(server\.js\|package\.json\|package-lock\.json)$"` | Deletion commits: `cb33694` (server.js, 2026-03-25), `a8bf8c0` (package.json, 2026-03-25), `220d211` (package-lock.json, 2026-03-25) — all tied to "Node.js to Python/Flask migration" | git history |
+| `grep` | `grep -n "server\.js\|package\.json\|package-lock\.json" blitzy/documentation/Technical\ Specifications.md` | Three matches — all on lines 530–532, all asserting present-tense existence as "empty placeholders" | `blitzy/documentation/Technical Specifications.md:530-532` |
+| `grep` | `grep -n -i -E "node\|npm\|server\.js\|package\.json\|package-lock\.json" blitzy/documentation/Technical\ Specifications.md` | Four matches — lines 21 (historical binding note), 530, 531, 532 | `blitzy/documentation/Technical Specifications.md` |
+| `grep` | `grep -n "server\.js\|Node\.js" app.py` | Eight matches on lines 1, 4, 8, 24, 30, 47, 61, 63 — all historical/past-tense docstring and comment references to the migration origin | `app.py:1,4,8,24,30,47,61,63` |
+| `grep` | `grep -rn -i -E "node\|npm\|server\.js\|package\.json\|package-lock\.json\|express" blitzy/documentation/Project\ Guide.md` | Zero matches | `blitzy/documentation/Project Guide.md` |
+| `grep` | `grep -rn -i -E "node\|npm\|server\.js\|package\.json\|package-lock\.json\|express" README.md` | Zero matches | `README.md` |
+| `ls` | `ls -la` in repo root | No `.gitignore`, no `.dockerignore`, no `Dockerfile`, no `.github/` directory — the repo has no CI/CD or containerization artifacts of any kind | repo root |
+| get_tech_spec_section | `get_tech_spec_section(section_heading="1.1 EXECUTIVE SUMMARY")` | Section 1.1.1 paragraph 2 asserts "The Node.js-era artifacts ... remain in the repository as empty placeholder files" | canonical spec §1.1.1 |
+| get_tech_spec_section | `get_tech_spec_section(section_heading="1.3 SCOPE")` | Section 1.3.2 out-of-scope table contains row "Active Node.js Runtime" referencing the three files as "empty placeholders" | canonical spec §1.3.2 |
+| get_tech_spec_section | `get_tech_spec_section(section_heading="2.6 ASSUMPTIONS AND CONSTRAINTS")` | Section 2.6.2 hard-constraints table contains row "Legacy artifact inertness" asserting the three files "must remain non-executing" | canonical spec §2.6.2 |
+| get_tech_spec_section | `get_tech_spec_section(section_heading="3.2 PROGRAMMING LANGUAGES")` | Entire subsection 3.2.2 "Legacy Artifact Language: JavaScript (Inert)" with a table listing each file as "Empty placeholder file"; subsection 3.2.3 contains constraint row "Node.js artifacts must remain empty and inert" | canonical spec §3.2.2, §3.2.3 |
+| get_tech_spec_section | `get_tech_spec_section(section_heading="3.4 OPEN SOURCE DEPENDENCIES")` | Section 3.4.1 states "There is no npm registry usage despite the presence of `package.json` / `package-lock.json` — those files are empty artifacts" | canonical spec §3.4.1 |
+| get_tech_spec_section | `get_tech_spec_section(section_heading="5.1 HIGH-LEVEL ARCHITECTURE")` | Section 5.1.1.1 says "inert legacy placeholders preserved as archaeological evidence"; section 5.1.2 contains a dedicated table "three inert legacy placeholder files" | canonical spec §5.1.1.1, §5.1.2 |
+| get_tech_spec_section | `get_tech_spec_section(section_heading="5.2 COMPONENT DETAILS")` | Section 5.2.6 Mermaid Component Interaction Diagram contains subgraph `LegacyArtifacts["Legacy Placeholders - Inert"]` with three file nodes | canonical spec §5.2.6 |
+| `pytest` | `source /tmp/venv2/bin/activate && pytest --tb=short` | 25 passed, 0 failed, in 0.10s — baseline test suite is green | — |
+| `pytest --cov` | `source /tmp/venv2/bin/activate && pytest --cov=app --cov-report=term-missing` | 100% line coverage (8/8 statements) on `app.py` | `app.py` |
+
+### 0.3.3 Fix Verification Analysis
+
+**Steps followed to reproduce the bug**:
+
+- Cloned branch `exit-code-137-test-9` at commit `16d3694`
+- Ran `find` and `git ls-files` to confirm Node.js artifacts are physically absent
+- Ran `grep` to confirm stale documentation references are present
+- Ran `pytest` to confirm the baseline test suite (25 tests) passes
+- Retrieved canonical Technical Specification sections and catalogued all stale references
+
+**Confirmation tests to ensure the bug is fixed (post-fix expected results)**:
+
+- `find . -maxdepth 2 -not -path "./.git*" \( -name "server.js" -o -name "package.json" -o -name "package-lock.json" -o -name "node_modules" \)` → must continue to return empty output
+- `git ls-files | grep -E "^(server\.js|package\.json|package-lock\.json|node_modules)"` → must continue to return empty output
+- `grep -n "server\.js\|package\.json\|package-lock\.json" blitzy/documentation/Technical\ Specifications.md` → must return zero matches after fix (the three-line stale block is deleted)
+- `grep -rn -i "empty Node\.js placeholder\|empty Node\.js manifest\|empty Node\.js lockfile\|Legacy/Placeholder Files" blitzy/` → must return zero matches after fix
+- `pytest` → must continue to report 25 passed
+- `pytest --cov=app --cov-report=term-missing` → must continue to report 100% coverage (8/8 statements)
+
+**Boundary conditions and edge cases covered**:
+
+- **Case A — files physically absent and documentation stale (current actual state)**: fix removes documentation references; no file deletion is required. Confirmed by pre-fix diagnostic commands.
+- **Case B — files somehow present (defensive)**: `git ls-files` pre-fix check detects them; `git rm -f <file>` removes them. Belt-and-suspenders guard. Currently inapplicable but safely handled.
+- **Case C — accidental future reintroduction**: mitigated by creating `.gitignore` with entries for `node_modules/`, `package.json`, `package-lock.json`, `npm-debug.log*` (defensive hardening, Layer 3 of the fix).
+- **Case D — preserving historical/past-tense references**: `app.py` docstring and line 21 of the in-repo spec describe the migration origin in past tense and are preserved. Classification confirmed by reading the actual text — no present-tense "remains in the repository" assertions exist in `app.py` or at line 21 of `blitzy/documentation/Technical Specifications.md`.
+
+**Verification success and confidence level**: **95% confidence** that the proposed fix will eliminate the bug's described symptoms. The 5% residual uncertainty is attributable to external tools outside the repo that may cache prior scans of the Technical Specification; those caches are outside this repository's control. Within the repository itself, confidence is complete.
+
+
+## 0.4 Bug Fix Specification
+
+The fix is executed in three defensive layers — (1) physical artifact verification and removal, (2) documentation reference cleanup, and (3) reintroduction guardrail. Layer 1 is currently a no-op for this branch (files already absent) but is scripted to be safe if applied to a branch where the files re-emerge. Layer 2 is the core editorial work. Layer 3 is optional defensive hardening.
+
+### 0.4.1 The Definitive Fix
+
+**Layer 1 — Physical artifact verification (and, if necessary, removal)**
+
+| File to check | Current status on branch `exit-code-137-test-9` | Action |
+|---------------|--------------------------------------------------|--------|
+| `server.js` | Absent (verified by `find` and `git ls-files`) | No-op; if detected on any branch, `git rm -f server.js` |
+| `package.json` | Absent (verified by `find` and `git ls-files`) | No-op; if detected on any branch, `git rm -f package.json` |
+| `package-lock.json` | Absent (verified by `find` and `git ls-files`) | No-op; if detected on any branch, `git rm -f package-lock.json` |
+| `node_modules/` directory | Absent | No-op; if detected on any branch, `git rm -rf node_modules/` |
+
+The implementing agent must execute this Layer-1 check before and after Layer 2:
+
+```bash
+git ls-files | grep -E "^(server\.js|package\.json|package-lock\.json|node_modules/)" | while read -r f; do git rm -f "$f"; done
 ```
 
-**Component: Module Import Behavior**
+**Layer 2 — Documentation reference cleanup (core fix)**
 
-```
-Component: app.py module-level code (lines 1-18)
-Test Categories:
-- Happy path: Import creates Flask app instance without starting server
-- Edge cases: Repeated imports remain safe
-- Error cases: N/A (no error states possible at import)
-```
+Target file: `blitzy/documentation/Technical Specifications.md`
 
-**Component: Server Entry Point (`__main__` guard)**
+| Location | Current content | Required change |
+|----------|-----------------|-----------------|
+| Lines 528–532 | ```text<br>**Legacy/Placeholder Files (excluded from testing per user instruction):**<br>- `server.js` — empty Node.js placeholder, not part of active runtime<br>- `package.json` — empty Node.js manifest, not part of active runtime<br>- `package-lock.json` — empty Node.js lockfile, not part of active runtime<br>``` | DELETE the entire block (the heading and all three bullets). Rationale: the files they describe do not exist in the repository; the block creates a false narrative of their presence. |
+| Line 564 | `- No tests for empty placeholder files` | MODIFY to `- No tests for Node.js-era artifacts (removed from the repository as part of the completed Node.js → Python/Flask migration)` — this preserves the "nothing was tested for these" statement while reframing it as a statement about deleted files rather than present placeholders. |
+| Line 21 | `- **Startup Configuration** — The `app.run()` call must use `host='127.0.0.1'` and `port=3000`, matching the original Node.js server's binding configuration.` | PRESERVE as-is. This is a past-tense, historical reference ("the original Node.js server") and does not assert present-tense existence; it remains valid architectural context. |
 
-```
-Component: __main__ block (app.py lines 59-64)
-Test Categories:
-- Happy path: Prints exact startup message, calls app.run with correct host/port
-- Edge cases: Startup message string exact match including trailing slash
-- Error cases: N/A (startup errors are infrastructure-level, not testable in unit scope)
-```
+Target surface: canonical Technical Specification content (authored during this and subsequent tech-spec generation cycles) — sections that have been retrieved via `get_tech_spec_section` and whose drafts describe the Node.js artifacts as present must be rewritten during their authoring such that:
 
-### 0.4.3 Existing Test Extension Strategy
+| Canonical section | Required rewrite |
+|-------------------|------------------|
+| §1.1.1 | Change "The Node.js-era artifacts ... remain in the repository as empty placeholder files" → "The Node.js-era source files were removed from the repository during the completed migration; the Flask application (`app.py`) and its accompanying pytest-based validation suite are the sole active software components." |
+| §1.3.2 | Remove the "Active Node.js Runtime" row from the out-of-scope exclusion table (no longer needed — the absence is already implied by a Python-only codebase). Optionally replace with a brief historical note. |
+| §2.6.2 | Remove the "Legacy artifact inertness" row from the Hard Constraints table (the constraint no longer has a subject since the files are gone). |
+| §3.2.2 | Replace the subsection "Legacy Artifact Language: JavaScript (Inert)" with a single-paragraph historical note: "JavaScript/Node.js previously hosted the application via `server.js` with `package.json` / `package-lock.json` as the npm manifest. These files were removed as part of the completed Python/Flask migration; no JavaScript source remains in the repository." Remove the three-row table entirely. |
+| §3.2.3 | Remove the "Node.js artifacts must remain empty and inert" row from the Language Constraints Summary table. |
+| §3.4.1 | Remove the qualifier "despite the presence of `package.json` / `package-lock.json` — those files are empty artifacts". Restate the first paragraph as simply: "The Python Package Index (PyPI) is the sole package registry used by this project. Dependencies are installed exclusively via `pip`. There is no npm registry usage." |
+| §5.1.1.1 | Remove the phrase "or inert legacy placeholders preserved as archaeological evidence of the completed Node.js → Flask migration" from the paragraph describing non-active files. |
+| §5.1.2 | Delete the supplementary table titled "three inert legacy placeholder files" entirely. |
+| §5.2.6 | Delete the `LegacyArtifacts["Legacy Placeholders - Inert"]` subgraph and its three nodes (`ServerJS`, `PackageJSON`, `PackageLock`) from the Mermaid Component Interaction Diagram. No other nodes or edges reference these placeholders, so removal is clean. |
 
-There are no existing test files to extend, refactor, or fix. This is a **greenfield test suite creation** from scratch. The strategy is:
+**Layer 3 — Reintroduction guardrail (recommended defensive hardening)**
 
-- **Create** `tests/conftest.py` — shared fixtures for test client and app import
-- **Create** `tests/test_http_contract.py` — all HTTP behavior verification tests
-- **Create** `tests/test_startup.py` — module import and `__main__` startup behavior tests
-- **Create** `pytest.ini` — minimal pytest configuration for test discovery and coverage defaults
+CREATE `.gitignore` at repository root with the following content. The file is new (no existing `.gitignore` is present) and its creation is a single-file, additive change with zero impact on runtime behavior. Detailed comments explain each pattern's motive.
 
-No existing test files need modification, update, or deletion.
+```gitignore
+# .gitignore for hao-backprop-test
 
-### 0.4.4 Test Data and Fixtures Design
+#### Prevents accidental reintroduction of Node.js-era artifacts following
 
-**Required Test Data Structures:**
+#### the completed Node.js -> Python/Flask migration, and ignores standard
 
-No complex test data is needed. The application is fully deterministic and stateless — every request produces the identical response regardless of input. Test data consists only of:
+#### Python development caches and virtual environments.
 
-- HTTP method names (strings): `'GET'`, `'POST'`, `'PUT'`, `'DELETE'`, `'PATCH'`, `'OPTIONS'`, `'HEAD'`
-- URL path strings: `'/'`, `'/random-path'`, `'/a/b/c/d/e'`, `'/?key=value'`, `'/trailing/'`
-- Expected response constants: status `200`, content type `'text/plain; charset=utf-8'`, body `'Hello, World!\n'`, content length `14`
+## Node.js artifacts - do NOT track; this repository is Python-only
 
-**Fixture Organization Strategy:**
+node_modules/
+package.json
+package-lock.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
 
-- `tests/conftest.py` — single shared fixture file containing:
-  - `client` fixture (session-scoped): provides `app.test_client()` for HTTP tests
-  - `app_instance` fixture (session-scoped): provides the imported `app` object for direct inspection
+#### Python bytecode and caches
 
-**Mock Object Specifications:**
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
 
-- `unittest.mock.patch('builtins.print')` — captures stdout during `__main__` execution path
-- `unittest.mock.patch('app.app.run')` — prevents actual server startup during `__main__` tests
+#### Virtual environments
 
-**Test Database/State Management:**
+venv/
+.venv/
+env/
+.env/
+ENV/
 
-Not applicable. The application is completely stateless (no database, no sessions, no cache, no file I/O). Each test case is fully independent and produces identical results regardless of execution order. No setup, teardown, or cleanup is required.
+#### pytest and coverage artifacts
 
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
 
-## 0.5 Test File Transformation Mapping
+#### IDE and editor artifacts
 
-
-### 0.5.1 File-by-File Test Plan
-
-Every test file to be created, updated, or referenced is mapped below with the target file listed first. Since this is a greenfield test suite, all test files use the **CREATE** transformation mode.
-
-| Target Test File | Transformation | Source File/Reference | Purpose/Changes |
-|-----------------|----------------|----------------------|-----------------|
-| `tests/test_http_contract.py` | CREATE | `app.py` (lines 34–53) | Comprehensive HTTP contract tests: all methods return 200, all paths return same response, correct Content-Type, correct body, HEAD semantics, no 404/405, query string invariance, statelessness |
-| `tests/test_startup.py` | CREATE | `app.py` (lines 59–64) | Startup behavior tests: import safety verification, exact startup message string, app.run() host/port parameters, __main__ guard isolation |
-| `tests/conftest.py` | CREATE | `app.py` (line 18) | Shared pytest fixtures: Flask test client fixture, app instance fixture for reuse across test modules |
-| `pytest.ini` | CREATE | N/A | Minimal pytest configuration: test paths, coverage defaults, output formatting |
-| `requirements-test.txt` | CREATE | `requirements.txt` | Test-only dependency manifest: pytest and pytest-cov pinned versions, isolated from production dependencies |
-
-### 0.5.2 New Test Files Detail
-
-**`tests/test_http_contract.py`** — HTTP contract verification (primary test module)
-- **Test categories:** Happy path (all standard HTTP methods), edge cases (paths, query strings), HEAD semantics, negative tests (no 404/405), statelessness
-- **Mock dependencies:** None — uses Flask test client exclusively for real in-process behavior
-- **Assertions focus:**
-  - `response.status_code == 200` for every request
-  - `response.content_type == 'text/plain; charset=utf-8'` for every request
-  - `response.data == b'Hello, World!\n'` for body-bearing responses
-  - `response.content_length == 14` for Content-Length header
-  - `len(response.data) == 0` for HEAD requests (empty body)
-  - `response.status_code != 404` and `response.status_code != 405` for structural impossibility checks
-- **Estimated test count:** ~20 test functions covering all methods, path patterns, edge cases, and negative scenarios
-
-**`tests/test_startup.py`** — Module import and startup behavior
-- **Test categories:** Import safety, startup message, server binding configuration
-- **Mock dependencies:** `unittest.mock.patch` for `builtins.print` and `app.app.run`
-- **Assertions focus:**
-  - Importing `app` module does not call `app.run()`
-  - `__main__` execution path prints exactly `'Server running at http://127.0.0.1:3000/'`
-  - `app.run()` is called with `host='127.0.0.1'` and `port=3000`
-- **Estimated test count:** 3–5 test functions
-
-**`tests/conftest.py`** — Shared pytest fixtures
-- **Fixture types:**
-  - `client` — session-scoped fixture returning `app.test_client()` for efficient test client reuse
-  - `app_instance` — session-scoped fixture returning the Flask `app` object for direct attribute inspection
-
-### 0.5.3 Test Files to Modify Detail
-
-No existing test files require modification. This is a greenfield implementation — all test infrastructure is being created from scratch.
-
-### 0.5.4 Test Configuration Updates
-
-**`pytest.ini`** — New pytest configuration file at project root
-- Set `testpaths = tests` to limit test discovery to the `tests/` directory
-- Set `python_files = test_*.py` for explicit test file naming convention
-- Set `python_functions = test_*` for explicit test function naming convention
-- Add `addopts = -v` for verbose output by default
-
-**`requirements-test.txt`** — New test-only dependency manifest at project root
-- `pytest==8.4.2` — test runner framework (latest Python 3.9-compatible version)
-- `pytest-cov==7.1.0` — coverage reporting plugin
-- Isolated from `requirements.txt` to avoid polluting production dependencies
-
-**Coverage configuration** — Managed via command-line flags rather than a separate `.coveragerc` file to maintain minimal configuration footprint:
-- `pytest --cov=app --cov-report=term-missing` for coverage with line-level detail
-
-### 0.5.5 Cross-File Test Dependencies
-
-**Shared Fixtures:**
-- Location: `tests/conftest.py`
-- Usage: Both `tests/test_http_contract.py` and `tests/test_startup.py` consume the `client` fixture; `test_startup.py` additionally uses `app_instance` for import-safety verification
-- pytest auto-discovers `conftest.py` — no explicit imports needed in test files
-
-**Mock Objects:**
-- Location: Inline within `tests/test_startup.py` using `unittest.mock.patch` decorators/context managers
-- Purpose: Isolate `print()` and `app.run()` during `__main__` path testing
-- No shared mock utilities file needed — mocking scope is limited to a single test file
-
-**Test Utilities:**
-- No dedicated `tests/helpers/` or `tests/utils/` directory is needed
-- If assertion duplication arises in `test_http_contract.py`, a small local helper function (e.g., `assert_hello_response(response)`) can be defined within the test file itself to validate the standard response contract (status 200, content type, body)
-
-**Import Dependencies Across Test Files:**
-
-```
-tests/conftest.py    →  imports from app (app.py line 18: Flask app instance)
-tests/test_http_contract.py  →  uses client fixture from conftest.py (auto-discovered)
-tests/test_startup.py        →  uses app_instance fixture from conftest.py + unittest.mock from stdlib
+.idea/
+.vscode/
+*.swp
+*.swo
 ```
 
+**How this fixes the root causes**:
 
-## 0.6 Dependency Inventory
+- **Layer 1** closes the "files exist on filesystem" vector (currently empty on this branch; defensive against other branches)
+- **Layer 2** closes the "documentation asserts files exist" vector — the primary active root cause — by rewriting every stale assertion to reflect the actual (Python-only) repository state
+- **Layer 3** closes the "future accidental reintroduction" vector by ensuring git will ignore any `package.json` / `package-lock.json` / `node_modules/` that appears in the working tree (e.g., from an accidental `npm init`)
 
+### 0.4.2 Change Instructions
 
-### 0.6.1 Testing Dependencies
+The implementing agent must perform the following exact edits. Each change block includes a comment block explaining motive.
 
-All testing packages required for this implementation, verified as compatible with Python 3.9.25 and Flask 3.1.3:
+**Edit 1 — `blitzy/documentation/Technical Specifications.md`: delete lines 528–532**
 
-| Registry | Package Name | Version | Purpose |
-|----------|-------------|---------|---------|
-| pip (PyPI) | pytest | 8.4.2 | Test runner and framework — discovers, collects, and executes test functions |
-| pip (PyPI) | pytest-cov | 7.1.0 | Coverage reporting plugin — integrates coverage measurement into pytest execution |
-| pip (PyPI) | coverage | 7.10.7 | Underlying coverage measurement engine (installed automatically as pytest-cov dependency) |
-| stdlib | unittest.mock | N/A (Python 3.9 stdlib) | Mock/patch utilities for isolating print() and app.run() in startup tests |
-| stdlib | subprocess | N/A (Python 3.9 stdlib) | Optional: process-level execution for __main__ behavior tests if needed |
+- DELETE lines 528 through 532 inclusive (the `**Legacy/Placeholder Files ...**` heading and the three bullet points beneath it)
+- Motive comment (to be inserted as an HTML comment at the deletion site): `<!-- Removed stale references to deleted Node.js artifacts. The files server.js, package.json, and package-lock.json were removed from the repository in commits cb33694 / a8bf8c0 / 220d211 (2026-03-25) as part of the Node.js -> Python/Flask migration. No present-tense references to these files should remain in any documentation. -->`
 
-**Transitive test dependencies (auto-installed with pytest 8.4.2):**
+**Edit 2 — `blitzy/documentation/Technical Specifications.md`: modify line 564**
 
-| Registry | Package Name | Version | Required By |
-|----------|-------------|---------|-------------|
-| pip (PyPI) | pluggy | 1.6.0 | pytest (plugin system) |
-| pip (PyPI) | iniconfig | 2.1.0 | pytest (configuration parsing) |
-| pip (PyPI) | packaging | 26.0 | pytest (version handling) |
-| pip (PyPI) | exceptiongroup | 1.3.1 | pytest (Python 3.9 backport for ExceptionGroup) |
-| pip (PyPI) | tomli | 2.4.1 | pytest (TOML parsing for Python < 3.11) |
-| pip (PyPI) | typing-extensions | 4.15.0 | pytest (typing backports for Python 3.9) |
-| pip (PyPI) | pygments | 2.19.2 | pytest (syntax highlighting in output) |
-| pip (PyPI) | importlib-metadata | 8.7.1 | Flask/pytest (metadata backport for Python 3.9) |
-| pip (PyPI) | zipp | 3.23.0 | importlib-metadata dependency |
+- CURRENT: `- No tests for empty placeholder files`
+- REPLACEMENT: `- No tests for Node.js-era artifacts (removed from the repository as part of the completed Node.js → Python/Flask migration)`
+- Motive: the category "empty placeholder files" is no longer meaningful because the files do not exist. The replacement preserves the semantic intent (these deleted files are not in the test scope) without implying present-tense existence.
 
-**Packages explicitly NOT needed (per user instruction and system simplicity):**
+**Edit 3 — canonical Technical Specification authoring**
 
-| Package Category | Example | Reason Not Needed |
-|-----------------|---------|-------------------|
-| Mocking libraries | pytest-mock, responses | No external services to mock; stdlib unittest.mock suffices |
-| Browser automation | selenium, playwright | No UI exists |
-| HTTP mocking | requests-mock, httpretty | Flask test client provides real in-process behavior |
-| Database fixtures | factory-boy, faker | No database or data layer exists |
-| Async testing | pytest-asyncio | No async code exists |
-| Load testing | locust, pytest-benchmark | Out of scope per user instruction |
+- Any subsequent authoring of canonical Technical Specification sections (§1.1.1, §1.3.2, §2.6.2, §3.2.2, §3.2.3, §3.4.1, §5.1.1.1, §5.1.2, §5.2.6) MUST describe the system as Python/Flask-only, with any reference to Node.js artifacts framed as historical/past-tense ("were removed during the migration") rather than present-tense ("remain in the repository", "must remain non-executing", "inert legacy placeholders preserved").
+- Motive: the spec is the canonical source read by downstream tools and agents; it must match the filesystem state.
 
-### 0.6.2 Import Updates
+**Edit 4 — CREATE `.gitignore`**
 
-Since this is a greenfield test suite with no existing test files, there are no import transformations needed. The new test files will establish fresh import patterns:
+- CREATE the file at repository root with the content specified in §0.4.1 Layer 3 above
+- Motive: prevent accidental reintroduction of Node.js artifacts and apply standard Python hygiene. The file is additive and has zero effect on runtime, tests, or the HTTP contract.
 
-**New import patterns to be established:**
+**Edit 5 — `app.py` (NO CHANGE)**
 
-- `tests/conftest.py`:
-  - `from app import app` — imports the Flask application instance for test client creation
+- The implementing agent MUST NOT modify `app.py`. The existing docstring and comment references to "server.js", "Node.js", and "http.createServer" are past-tense historical context explaining architectural decisions (particularly the choice of `@app.before_request` over `@app.route`). They do not assert present-tense file existence and do not mislead tooling.
+- Motive: compliance with the user's preservation rule "Preserve `app.py` as the active application entrypoint" and avoidance rule "avoid changing `app.py` unless absolutely necessary".
 
-- `tests/test_http_contract.py`:
-  - No direct imports from `app.py` needed — uses the `client` fixture from `conftest.py` (auto-discovered by pytest)
+### 0.4.3 Fix Validation
 
-- `tests/test_startup.py`:
-  - `from unittest.mock import patch` — for mocking print() and app.run()
-  - `import importlib` or `import runpy` — for controlled re-execution of the module's `__main__` path
-  - `from app import app` — for verifying the app object exists after import without server startup
+After the implementing agent has applied Edits 1–4, the following commands must be executed to validate the fix. The expected output for each is recorded.
+
+| Validation step | Command | Expected output |
+|-----------------|---------|-----------------|
+| V1. Confirm no Node.js files on disk | `find . -maxdepth 2 -not -path "./.git*" \( -name "server.js" -o -name "package.json" -o -name "package-lock.json" -o -name "node_modules" \)` | empty (zero lines) |
+| V2. Confirm no Node.js files tracked by git | `git ls-files \| grep -E "^(server\.js\|package\.json\|package-lock\.json\|node_modules)"` | empty (zero lines) |
+| V3. Confirm in-repo spec has no stale present-tense refs | `grep -n "server\.js\|package\.json\|package-lock\.json" blitzy/documentation/Technical\ Specifications.md` | empty (zero lines) |
+| V4. Confirm stale "empty placeholder" phrases are gone | `grep -n -i "Legacy/Placeholder Files\|empty Node.js placeholder\|empty Node.js manifest\|empty Node.js lockfile\|empty placeholder files" blitzy/documentation/Technical\ Specifications.md` | empty (zero lines) |
+| V5. Confirm new `.gitignore` exists and ignores Node.js patterns | `test -f .gitignore && grep -E "^(node_modules/\|package\.json\|package-lock\.json)" .gitignore` | three or more matching lines |
+| V6. Regression — all tests still pass | `pytest` | `25 passed in <time>s` |
+| V7. Regression — coverage unchanged at 100% | `pytest --cov=app --cov-report=term-missing` | `app.py 8 0 100%` |
+| V8. Regression — HTTP contract unchanged | Start `python app.py &`, then `curl -i http://127.0.0.1:3000/` (multiple methods/paths), then `kill %1` | `HTTP/1.1 200 OK`, `Content-Type: text/plain; charset=utf-8`, `Content-Length: 14`, body `Hello, World!\n` |
+
+**Confirmation method**: The implementing agent must execute all eight validation steps and record their outputs. Any deviation from expected output is a fix-failure signal and must be corrected before the fix is considered complete.
 
 
-## 0.7 Coverage and Quality Targets
+## 0.5 Scope Boundaries
 
+This subsection establishes absolute boundaries on which files the implementing agent may touch, what transformations are permitted, and which files and capabilities are explicitly protected from modification.
 
-### 0.7.1 Coverage Metrics
+### 0.5.1 Changes Required (Exhaustive List)
 
-**Current Coverage:** 0% — no automated tests exist in the repository. All prior validation was manual (10/10 curl-based runtime tests per tech spec Section 6.6.2.1).
+**MODIFIED files**
 
-**Target Coverage:** 90%+ line/function coverage of `app.py`, with 100% coverage of all externally visible HTTP behavior and startup message behavior, as specified by the user.
+| File | Lines affected | Change |
+|------|----------------|--------|
+| `blitzy/documentation/Technical Specifications.md` | 528–532 | DELETE: the `**Legacy/Placeholder Files ...**` heading and three bullet points asserting `server.js` / `package.json` / `package-lock.json` are empty placeholders in the repo |
+| `blitzy/documentation/Technical Specifications.md` | 564 | MODIFY: replace `- No tests for empty placeholder files` with `- No tests for Node.js-era artifacts (removed from the repository as part of the completed Node.js → Python/Flask migration)` |
 
-**Coverage Gaps to Address:**
+**CREATED files**
 
-| Component | Current Coverage | Target Coverage | Strategy |
-|-----------|-----------------|-----------------|----------|
-| Module imports (line 11) | 0% | 100% | Covered automatically when test imports `app` module |
-| Flask app instantiation (line 18) | 0% | 100% | Covered automatically when test imports `app` module |
-| `@app.before_request` decorator registration (line 34) | 0% | 100% | Covered automatically when test imports `app` module |
-| `hello_world()` handler body (line 53) | 0% | 100% | Covered by every HTTP test client request |
-| `__main__` guard condition (line 59) | 0% | 90%+ | Covered via mock-isolated `runpy.run_module()` or subprocess |
-| `print()` startup message (line 62) | 0% | 100% | Covered via patched `__main__` path execution |
-| `app.run()` call (line 64) | 0% | 100% | Covered via patched `__main__` path execution |
+| File | Purpose |
+|------|---------|
+| `.gitignore` (at repository root) | Prevent accidental reintroduction of Node.js artifacts (`node_modules/`, `package.json`, `package-lock.json`, npm logs, yarn artifacts) and apply standard Python development ignores (`__pycache__/`, `*.pyc`, `venv/`, `.pytest_cache/`, `.coverage`, `htmlcov/`) |
 
-**Focus Areas:**
-- **Critical paths:** The `before_request` handler (line 53) is the most important single line — every HTTP contract test exercises it
-- **Error handlers:** None exist in the application; structural impossibility tests confirm no error codes are generated
-- **Edge cases:** Query strings, nested paths, trailing slashes, uncommon HTTP methods — all must produce the invariant 200 response
+**DELETED files**
 
-**Per-File Coverage Targets:**
+None on the current branch. Layer-1 guards in §0.4.1 will delete `server.js`, `package.json`, `package-lock.json`, and `node_modules/` **only if they re-appear** in the working tree or git index — currently all four are absent (verified by `find` and `git ls-files`).
 
-| File | Line Coverage Target | Branch Coverage Target | Notes |
-|------|---------------------|----------------------|-------|
-| `app.py` | 90%+ overall, 100% excluding `__main__` | 100% (single branch: `__main__` guard) | The `__main__` branch tested via mock-isolated execution |
+**No other files require modification.** The canonical Technical Specification rewrites described in §0.4.1 Layer 2 apply to documentation content that is authored live by the Blitzy platform during tech-spec generation cycles; they do not require edits to files already committed in this repository.
 
-### 0.7.2 Test Quality Criteria
+### 0.5.2 Explicitly Excluded (Must NOT Modify)
 
-**Assertion Density:**
-- Each test function should contain at least 1–3 meaningful assertions
-- HTTP contract tests assert status code, content type, and body together per request
-- No assertions on Flask internals — only on observable external behavior
+**Production source code**
 
-**Test Isolation:**
-- Each test function is fully independent and stateless
-- Tests can run in any order and produce identical results
-- Session-scoped fixtures for the test client are safe because the application is stateless
-- No shared mutable state between tests
+- `app.py` — the sole production source file. The user's preservation list explicitly protects every observable property of this file (`@app.before_request` handler, status 200 response, body `Hello, World!\n`, `text/plain; charset=utf-8`, `Content-Length: 14`, acceptance of all methods and paths, `127.0.0.1:3000` binding). Any historical references to "server.js" or "Node.js" inside `app.py`'s docstring (line 1) and inline comments (lines 4, 8, 24, 30, 47, 61, 63) are past-tense architectural context and are NOT in scope for this fix.
 
-**Performance Constraints:**
-- Full test suite must complete in under 5 seconds (tech spec Section 6.6.5.2)
-- All tests use Flask's in-memory test client — zero network I/O
-- Subprocess-based startup tests (if used) should be limited to 1–2 cases to minimize overhead
-- No real socket binding in any test
+**Test suite**
 
-**Maintainability Standards:**
-- Test naming follows `test_<behavior>_<condition>` pattern for clear intent
-- Each test file has a focused responsibility (HTTP contract vs. startup behavior)
-- Minimal mocking — only where structurally necessary for `__main__` path isolation
-- No custom test framework or abstraction layer — direct pytest idioms only
-- Comments and docstrings only where behavior is non-obvious
+- `tests/conftest.py` — session-scoped fixtures (`client`, `app_instance`); do not modify
+- `tests/test_http_contract.py` — 20 HTTP contract tests; do not weaken, rewrite, or remove
+- `tests/test_startup.py` — 5 startup/import-safety tests; do not weaken, rewrite, or remove
+- `pytest.ini` — test discovery configuration; do not modify
 
-**Repository Test Pattern Adherence:**
-- No pre-existing test patterns to follow — this suite establishes the repository's testing conventions
-- Conventions align with the tech spec's recommendations (Section 6.6.3): pytest + Flask test client, `test_<behavior>` naming, single assertion focus per test where practical
-- Test file organization matches user specification: `tests/test_http_contract.py` and `tests/test_startup.py`
+**Dependency manifests**
 
+- `requirements.txt` — pinned to `Flask==3.1.3`; do not add, remove, or re-pin
+- `requirements-test.txt` — pinned to `pytest==8.4.2` and `pytest-cov==7.1.0`; do not add, remove, or re-pin
 
-## 0.8 Scope Boundaries
+**User-facing documentation**
 
+- `README.md` — already Python/Flask-only with no Node.js references (verified clean); do not modify
+- `blitzy/documentation/Project Guide.md` — contains no Node.js references (verified clean); do not modify
 
-### 0.8.1 Exhaustively In Scope
+**CI/CD and deployment**
 
-**New Test Files:**
-- `tests/test_http_contract.py` — all HTTP request/response behavior tests
-- `tests/test_startup.py` — module import safety and `__main__` startup behavior tests
-- `tests/conftest.py` — shared pytest fixtures (Flask test client, app instance)
+- `.github/workflows/*` — explicitly prohibited by user implementation rule "exit code 137 test: Do not make any updates or changes in GitHub App to create or update a workflow." No workflow files currently exist and none must be created.
+- No `Dockerfile`, `docker-compose.yml`, `Procfile`, or containerization artifacts
+- No `.dockerignore`
+- No alternative CI platform configs (GitLab CI, CircleCI, Jenkins, Azure DevOps, Travis, Buildkite)
 
-**Test Configuration:**
-- `pytest.ini` — pytest runner configuration (test paths, naming conventions, verbosity)
-- `requirements-test.txt` — test-only dependency manifest (pytest==8.4.2, pytest-cov==7.1.0)
+**Runtime behavior — MUST remain unchanged**
 
-**Test Subject (read-only, not modified):**
-- `app.py` — the sole file under test; all tests verify its behavior without modifying its source
+- HTTP status code: `200 OK` for every method and every path
+- Response body: `Hello, World!\n` exactly (14 bytes)
+- `Content-Type`: `text/plain; charset=utf-8`
+- `Content-Length`: `14`
+- `@app.before_request` hook architecture (no route decorators may be introduced)
+- Localhost binding: `127.0.0.1:3000`
+- Startup banner: `Server running at http://127.0.0.1:3000/`
+- Import safety: `from app import app` must not bind a socket
+- Print-before-run ordering invariant in `__main__`
 
-**Documentation (minimal):**
-- Brief test-running instructions if warranted by implementation complexity
+**Do not refactor**
 
-### 0.8.2 Explicitly Out of Scope
+- Flask `before_request` hook → do NOT rewrite as `@app.route`; doing so would reintroduce 404/405 responses
+- Startup guard block → do NOT remove the `if __name__ == '__main__':` guard
+- Test fixtures → do NOT change session scope or add/remove fixtures
 
-**Source Code Modifications:**
-- `app.py` — must NOT be modified; tests verify existing behavior as-is
-- No production code refactoring, no dependency injection additions, no testability-driven restructuring
+**Do not add**
 
-**Legacy/Placeholder Files (excluded from testing per user instruction):**
-- `server.js` — empty Node.js placeholder, not part of active runtime
-- `package.json` — empty Node.js manifest, not part of active runtime
-- `package-lock.json` — empty Node.js lockfile, not part of active runtime
+- No new Python runtime dependencies (Flask is the only runtime dependency)
+- No new test dependencies (pytest and pytest-cov are the only test dependencies)
+- No CI/CD, Docker, Procfile, or deployment artifacts
+- No authentication, authorization, database, or session infrastructure
+- No production WSGI server (Gunicorn, uWSGI) configuration
+- No environment-variable handling
+- No CORS, TLS, or security-header middleware
+- No route decorators (`@app.route`) — would reintroduce 404/405 behavior
+- No npm/Node.js tooling of any kind
+- No new `*.js`, `*.ts`, `*.jsx`, `*.tsx`, or `*.vue` files
+- No Figma-related or UI-related files (no UI exists for this project)
 
-**Documentation Artifacts (excluded from testing per user instruction):**
-- `README.md` — documentation verification is not in scope
-- `blitzy/documentation/Project Guide.md` — Blitzy documentation artifact
-- `blitzy/documentation/Technical Specifications.md` — Blitzy documentation artifact
+### 0.5.3 Affected Components Diagram
 
-**CI/CD and Deployment:**
-- No GitHub Actions workflows (`.github/workflows/`) — explicitly prohibited by user rule: "Do not make any updates or changes in GitHub App to create or update a workflow"
-- No Jenkinsfile, CircleCI, or other CI pipeline configuration
-- No Docker, Procfile, or deployment artifacts
+The following diagram illustrates which repository components are in scope for the fix and which are explicitly protected.
 
-**Future Hardening Work (excluded per user instruction):**
-- Gunicorn/uWSGI production server configuration
-- TLS/HTTPS configuration
-- Authentication/authorization
-- CORS headers
-- Concurrency enhancements
-- Health check endpoints
-- Dependency pinning (`pip freeze`) for transitive packages
-- Deployment configuration
+```mermaid
+flowchart TB
+    subgraph InScope["IN SCOPE - Documentation Hygiene"]
+        direction TB
+        SpecFile[blitzy/documentation/<br/>Technical Specifications.md<br/>Lines 528-532: DELETE<br/>Line 564: MODIFY]
+        GitIgnore[.gitignore<br/>CREATE new file<br/>Node.js and Python ignores]
+        CanonicalSpec[Canonical Tech Spec Sections<br/>1.1.1, 1.3.2, 2.6.2, 3.2.2,<br/>3.2.3, 3.4.1, 5.1.1.1, 5.1.2, 5.2.6<br/>Rewrite during authoring]
+    end
 
-**Test Categories Excluded:**
-- Browser/UI tests (no UI exists)
-- Database/persistence tests (no database exists)
-- External API tests (no external integrations)
-- Load/performance tests (single-user test fixture)
-- End-to-end tests beyond in-process test client
-- Security penetration testing
-- Third-party dependency internal testing
+    subgraph Protected["EXPLICITLY EXCLUDED - Must Not Modify"]
+        direction TB
+        AppPy[app.py<br/>64 lines<br/>Production source]
+        TestSuite[tests/ folder<br/>conftest.py<br/>test_http_contract.py<br/>test_startup.py<br/>25 tests]
+        Manifests[requirements.txt<br/>requirements-test.txt<br/>pytest.ini]
+        Readme[README.md<br/>Already clean]
+        ProjectGuide[blitzy/documentation/<br/>Project Guide.md<br/>Already clean]
+        Workflows[.github/workflows/<br/>User rule: NO workflow edits]
+    end
 
-**Unrelated Test Files:**
-- No tests for empty placeholder files
-- No tests for documentation content or formatting
-- No tests for Blitzy platform artifacts in the `blitzy/` directory
+    subgraph LayerGuards["LAYER 1 - Defensive Checks"]
+        direction TB
+        Check1[find server.js package.json<br/>package-lock.json node_modules<br/>Current: EMPTY]
+        Check2[git ls-files check<br/>Current: EMPTY]
+    end
 
+    SpecFile --> FixApplied[Fix applied successfully]
+    GitIgnore --> FixApplied
+    CanonicalSpec --> FixApplied
+    Check1 -.->|guard| FixApplied
+    Check2 -.->|guard| FixApplied
 
-## 0.9 Execution Parameters
-
-
-### 0.9.1 Testing-Specific Instructions
-
-**Test Execution Commands:**
-
-| Command | Purpose |
-|---------|---------|
-| `pytest` | Run all tests with default configuration from `pytest.ini` |
-| `pytest -v` | Run all tests with verbose output (method-level detail) |
-| `pytest --cov=app --cov-report=term-missing` | Run all tests with line-level coverage reporting for `app.py` |
-| `pytest tests/test_http_contract.py` | Run only HTTP contract tests |
-| `pytest tests/test_startup.py` | Run only startup/import behavior tests |
-| `pytest tests/test_http_contract.py::test_get_root_returns_hello` | Run a single specific test function |
-| `pytest -x` | Stop on first failure (useful for debugging) |
-| `pytest -v --tb=short` | Verbose output with shortened tracebacks |
-
-**Environment Setup for Tests:**
-
-```
-python3.9 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-pip install -r requirements-test.txt
-pytest
+    AppPy -.->|untouched| FixApplied
+    TestSuite -.->|untouched| FixApplied
+    Manifests -.->|untouched| FixApplied
+    Readme -.->|untouched| FixApplied
+    ProjectGuide -.->|untouched| FixApplied
+    Workflows -.->|untouched| FixApplied
 ```
 
-**Test Patterns Followed:**
-- All test files placed in `tests/` directory at project root
-- Test file names prefixed with `test_` for pytest auto-discovery
-- Test function names prefixed with `test_` following `test_<behavior>_<condition>` convention
-- Session-scoped fixtures in `tests/conftest.py` for test client reuse
-- No test classes — flat function-based tests for simplicity per the app's minimal architecture
 
-**Excluded Test Categories Per User Instruction:**
-- No browser/UI tests
-- No database tests
-- No external API tests
-- No deployment/infrastructure tests
-- No load/performance tests
-- No CI/CD pipeline tests or workflow files
+## 0.6 Verification Protocol
 
-**Test Validation Process:**
-- Run `pytest` and confirm all tests pass (exit code 0)
-- Run `pytest --cov=app --cov-report=term-missing` and confirm 90%+ line coverage
-- Intentionally modify response body in `app.py` (e.g., change `Hello, World!\n` to `Hello!\n`) and confirm HTTP contract tests fail
-- Intentionally modify startup string and confirm startup tests fail
-- Revert all intentional modifications and confirm full pass
-- Confirm that importing `app` in a Python REPL does not start a server
+This subsection defines the exact commands, expected outputs, and regression checks that must be satisfied after the implementing agent has applied the bug fix. Verification is divided into bug-elimination confirmation (proving the fix works) and regression checks (proving nothing else was broken).
+
+### 0.6.1 Bug Elimination Confirmation
+
+Execute from the repository root. Every command must produce the specified expected output.
+
+| ID | Command | Expected Output |
+|----|---------|-----------------|
+| B1 | `find . -maxdepth 2 -not -path "./.git*" \( -name "server.js" -o -name "package.json" -o -name "package-lock.json" -o -name "node_modules" \)` | Empty (zero matching paths) |
+| B2 | `git ls-files \| grep -E "^(server\.js\|package\.json\|package-lock\.json\|node_modules)"` | Empty (zero lines) |
+| B3 | `grep -n "server\.js\|package\.json\|package-lock\.json" blitzy/documentation/Technical\ Specifications.md` | Empty (no lines; all three stale references at lines 530–532 have been removed) |
+| B4 | `grep -cni "empty Node.js placeholder\|empty Node.js manifest\|empty Node.js lockfile\|Legacy/Placeholder Files" blitzy/documentation/Technical\ Specifications.md` | `0` |
+| B5 | `grep -cni "empty placeholder files" blitzy/documentation/Technical\ Specifications.md` | `0` |
+| B6 | `test -f .gitignore && echo "GITIGNORE_EXISTS"` | `GITIGNORE_EXISTS` |
+| B7 | `grep -cE "^(node_modules/\|package\.json\|package-lock\.json)" .gitignore` | At least `3` |
+| B8 | `grep -cE "^(__pycache__/\|\*\.py\[cod\]\|\.pytest_cache/\|\.coverage)" .gitignore` | At least `3` |
+
+**Error no longer appears in**: not applicable — this bug produces no runtime error or log entry. The success signal is the absence of misleading present-tense references to the three Node.js file names in any documentation consumed by project-detection tools.
+
+**Validate tooling outcome**:
+
+- Any repository-scanner reading `blitzy/documentation/Technical Specifications.md` must now observe a purely Python/Flask specification with no assertions that `server.js`, `package.json`, or `package-lock.json` exist in the repo.
+- Any language classifier using filename heuristics (looking for `package.json`) will continue to correctly identify the project as Python (it already does — this is unchanged).
+- Any `.gitignore`-aware tool (IDE, git itself) will refuse to add `node_modules/`, `package.json`, or `package-lock.json` to future commits without explicit `git add -f`.
+
+### 0.6.2 Regression Check
+
+Execute from the repository root with the project virtual environment activated.
+
+| ID | Command | Expected Output |
+|----|---------|-----------------|
+| R1 | `pytest` | `25 passed in <duration>s` — all 25 tests pass; 0 failed, 0 errors, 0 skipped |
+| R2 | `pytest --cov=app --cov-report=term-missing` | Coverage table shows `app.py   8   0   100%`; no missing lines |
+| R3 | Wall-time check: `time pytest` | `real` time under 5 seconds |
+| R4 | `python app.py &` → `curl -i http://127.0.0.1:3000/` → `kill %1` | Response has status `HTTP/1.1 200 OK`, `Content-Type: text/plain; charset=utf-8`, `Content-Length: 14`, body `Hello, World!\n` |
+| R5 | Multi-method probe: for each of GET, POST, PUT, DELETE, PATCH, OPTIONS — `curl -sI -X <METHOD> http://127.0.0.1:3000/anything` | Every invocation returns `HTTP/1.1 200 OK` with `Content-Length: 14` |
+| R6 | HEAD semantics: `curl -sI -X HEAD http://127.0.0.1:3000/` | Status `200`, `Content-Length: 14`, empty body (per RFC 7231 §4.3.2) |
+| R7 | Path invariance: `for p in / /random /a/b/c/d/e /trailing/ '/?x=1'; do curl -s http://127.0.0.1:3000$p | xxd -c 16 | head -1; done` | Every output shows the 14 bytes `48 65 6c 6c 6f 2c 20 57 6f 72 6c 64 21 0a` |
+| R8 | Import safety: `python -c "import app; print(type(app.app).__name__)"` | Prints `Flask` without binding a socket or hanging |
+| R9 | Startup banner ordering: inspection of `test_main_calls_print_before_run` in test run | Test passes (proves `print` precedes `app.run`) |
+| R10 | No accidental dependency drift: `pip list --format=freeze` | Contains `Flask==3.1.3`, `pytest==8.4.2`, `pytest-cov==7.1.0` and transitively compatible pinned packages; no `express`, `npm`, or Node.js-related entries |
+
+**Verify unchanged behavior in**:
+
+- HTTP contract: every method/path returns 200 with body `Hello, World!\n` (R4, R5, R7)
+- Content-Type: `text/plain; charset=utf-8` (R4)
+- Content-Length: `14` (R4, R5, R6)
+- Localhost binding: `127.0.0.1:3000` (R4, implicit in server startup)
+- `@app.before_request` hook architecture: unchanged — structural property preserved via R1 (the test suite proves 404/405 are impossible)
+- Startup banner: `Server running at http://127.0.0.1:3000/` (R9)
+- Print-before-run ordering: (R9)
+
+**Confirm performance metrics**:
+
+- Full pytest suite wall-clock time under 5 seconds (R3) — baseline measured at ~0.10–0.26 seconds during diagnostic
+- Import latency under 1 second (R8)
+- Per-request handler overhead under 1 ms (not explicitly benchmarked here but preserved by virtue of unchanged `app.py`)
+
+### 0.6.3 Post-Fix Diff Review
+
+Before considering the fix complete, the implementing agent must execute:
+
+```bash
+git diff HEAD -- blitzy/documentation/Technical\ Specifications.md
+git diff HEAD -- .gitignore
+git diff HEAD --stat
+```
+
+The diff must show:
+
+- `blitzy/documentation/Technical Specifications.md`: five lines deleted (528–532) and one line modified (564) — net change of approximately −5 to −6 lines
+- `.gitignore`: a new file added with Node.js ignores and standard Python ignores
+- No other files in the diff
+
+Any additional files appearing in `git diff HEAD --stat` are outside the fix scope and must be reverted.
 
 
-## 0.10 Special Instructions for Testing
+## 0.7 Rules
+
+This subsection enumerates every rule — user-supplied, framework-imposed, and Blitzy-discipline — that governs the implementation of this fix. The implementing agent must comply with every rule simultaneously; any conflict between rules resolves in favor of the stricter interpretation.
+
+### 0.7.1 User-Specified Implementation Rules
+
+The user attached the following implementation rule to this project:
+
+| Rule Name | Rule Content | Compliance Commitment |
+|-----------|--------------|------------------------|
+| exit code 137 test | "Do not make any updates or changes in GitHub App to create or update a workflow." | This fix touches zero files under `.github/workflows/` and makes no modifications to any GitHub App configuration. The fix scope is limited to (a) deleting the stale `Legacy/Placeholder Files` block in `blitzy/documentation/Technical Specifications.md` (lines 528–532), (b) rewording line 564 of the same file, (c) creating a new `.gitignore` at repo root, and (d) guidance for authoring cleaner canonical Technical Specification text in future generation cycles. No GitHub Actions workflow is created, modified, or deleted. |
+
+### 0.7.2 User-Specified Preservation Rules
+
+From the user's "System Boundaries" section, the following runtime behaviors must remain completely untouched during the bug fix:
+
+- `app.py` remains the active application entrypoint
+- Universal `@app.before_request` behavior preserved
+- Response status `200` preserved
+- Response body `Hello, World!\n` preserved (14 bytes, byte-exact)
+- `Content-Type: text/plain; charset=utf-8` preserved
+- `Content-Length: 14` preserved
+- Acceptance of all HTTP methods and paths preserved
+- Localhost binding to `127.0.0.1:3000` preserved
+- pytest suite behavior and coverage preserved (25 tests, 100% coverage of `app.py`)
+
+The user's HTTP contract invariants (unchanged):
+
+- Any method (standard or non-standard, including TRACE, CONNECT, and custom) → `200 OK`
+- Any path (shallow, deep, malformed, with query strings, with trailing slashes) → `200 OK`
+- Body exactly `Hello, World!\n`
+- No 404 or 405 responses ever
+
+### 0.7.3 User-Specified Avoidance Rules
+
+From the user's "Are there specific areas of the codebase that should be avoided?" section:
+
+- No changes to `app.py` unless absolutely necessary → this fix makes zero changes to `app.py`
+- No route decorators (`@app.route`) → not introduced by this fix
+- No npm/Node.js tooling added → not introduced by this fix
+- No new dependencies, CI/CD, Docker, auth, database, or production server infrastructure → not introduced by this fix
+- No weakening or rewriting tests to hide the documentation/tooling issue → the pytest suite remains byte-for-byte unchanged
+
+### 0.7.4 Coding and Development Guidelines
+
+- **Minimal Change Clause**: make the exact specified changes only; zero modifications outside the bug fix surface
+- **Evidence-based edits**: every edit must trace to a specific line or section cited in §0.2 Root Cause Identification and §0.3 Diagnostic Execution
+- **Historical language preservation**: where past-tense references to Node.js accurately describe migration history (e.g., line 21 of the in-repo spec, docstring of `app.py`), leave them intact
+- **Explanatory comments**: any non-trivial deletion or creation must include a motive comment — for example, HTML comments at deletion sites in markdown, or shebang/purpose comments at the top of new files like `.gitignore`
+- **Regression intolerance**: any failing pytest test, any change in HTTP response bytes, any change in import latency beyond noise is a blocker; the fix is rolled back and re-attempted
+- **Compatibility with pinned versions**: any change must remain compatible with Python 3.9+ (Flask 3.1.3's floor), Flask 3.1.3, pytest 8.4.2, pytest-cov 7.1.0 — though no code changes are made, this constraint applies to any scripts or commands executed during verification
+
+### 0.7.5 Blitzy-Discipline Commitments
+
+- Make the exact specified change only
+- Zero modifications outside the bug fix scope
+- Extensive testing to prevent regressions (see §0.6 Verification Protocol)
+- Document every edit with a motive comment
+- Execute all eight bug-elimination validation steps (B1–B8 in §0.6.1) and all ten regression checks (R1–R10 in §0.6.2)
+- If any validation step fails, revert the attempted fix and re-diagnose before retrying
 
 
-The following testing-specific requirements are explicitly emphasized by the user and must be strictly observed throughout implementation:
+## 0.8 References
 
-**Minimal Change Principle (Critical):**
-- ONLY modify test files and test-related configurations — do not modify `app.py` or any other production source file
-- Do not refactor production code unless absolutely required for testability (and no such requirement exists for this application)
-- Preserve the flat single-file application structure exactly as-is
-- Do not expand the application architecture or introduce new runtime features
+This subsection catalogues every file, folder, command, tool invocation, and external source consulted to derive the conclusions and proposed fix in §0.1 through §0.7.
 
-**No CI/CD Workflow Changes (Critical — User Implementation Rule):**
-- "Do not make any updates or changes in GitHub App to create or update a workflow" — no `.github/workflows/` files may be created or modified
-- Tests must be runnable locally via standard `pytest` commands without any CI infrastructure
+### 0.8.1 Repository Files and Folders Searched
 
-**Testing Approach Discipline:**
-- Use Flask's built-in `test_client()` for all HTTP behavior testing — this provides real in-process WSGI dispatch with full fidelity to the `before_request` hook architecture
-- Prefer little to no mocking — mock only `print()` and `app.run()` for `__main__` path isolation
-- Do NOT mock Flask routing, request handling, or the `before_request` hook — tests must exercise the real interceptor pipeline to provide genuine confidence
-- Keep all tests synchronous and deterministic — no timing-based assertions, no real network binding, no async patterns
-- Avoid flaky network/timing dependencies — all tests use the in-memory test client
+The repository root is `/tmp/blitzy/Existing-product/exit-code-137-test-9_76c7d6/` on branch `exit-code-137-test-9` at HEAD commit `16d3694` (Merge pull request #23).
 
-**Test File Organization:**
-- Place all tests under `tests/` directory as specified by the user
-- Use explicit file names: `test_http_contract.py` for HTTP behavior, `test_startup.py` for startup/import behavior
-- Create `conftest.py` only for genuinely shared fixtures (test client, app instance)
-- Keep naming explicit and lightweight — no deep directory nesting
+| Path | Type | Inspection Method | Verdict |
+|------|------|-------------------|---------|
+| `README.md` | file | `cat` — full read | Clean — zero references to Node.js, `server.js`, `package.json`, `package-lock.json`, `npm`, or Express |
+| `app.py` | file | `cat` — full read; `grep` for Node.js references | Contains 8 historical past-tense references (lines 1, 4, 8, 24, 30, 47, 61, 63) that describe the migration origin; NOT a bug source; must not be modified |
+| `pytest.ini` | file | `cat` — full read | Clean — standard pytest configuration (testpaths=tests, pythonpath=., python_files=test_*.py, python_functions=test_*, addopts=-v) |
+| `requirements.txt` | file | `cat` — full read | Single line: `Flask==3.1.3` — clean |
+| `requirements-test.txt` | file | `cat` — full read | Two lines: `pytest==8.4.2`, `pytest-cov==7.1.0` — clean |
+| `tests/conftest.py` | file | `cat` — full read | Clean — defines session-scoped `client` and `app_instance` fixtures |
+| `tests/test_http_contract.py` | file | `cat` — full read | Clean — 20 HTTP contract tests |
+| `tests/test_startup.py` | file | `cat` — full read | Clean — 5 startup/import-safety tests |
+| `blitzy/documentation/Project Guide.md` | file | `head -50` + `grep` for Node.js refs | Clean — zero Node.js references; describes project as Python/Flask |
+| `blitzy/documentation/Technical Specifications.md` | file | `grep` multiple patterns; `sed -n` on specific ranges | Contains stale present-tense references at lines 530–532 (the bug) and line 564 (adjacent phrasing needing correction); line 21 is historical/past-tense and must be preserved |
+| `/` (repository root) | folder | `ls -la` | Verified no `.gitignore`, no `.dockerignore`, no `Dockerfile`, no `.github/` directory; only `README.md`, `app.py`, `blitzy/`, `pytest.ini`, `requirements-test.txt`, `requirements.txt`, `tests/` |
 
-**Behavioral Preservation:**
-- All existing external behavior must remain unchanged after test implementation
-- Universal handling of all methods and all paths must continue to work
-- Response body `Hello, World!\n`, status `200`, content type `text/plain; charset=utf-8` must be preserved
-- Localhost binding on `127.0.0.1:3000` must be preserved
-- Startup message `Server running at http://127.0.0.1:3000/` must be preserved
-- The `before_request` hook pattern must remain the request handling mechanism
+### 0.8.2 Git History Consulted
 
-**Quality Observations (Note but Do Not Fix):**
-- If any code quality issues are discovered during test implementation (e.g., missing type hints, absent docstrings in specific locations, or potential improvements), they should be documented as observations but NOT addressed unless required for test implementation
-- The test suite should validate current behavior, not improve the application
+| Command | Purpose | Key Finding |
+|---------|---------|-------------|
+| `git log --oneline -10` | Recent commit history on current branch | HEAD is `16d3694 Merge pull request #23`; prior commits relate to test infrastructure |
+| `git log --all --source --remotes --oneline` | All branches | Multiple branches exist including older ones with Node.js/Express content; current branch `exit-code-137-test-9` is Python-only |
+| `git ls-tree -r HEAD --name-only` | Full file listing at HEAD | Returns exactly 10 files — all Python or documentation — confirming no Node.js artifacts tracked |
+| `git ls-files` | All files in git index | Matches `git ls-tree` — no Node.js files in index |
+| `git log --all --diff-filter=D --pretty=format:"%h %ad %s" --date=short --name-only` | Deletion history across all branches | Commit `cb33694` (2026-03-25) deleted `server.js` with message "Remove server.js: Node.js HTTP server replaced by Python Flask app.py"; commit `a8bf8c0` (2026-03-25) deleted `package.json`; commit `220d211` (2026-03-25) deleted `package-lock.json` |
+| `git log -1 --pretty=fuller` | Full metadata of HEAD commit | Merge commit `16d369467af12cda6abcb3aaaa0f6d1215b8b3e9` dated 2026-04-17 |
+| `git status` | Working tree cleanliness | `nothing to commit, working tree clean` — no uncommitted changes |
+
+### 0.8.3 Technical Specification Sections Retrieved via `get_tech_spec_section`
+
+| Section Heading | Node.js-related Findings | Requires Rewrite? |
+|-----------------|--------------------------|-------------------|
+| `1.1 EXECUTIVE SUMMARY` | Section 1.1.1 paragraph 2 asserts "The Node.js-era artifacts (`server.js`, `package.json`, `package-lock.json`) remain in the repository as empty placeholder files" | Yes — §1.1.1 during authoring |
+| `1.3 SCOPE` | Section 1.3.2 out-of-scope table contains row "Active Node.js Runtime \| ... \| `server.js`, `package.json`, `package-lock.json` are empty placeholders" | Yes — §1.3.2 during authoring |
+| `2.6 ASSUMPTIONS AND CONSTRAINTS` | Section 2.6.2 hard-constraints table contains row "Legacy artifact inertness \| `server.js`, `package.json`, `package-lock.json` \| These files are empty and must remain non-executing" | Yes — §2.6.2 during authoring |
+| `3.2 PROGRAMMING LANGUAGES` | Entire subsection 3.2.2 "Legacy Artifact Language: JavaScript (Inert)" with three-row table; subsection 3.2.3 constraint row "Node.js artifacts must remain empty and inert" | Yes — §3.2.2 and §3.2.3 during authoring |
+| `3.3 FRAMEWORKS & LIBRARIES` | No Node.js references | No |
+| `3.4 OPEN SOURCE DEPENDENCIES` | Section 3.4.1 paragraph contains qualifier "despite the presence of `package.json` / `package-lock.json` — those files are empty artifacts" | Yes — §3.4.1 during authoring |
+| `3.7 DEVELOPMENT & DEPLOYMENT` | No Node.js artifact references (does discuss CI/CD prohibition which is relevant to user rule) | No |
+| `5.1 HIGH-LEVEL ARCHITECTURE` | Section 5.1.1.1 phrase "inert legacy placeholders preserved as archaeological evidence"; Section 5.1.2 contains dedicated table "three inert legacy placeholder files" | Yes — §5.1.1.1 and §5.1.2 during authoring |
+| `5.2 COMPONENT DETAILS` | Section 5.2.6 Mermaid diagram contains subgraph `LegacyArtifacts["Legacy Placeholders - Inert"]` with three nodes for the placeholder files | Yes — §5.2.6 Mermaid diagram during authoring |
+
+### 0.8.4 Repository Analysis Commands Executed
+
+The following bash commands were executed during diagnosis; outputs informed the conclusions in §0.1–§0.7.
+
+- `find / -name ".blitzyignore" -type f 2>/dev/null` → no `.blitzyignore` files exist in the environment
+- `ls -la` in repo root
+- `find . -maxdepth 3 -type f 2>/dev/null`
+- `find . -maxdepth 2 \( -name "server.js" -o -name "package.json" -o -name "package-lock.json" -o -name "node_modules" \) 2>/dev/null`
+- `find . -not -path "./.git/*" -not -path "./blitzy/*" -type f 2>/dev/null | sort`
+- `git log --all --oneline`
+- `git log --all --pretty=format:"%h %s" --name-status | grep -E "^[AMD]\s+(server\.js|package\.json|package-lock\.json)"`
+- `git log --all --diff-filter=D --pretty=format:"%h %s" --name-status | grep -E "^D\s+(server\.js|package\.json|package-lock\.json)"`
+- `git ls-tree -r HEAD --name-only`
+- `git rev-parse --abbrev-ref HEAD`
+- `git log -1 --pretty=fuller`
+- `git log --all --source --remotes --oneline | head -20`
+- `git branch -a`
+- `cat README.md`, `cat app.py`, `cat tests/conftest.py`, `cat tests/test_startup.py`, `cat tests/test_http_contract.py`, `cat requirements.txt`, `cat requirements-test.txt`, `cat pytest.ini`
+- `grep -rn -l -E "server\.js|package\.json|package-lock\.json|node_modules|npm install|npm start" --include="*.md" --include="*.py" --include="*.txt" --include="*.ini" --include="*.toml" --include="*.yaml" --include="*.yml"`
+- `grep -n -E "server\.js|package\.json|package-lock\.json|node_modules|npm install|npm start" app.py`
+- `grep -n -E "server\.js|package\.json|package-lock\.json|node_modules|Node\.js|Node runtime|npm install|npm start" "blitzy/documentation/Technical Specifications.md"`
+- `sed -n '500,560p' "blitzy/documentation/Technical Specifications.md"`
+- `sed -n '555,580p' "blitzy/documentation/Technical Specifications.md"`
+- `wc -l blitzy/documentation/Technical\ Specifications.md blitzy/documentation/Project\ Guide.md`
+- `grep -n -i -E "node|npm|express|javascript" "blitzy/documentation/Technical Specifications.md"`
+- `grep -n -i -E "placeholder|legacy|empty.*file|remain.*repository" "blitzy/documentation/Technical Specifications.md"`
+- `head -50 "blitzy/documentation/Project Guide.md"`
+- `python3 -m venv --without-pip /tmp/venv2 && source /tmp/venv2/bin/activate && curl -sSLO https://bootstrap.pypa.io/get-pip.py && python get-pip.py -q && rm -f get-pip.py`
+- `pip install -q -r requirements.txt -r requirements-test.txt`
+- `pip list`
+- `pytest --tb=short` → 25 passed in 0.10s
+- `pytest --cov=app --cov-report=term-missing` → app.py 8 0 100%
+- `pytest --co -q` → 25 tests collected
+- `ls /tmp/environments_files 2>/dev/null; ls /app/figma-assets 2>/dev/null` → neither directory exists; no attachments, no Figma assets
+
+### 0.8.5 Web Research Conducted
+
+| Query | Source | Key Finding |
+|-------|--------|-------------|
+| "Flask 3.1.3 Python version compatibility requirements" | PyPI.org (https://pypi.org/project/Flask/), Pallets Flask documentation (https://flask.palletsprojects.com/en/stable/installation/) | Flask 3.1.3 requires Python ≥ 3.9, confirming the project's declared Python 3.9+ lower bound |
+
+No additional web research was required because the bug is a documentation-drift defect internal to this repository, not a framework or library issue.
+
+### 0.8.6 User-Specified Attachments
+
+| Attachment | Type | Description | Location |
+|------------|------|-------------|----------|
+| None | — | The user attached 1 environment to this project, but the environment provided no attachment files. `ls /tmp/environments_files` returns an empty listing. | not applicable |
+
+### 0.8.7 User-Specified Environment
+
+| Item | Value |
+|------|-------|
+| Environment 1 setup instructions | None provided |
+| Environment variables | `[]` (empty list) |
+| Secrets | `[]` (empty list) |
+
+The implementing agent operates without any user-supplied environment configuration beyond the default Python 3 toolchain.
+
+### 0.8.8 Figma Assets and Design Artifacts
+
+| Artifact | Status |
+|----------|--------|
+| Figma URLs provided | None |
+| Figma frames provided | None |
+| Design system specified | None |
+| UI screens / wireframes | None |
+
+The project has no UI surface (see canonical spec §7 Consumer Interaction Model) and this bug fix does not involve UI work. Accordingly, the "Figma Design" and "Design System Compliance" subsections of the standard Bug Fix Specification template are intentionally omitted as not applicable.
+
+### 0.8.9 User-Specified Implementation Rules
+
+| Rule Name | Rule Content |
+|-----------|--------------|
+| exit code 137 test | "Do not make any updates or changes in GitHub App to create or update a workflow." |
+
+This rule is acknowledged and complied with in §0.7.1. No `.github/workflows/*` file is created, modified, or deleted by this fix. No GitHub App configuration is touched.
 
 
