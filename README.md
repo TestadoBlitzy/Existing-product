@@ -13,6 +13,8 @@ A production-ready Express.js server with structured logging, environment-based 
 - **Health check endpoint** for load balancer and PM2 monitoring probes
 - **Graceful shutdown handling** via SIGTERM/SIGINT for clean process termination
 
+> Source: `package.json` (`dependencies`: `express`, `winston`, `morgan`, `dotenv`, `helmet`, `cors`, `express-rate-limit`, `compression`); `src/app.js` (middleware pipeline composition); `src/utils/logger.js` (Winston construction); `src/routes/health.js` (health endpoint); `server.js` (signal-driven shutdown); `ecosystem.config.js` (PM2 cluster mode).
+
 ## Prerequisites
 
 - **Node.js** >= 18.0.0
@@ -21,6 +23,8 @@ A production-ready Express.js server with structured logging, environment-based 
   ```bash
   npm install -g pm2
   ```
+
+> Source: `package.json` (`engines.node` declares `>=18.0.0`); `ecosystem.config.js` (PM2 deployment configuration).
 
 ## Installation
 
@@ -42,6 +46,8 @@ A production-ready Express.js server with structured logging, environment-based 
 
 4. Customize `.env` as needed for your environment (see [Environment Configuration](#environment-configuration) below).
 
+> Source: `package.json` (`dependencies` and `devDependencies`); `.env.example` (canonical environment template).
+
 ## Environment Configuration
 
 All runtime settings are controlled via environment variables. Copy `.env.example` to `.env` and adjust values as needed.
@@ -53,8 +59,11 @@ All runtime settings are controlled via environment variables. Copy `.env.exampl
 | `HOST` | `0.0.0.0` | Server bind address |
 | `LOG_LEVEL` | `debug` | Winston log level (`error`, `warn`, `info`, `http`, `verbose`, `debug`, `silly`) |
 | `CORS_ORIGIN` | `*` | Allowed CORS origins (use `*` for all, or comma-separated list) |
+| `BODY_LIMIT` | `10kb` | Maximum request body size for JSON and URL-encoded payloads (prevents payload-based DoS) |
 | `RATE_LIMIT_WINDOW_MS` | `900000` | Rate limit window in milliseconds (default: 15 minutes) |
 | `RATE_LIMIT_MAX` | `100` | Maximum number of requests per rate limit window |
+
+> Source: `src/config/index.js` (defaults and `parseIntSafe`) and `.env.example` (operator-facing template with line-by-line guidance).
 
 ## Usage
 
@@ -93,6 +102,8 @@ npm run stop:pm2
 ```bash
 npm run logs
 ```
+
+> Source: `package.json` `scripts` (`start`, `dev`, `start:pm2`, `stop:pm2`, `logs`); `server.js` (entrypoint executed by `node server.js`); `ecosystem.config.js` (PM2 ecosystem configuration referenced by `start:pm2` / `stop:pm2`).
 
 ## PM2 Deployment
 
@@ -133,6 +144,8 @@ pm2 logs hello-world
 ```bash
 pm2 stop hello-world
 ```
+
+> Source: `ecosystem.config.js` (`apps[0].name = 'hello-world'`, `script: 'server.js'`, `instances: 'max'`, `exec_mode: 'cluster'`, `autorestart: true`, `env`/`env_production` blocks). See [`docs/deployment.md`](./docs/deployment.md) for the full PM2 process-lifecycle reference.
 
 ## Project Structure
 
@@ -177,21 +190,23 @@ pm2 stop hello-world
 ├── jest.config.js               # Jest configuration (coverage thresholds 90/90/80/90)
 ├── package.json
 ├── package-lock.json
-├── .env                         # Environment variables (not committed)
-├── .env.example                 # Environment variable template
+├── .env                         # Development environment defaults (tracked; future local-only changes should be excluded via .gitignore)
+├── .env.example                 # Environment variable template (canonical operator-facing reference)
 └── .gitignore
 ```
 
+> Source: repository tree at the project root. Module-level README files cite the source files they describe; see [Documentation](#documentation) for the index.
+
 ## API Endpoints
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/` | Welcome message (plain text `Hello, World!\n`) |
-| `GET` | `/health` | Health check — returns status, uptime, timestamp, memory usage, and Node.js version |
-| `GET` | `/api` | API welcome message |
-| `GET` | `/api/info` | Server metadata — version, environment, and Node.js version |
+| Method | Path | Description | Source |
+|---|---|---|---|
+| `GET` | `/` | Welcome message (plain text `Hello, World!\n`) | `src/routes/index.js` |
+| `GET` | `/health` | Health check — returns status, uptime, timestamp, memory usage, and Node.js version | `src/routes/health.js` |
+| `GET` | `/api` | API welcome message | `src/routes/api.js` |
+| `GET` | `/api/info` | Server metadata — version, environment, and Node.js version | `src/routes/api.js` |
 
-> `GET /` contract: `Content-Type: text/plain`, body `Hello, World!\n` (trailing newline included). Source: src/routes/index.js.
+> `GET /` contract: `Content-Type: text/plain`, body `Hello, World!\n` (trailing newline included). Source: `src/routes/index.js` line 46. For the full REST API reference including 400/404/405/429/500 error contracts, see [`docs/api.md`](./docs/api.md).
 
 ## Documentation
 

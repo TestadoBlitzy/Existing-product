@@ -76,7 +76,7 @@ Source: `src/routes/index.js` lines 54-60; `src/routes/health.js` lines 55-61;
 | `GET /health`   | `application/json; charset=utf-8`     | `src/routes/health.js` lines 42-48  |
 | `GET /api`      | `application/json; charset=utf-8`     | `src/routes/api.js` lines 34-37     |
 | `GET /api/info` | `application/json; charset=utf-8`     | `src/routes/api.js` lines 72-79     |
-| All error bodies (400, 404, 405, 429, 500) | `application/json; charset=utf-8` | `src/middleware/*.js`, `src/routes/*.js`, `src/app.js` |
+| All error bodies (400, 404, 405, 429, 500) | `application/json; charset=utf-8` | `src/middleware/errorHandler.js`, `src/middleware/notFound.js`, `src/middleware/validateInput.js`, `src/routes/index.js`, `src/routes/health.js`, `src/routes/api.js`, `src/app.js` |
 
 `GET /` is the only `text/plain` endpoint in the service. It is set explicitly
 by `res.type('text/plain').send(...)`. All other endpoints use `res.json()`,

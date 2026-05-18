@@ -48,7 +48,8 @@ of the application.
   falling through to a generic 500. Source: `src/app.js` line 171;
   `src/middleware/notFound.js` JSDoc lines 11-15.
 - **`validateInput` is applied at the ROUTE level, not the app level.** Each
-  route handler in `src/routes/**` inserts it as per-route middleware, e.g.
+  route handler in `src/routes/index.js`, `src/routes/health.js`, and
+  `src/routes/api.js` inserts it as per-route middleware, e.g.
   `router.get('/', validateInput(schema), handler)`. This scopes validation
   to specific endpoints rather than applying a single schema globally.
   Source: `src/routes/index.js` line 44; `src/routes/health.js` line 41;

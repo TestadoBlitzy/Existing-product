@@ -4,6 +4,8 @@
  * Reads all runtime configuration from process.env with sensible defaults.
  * Environment variables must be loaded before this module is imported.
  * The exported object is deeply frozen to prevent runtime mutation.
+ *
+ * @module src/config
  */
 
 /**

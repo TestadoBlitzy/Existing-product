@@ -14,13 +14,14 @@ The tree is organized into four focused submodules:
 - `config/` — Immutable, environment-driven runtime configuration (frozen at module
   load). Source: `src/config/index.js`.
 - `middleware/` — Reusable cross-cutting middleware: centralized error handler, 404
-  catch-all, and Zod request-validation factory. Source: `src/middleware/*.js`.
+  catch-all, and Zod request-validation factory. Source: `src/middleware/errorHandler.js`,
+  `src/middleware/notFound.js`, `src/middleware/validateInput.js`.
 - `routes/` — Route composition and endpoint definitions for `GET /`, `GET /health`,
   `GET /api`, and `GET /api/info`, including `router.all()` 405 method guards.
-  Source: `src/routes/*.js`.
+  Source: `src/routes/index.js`, `src/routes/health.js`, `src/routes/api.js`.
 - `utils/` — Foundational utility infrastructure: the Winston structured logger
   (with a Morgan-compatible stream adapter) and the log/URL sanitization helpers.
-  Source: `src/utils/*.js`.
+  Source: `src/utils/logger.js`, `src/utils/sanitizer.js`.
 
 The single integration point for these pieces is `src/app.js`, which exports the fully
 wired, non-started Express `app` instance.
@@ -35,9 +36,9 @@ Every direct child of `src/` is listed below with its role and source citation.
 |---|---|---|
 | `src/app.js` | Express application factory — middleware pipeline + route mounting; exports `app` | `src/app.js` |
 | `src/config/` | Centralized, frozen, environment-driven configuration module | `src/config/index.js` |
-| `src/middleware/` | Error handler, 404 handler, Zod request validation factory | `src/middleware/*.js` |
-| `src/routes/` | `GET /`, `GET /health`, `GET /api`, `GET /api/info` + 405 method guards | `src/routes/*.js` |
-| `src/utils/` | Winston logger (w/ Morgan stream bridge), log/URL sanitization helpers | `src/utils/*.js` |
+| `src/middleware/` | Error handler, 404 handler, Zod request validation factory | `src/middleware/errorHandler.js`, `src/middleware/notFound.js`, `src/middleware/validateInput.js` |
+| `src/routes/` | `GET /`, `GET /health`, `GET /api`, `GET /api/info` + 405 method guards | `src/routes/index.js`, `src/routes/health.js`, `src/routes/api.js` |
+| `src/utils/` | Winston logger (w/ Morgan stream bridge), log/URL sanitization helpers | `src/utils/logger.js`, `src/utils/sanitizer.js` |
 
 ## Architecture Fit
 
@@ -257,7 +258,8 @@ Behaviors that apply to every error response in this folder:
 - The standardized error JSON shape is `{ status: 'error', statusCode, message }`.
   This shape is shared by the 404 handler (`src/middleware/notFound.js`), the 429
   rate-limit handler (`src/app.js` lines 140–146), the 405 method-guard handlers
-  (`src/routes/*.js`), and the final 500 handler (`src/middleware/errorHandler.js`).
+  (`src/routes/index.js`, `src/routes/health.js`, `src/routes/api.js`), and the
+  final 500 handler (`src/middleware/errorHandler.js`).
 - The 404 handler is registered BEFORE the error handler so that unmatched paths
   return a structured 404 rather than falling through to a generic 500. Source:
   `src/app.js` line 171 (`notFound`) and line 183 (`errorHandler`).

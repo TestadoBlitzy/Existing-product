@@ -9,6 +9,8 @@
  * Endpoints:
  *   GET /api       - API welcome message
  *   GET /api/info  - Server metadata (version, environment, Node.js version)
+ *
+ * @module src/routes/api
  */
 
 const express = require('express');
@@ -29,6 +31,9 @@ const router = express.Router();
  *     "status": "success",
  *     "message": "Welcome to the API"
  *   }
+ *
+ * @param {import('express').Request}  req - Express request object
+ * @param {import('express').Response} res - Express response object
  */
 router.get('/', validateInput({ body: z.object({}).strict().optional(), query: z.object({}).strict() }), (req, res) => {
   res.json({
@@ -67,6 +72,9 @@ router.all('/', (req, res) => {
  *       "nodeVersion": "v20.x.x"
  *     }
  *   }
+ *
+ * @param {import('express').Request}  req - Express request object
+ * @param {import('express').Response} res - Express response object
  */
 router.get('/info', validateInput({ body: z.object({}).strict().optional(), query: z.object({}).strict() }), (req, res) => {
   res.json({
@@ -81,7 +89,9 @@ router.get('/info', validateInput({ body: z.object({}).strict().optional(), quer
 
 // SECURITY: Reject non-GET methods on /api/info with 405 Method Not Allowed.
 // Same rationale as the /api catch-all above — prevents unsupported methods
-// from falling through to the 404 handler and returns the correct HTTP status.
+// from falling through to the 404 handler and returns the correct HTTP status
+// per RFC 9110 §15.5.6, with the required Allow header advertising the
+// supported methods.
 router.all('/info', (req, res) => {
   res.status(405).set('Allow', 'GET, HEAD').json({
     status: 'error',

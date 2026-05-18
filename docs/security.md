@@ -75,9 +75,9 @@ intentionally narrow.
 - **Authentication.** There is no authentication middleware, no token
   validation, no session cookie, no API key check. Every endpoint is
   public. Source: `src/app.js` (no auth middleware registered),
-  `src/routes/*.js` (no auth check in any handler), `package.json` (no
-  auth-related dependency such as `passport`, `jsonwebtoken`, or
-  `express-session`).
+  `src/routes/index.js`, `src/routes/health.js`, `src/routes/api.js`
+  (no auth check in any handler), `package.json` (no auth-related
+  dependency such as `passport`, `jsonwebtoken`, or `express-session`).
 - **Authorization.** There is no role-based or attribute-based access
   control. Source: same files as above.
 - **TLS termination in-app.** The service binds to plain HTTP on
@@ -346,7 +346,8 @@ Defaults and behavior:
 
 ### Empty-Body / Empty-Query Policy on GET Routes
 
-Every public GET endpoint in `src/routes/**` applies the same strict
+Every public GET endpoint in the routing layer (`src/routes/index.js`,
+`src/routes/health.js`, `src/routes/api.js`) applies the same strict
 Zod schema via the `validateInput` middleware factory:
 
 ```js

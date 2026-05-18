@@ -44,7 +44,10 @@ The service uses **CommonJS** throughout — every `.js` file uses
 `require(...)` and `module.exports = ...`. There are no ES modules, no
 TypeScript files, and no `import`/`export` statements anywhere in production
 code (Source: `server.js`, `src/app.js`, `src/config/index.js`,
-`src/routes/**`, `src/middleware/**`, `src/utils/**`, `ecosystem.config.js`).
+`src/routes/index.js`, `src/routes/health.js`, `src/routes/api.js`,
+`src/middleware/errorHandler.js`, `src/middleware/notFound.js`,
+`src/middleware/validateInput.js`, `src/utils/logger.js`,
+`src/utils/sanitizer.js`, `ecosystem.config.js`).
 
 ### High-Level Topology
 
@@ -75,7 +78,8 @@ flowchart TD
 There is no database, no message queue, no external service dependency, no
 worker thread pool, and no background scheduler. Every request is handled
 synchronously by the Node.js event loop in the single owning worker (Source:
-`src/app.js`, `src/routes/**`).
+`src/app.js`, `src/routes/index.js`, `src/routes/health.js`,
+`src/routes/api.js`).
 
 ## Bootstrap / App Separation
 
