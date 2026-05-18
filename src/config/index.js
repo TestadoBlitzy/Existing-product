@@ -29,10 +29,12 @@ const config = {
   corsOrigin: process.env.CORS_ORIGIN || '*',
   // SECURITY: Configurable body parser size limit to prevent payload-based DoS attacks
   bodyLimit: process.env.BODY_LIMIT || '10kb',
+  // Deep-freeze nested object: Object.freeze is shallow; rateLimit must be frozen explicitly.
   rateLimit: Object.freeze({
     windowMs: parseIntSafe(process.env.RATE_LIMIT_WINDOW_MS, 900000),
     max: parseIntSafe(process.env.RATE_LIMIT_MAX, 100),
   }),
 };
 
+// Freeze the root config to prevent runtime mutation by any downstream consumer of this module.
 module.exports = Object.freeze(config);
