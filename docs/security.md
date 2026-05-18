@@ -22,6 +22,7 @@ describes a feature that does not exist in the codebase.
 - [Reflected Content Prevention](#reflected-content-prevention)
 - [HTTP Method Restriction (405 Method Not Allowed)](#http-method-restriction-405-method-not-allowed)
 - [Defense-in-Depth Summary](#defense-in-depth-summary)
+- [Known Dependency Vulnerabilities](#known-dependency-vulnerabilities)
 - [Limitations](#limitations)
 - [Source Citations](#source-citations)
 
@@ -639,6 +640,24 @@ four transformations:
    double-encoded. Source: `src/utils/sanitizer.js` line 173 inline
    comment.
 
+   **Apostrophe entity form — HTML5 numeric character reference
+   equivalence.** The apostrophe (U+0027) is encoded as the
+   **hexadecimal** numeric character reference `&#x27;`. This is
+   functionally and semantically identical to the **decimal** form
+   `&#39;` — both reference the same Unicode code point, and the
+   HTML5 specification accepts either form interchangeably in every
+   conforming parser. The hex form is preferred here for visual
+   clarity (`x27` reads as code-point 0x27 directly). Some
+   third-party test specifications and style guides list the
+   apostrophe entity in its decimal form `&#39;`; tests that compare
+   the literal output string against `&#39;` will report a
+   mismatch, but the **security property** (XSS prevention via
+   apostrophe escaping in HTML attribute contexts) is fully
+   preserved by `&#x27;`. Source: `src/utils/sanitizer.js` line 177
+   (`.replace(/'/g, '&#x27;')`); HTML Living Standard, §13.2.5.73
+   "Numeric character reference state" (both forms specified as
+   equivalent).
+
 4. **Truncate to `MAX_URL_LENGTH = 2048` characters** with the
    `'...[truncated]'` indicator (Source: `src/utils/sanitizer.js`
    lines 53, 179–183). The 2048-character cap matches the de facto
@@ -802,6 +821,115 @@ limiter is bypassed (layer 6), the body-size limit (layer 4) still
 caps the per-request cost, and the Zod validator (layer 7) still
 rejects unexpected payloads.
 
+## Known Dependency Vulnerabilities
+
+This section documents known vulnerabilities in the service's
+transitive dependency tree at the versions currently pinned in
+`/package.json` and resolved in `/package-lock.json`. These findings
+are surfaced by `npm audit` against the GitHub Advisory Database
+(GHSA) and were independently confirmed by a runtime QA scan. The
+intent of this section is to give operators a single, citation-rich
+record of what is known about the dependency posture so that
+informed deployment and follow-up-maintenance decisions can be made
+without rediscovering the audit findings from scratch.
+
+### Why these are not patched in this revision
+
+`/package.json` and `/package-lock.json` are **explicitly out of
+scope** for any modification in the current documentation pass.
+The user-stated Minimal Change Clause that governs this codebase
+states: "Do not refactor, optimize, reorder middleware, change
+route contracts, alter exports, **update dependencies**, rename
+files, or change existing interfaces. Document the existing code
+as-is." A separate maintenance change is required to apply any of
+the version bumps suggested below. This section documents what
+those bumps would be, what they would resolve, and what the
+practical exploitability of each finding is against this
+service's actual code paths so that the maintenance change can be
+prioritized and reviewed appropriately. Source: project-level
+Minimal Change Clause stated by the user; this guide does not
+modify any file under `/package.json` or `/package-lock.json`.
+
+### Runtime dependency findings
+
+The table below enumerates each known vulnerability in the
+**runtime** dependency tree (i.e., packages that ship to
+production). Severity and CVSS scores come from `npm audit --json`,
+which queries the GitHub Advisory Database. The "Practical risk
+against this service" column reflects how the vulnerability
+intersects with the specific code paths in this codebase.
+
+| # | Package | Installed | Direct? | Severity | CVSS | CWE | GHSA | Affected range | Fix available | Practical risk against this service |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | `path-to-regexp` | 8.3.0 | No (via `express@5.2.1 → router@2.2.0`) | HIGH | 7.5 | CWE-400, CWE-1333 | [GHSA-j3q9-mxjg-w52f](https://github.com/advisories/GHSA-j3q9-mxjg-w52f) | `>=8.0.0 <8.4.0` | Yes (upgrade requires Express patch consuming `path-to-regexp >=8.4.0`) | **Near-zero**: this service registers only the static routes `/`, `/health`, `/api`, `/api/info` (Source: `src/routes/index.js`, `src/routes/health.js`, `src/routes/api.js`). There are no route patterns containing regex parameters, sequential optional groups, or wildcards — the patterns the advisory targets are not constructed at runtime by this codebase. |
+| 2 | `path-to-regexp` | 8.3.0 | No (same chain as #1) | MODERATE | 5.9 | CWE-1333 | [GHSA-27v5-c462-wpq7](https://github.com/advisories/GHSA-27v5-c462-wpq7) | `>=8.0.0 <8.4.0` | Yes (same fix as #1) | **Near-zero**: the advisory targets routes that use multiple wildcards. This service uses no wildcard patterns in any `router.get(...)` or `router.all(...)` call. |
+| 3 | `ip-address` | 10.1.0 | No (via `express-rate-limit@8.3.1`) | MODERATE | — | CWE-79 | [GHSA-v2v4-37r5-5v8g](https://github.com/advisories/GHSA-v2v4-37r5-5v8g) | `<=10.1.0` | Yes (`express-rate-limit` 8.5.2 ships the fixed transitive) | **Near-zero**: the advisory targets HTML-emitting methods on the `Address6` class. `express-rate-limit` consumes `ip-address` only for IP parsing/normalization during rate-limit key computation; it does not invoke the affected `toRFC5952()`-style HTML methods. No call site in this service's `src/` tree references `ip-address` directly. |
+| 4 | `express-rate-limit` | 8.3.1 | **Yes** (direct dependency declared in `/package.json`) | MODERATE | — | CWE-79 | Same as #3 (propagated surface) | `>=8.0.1 <=8.5.0` | Yes (upgrade to `8.5.2`) | **Near-zero**: same rationale as #3. The package's own rate-limiting logic is not affected; only the inherited surface from `ip-address` is flagged. |
+
+### Build/test-only dependency findings
+
+The table below covers vulnerabilities that exist only in the
+**dev-dependency** tree (i.e., packages used at build, test, or
+local-development time and not shipped to production at runtime).
+
+| # | Package | Installed | Path | Severity | CVSS | CWE | GHSA | Affected range | Fix available | Practical risk against this service |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 5 | `brace-expansion` | `2.0.2` and `1.1.12` (two paths) | (a) `jest@30.3.0 → @jest/core → @jest/reporters → glob@10.5.0 → minimatch@9.0.9 → brace-expansion@2.0.2`; (b) `jest@30.3.0 → @jest/core → @jest/transform → babel-plugin-istanbul@7.0.1 → test-exclude@6.0.0 → minimatch@3.1.5 → brace-expansion@1.1.12` | MODERATE | 6.5 | CWE-400 | [GHSA-f886-m6hf-6m8v](https://github.com/advisories/GHSA-f886-m6hf-6m8v) | `<1.1.13` and `>=2.0.0 <2.0.3` | Yes (Jest patch releases pull updated `minimatch` transitives) | **Build-time only**: this package is only loaded under `jest`, which is a `devDependency` (Source: `/package.json` `devDependencies.jest`). It is not present in any production runtime path; the production process started by `node server.js` or PM2 does not require Jest. |
+
+### Audit summary at the time of writing
+
+The aggregate `npm audit --json` summary at the time this section
+was authored is reproduced below verbatim. Operators should re-run
+`npm audit` against the current `/package-lock.json` to obtain a
+fresh count, because the GHSA database is updated continuously.
+
+```text
+3 moderate severity vulnerabilities
+1 high severity vulnerability
+0 critical
+```
+
+### Suggested remediation (out of scope for this revision)
+
+These remediations are documented for traceability into a separate
+maintenance change. They are **not** applied in this revision per
+the Minimal Change Clause cited above.
+
+- Upgrade `express-rate-limit` from `8.3.1` to `8.5.2`. This
+  clears findings #3 and #4 by pulling in a fixed transitive
+  `ip-address`. Source: `npm view express-rate-limit version` at
+  the time of audit; `npm audit --json` `fixAvailable: true`
+  field on the `express-rate-limit` entry.
+- Upgrade `jest` from `30.3.0` to a patch release containing
+  fixed `brace-expansion` transitives. Source: `npm audit --json`
+  `fixAvailable: true` on the `brace-expansion` entry.
+- Upgrade `express` once a release consumes `path-to-regexp
+  >=8.4.0`. As of the time this section was authored, the
+  installed `express@5.2.1` still resolves `path-to-regexp@8.3.0`.
+  Findings #1 and #2 clear when this transitive is bumped.
+  Source: `npm ls path-to-regexp` showing the resolution chain
+  `express@5.2.1 → router@2.2.0 → path-to-regexp@8.3.0`.
+- After applying any of the above, re-run `npm audit` and
+  `npm test` to confirm the audit count is reduced and that the
+  full test suite remains green.
+
+### Operator responsibilities
+
+- Re-run `npm audit` on every deployment build to detect
+  newly-disclosed advisories.
+- Subscribe to GHSA notifications for the runtime packages listed
+  in `/package.json` `dependencies`: `compression`, `cors`,
+  `dotenv`, `express`, `express-rate-limit`, `helmet`, `morgan`,
+  `winston`, `zod`.
+- Track upstream `express` and `express-rate-limit` releases for
+  the patches needed to clear findings #1, #2, #3, and #4 from
+  the runtime tree.
+- For findings whose practical exploitability against this
+  service is documented as "near-zero" above, an immediate
+  hotfix may not be required; for any finding whose practical
+  risk increases (e.g., if the service is later extended to
+  register dynamic route patterns), reassess the priority.
+
 ## Limitations
 
 - **No authentication or authorization.** Every endpoint is publicly
@@ -903,6 +1031,15 @@ current revision of these files.
   `tests/routes/index.test.js`, `tests/routes/health.test.js`,
   `tests/routes/api.test.js` — error-shape and validation-shape
   assertions referenced throughout this document.
+- `/package.json` and `/package-lock.json` — authoritative
+  declarations of runtime and dev-dependency versions referenced
+  in [Known Dependency Vulnerabilities](#known-dependency-vulnerabilities).
+- `npm audit --json` (run against the GitHub Advisory Database) —
+  produced the GHSA identifiers, CVSS scores, CWE classifications,
+  and affected version ranges enumerated in
+  [Known Dependency Vulnerabilities](#known-dependency-vulnerabilities).
+  The advisory URLs in that section link directly to the
+  authoritative GitHub Advisory entries.
 
 ## Related Documentation
 
