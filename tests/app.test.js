@@ -17,7 +17,7 @@
  *   - branches   ≥ 90 %  (Morgan format dev/combined branch covered below)
  *   - statements ≥ 95 %
  *
- * Test organisation (20 tests / 6 nested describe blocks):
+ * Test organisation (21 tests / 6 nested describe blocks):
  *   1. Helmet security headers (7) — x-content-type-options, x-frame-options,
  *      strict-transport-security, referrer-policy, x-dns-prefetch-control,
  *      content-security-policy, x-powered-by suppression.
@@ -27,8 +27,12 @@
  *      empty JSON body.
  *   5. Route mounting and notFound delegation (4) — /health, /api, /api/info
  *      reachable; 404 shape on unknown paths; JSON content type; nested paths.
- *   6. Morgan logging integration (3) — logger.http invoked in default env,
- *      production env (combined format branch), and 'test' env (no crash).
+ *   6. Morgan logging integration (4) — logger.http invoked in default env,
+ *      dev-format shape (default env), combined-format shape (production env),
+ *      and 'test' env (no crash). The dev/combined format-shape assertions
+ *      verify the actual logged string (not merely the call count) so that
+ *      a regression which still calls logger.http with the wrong format is
+ *      caught loudly per the AAP § 0.1.1 / § 0.4.2 mandate.
  *
  * Test isolation strategy (AAP § 0.4.5):
  *   - jest.resetModules() in beforeEach so each test loads src/app.js fresh and
@@ -367,6 +371,33 @@ describe('src/app.js', () => {
   // not crash under an arbitrary NODE_ENV that is neither development nor
   // production, satisfying the AAP § 0.4.2 happy-path and edge-case
   // requirements for Morgan format selection.
+  //
+  // Format-shape assertions (AAP §§ 0.1.1, 0.4.2 — environment-sensitive
+  // Morgan format selection must be semantically verified, not merely
+  // observed via logger invocation count). The two formats produce
+  // distinct, machine-detectable signatures:
+  //
+  //   dev      → ':method :url :status :response-time ms - :res[content-length]'
+  //              Example: 'GET /api 200 1.992 ms - 27'
+  //              - DOES contain a millisecond response-time segment ('ms')
+  //              - DOES NOT contain the quoted HTTP-version request line
+  //
+  //   combined → ':remote-addr - :remote-user [:date[clf]] ":method :url
+  //               HTTP/:http-version" :status :res[content-length]
+  //               ":referer" ":user-agent"'
+  //              Example: '::ffff:127.0.0.1 - - [18/May/2026:14:07:38 +0000]
+  //              "GET /api HTTP/1.1" 200 27 "-" "-"'
+  //              - DOES contain the quoted HTTP-version request line
+  //                ('"GET /api HTTP/1.1"')
+  //              - DOES contain a bracketed CLF date stamp
+  //              - DOES contain quoted referer/user-agent segments
+  //
+  // The format-shape assertions below inspect the actual string passed to
+  // logger.http (via logger.stream.write, which strips ANSI escapes and
+  // trims trailing newlines per src/utils/logger.js). They would catch a
+  // regression such as `const morganFormat = 'dev'` (incorrect production
+  // format) or an inverted ternary, both of which would silently pass an
+  // invocation-only assertion.
   // ---------------------------------------------------------------------------
   describe('Morgan logging integration', () => {
     it('invokes logger.http (via Morgan stream) on each request in default env', async () => {
@@ -379,7 +410,36 @@ describe('src/app.js', () => {
       expect(logger.http).toHaveBeenCalled();
     });
 
-    it('still invokes the Morgan stream when NODE_ENV=production (combined format)', async () => {
+    it('uses Morgan "dev" format in non-production env (asserts format shape)', async () => {
+      // Under default NODE_ENV (undefined → 'development' fallback in
+      // src/config/index.js), src/app.js takes the 'dev' branch of the
+      // morganFormat ternary. The dev format embeds the response-time
+      // segment (' ms ') and the response-content-length suffix
+      // (' - <bytes>'), but does NOT emit the quoted HTTP request line
+      // that uniquely identifies the combined format.
+      await request(app).get('/api');
+
+      expect(logger.http).toHaveBeenCalled();
+      // The Morgan stream invokes logger.http exactly once per request.
+      // Grab the most recent call's first argument and inspect its shape.
+      const lastCallArgs = logger.http.mock.calls[logger.http.mock.calls.length - 1];
+      const logged = lastCallArgs[0];
+
+      // Robust dev-format signature: contains the method + path + status
+      // and the response-time ' ms ' segment that is unique to 'dev'.
+      // A regression that swapped 'dev' for 'combined' would emit the
+      // quoted HTTP/1.1 request line and lack the bare 'GET /api 200'
+      // prefix — both differences are detected by these assertions.
+      expect(logged).toMatch(/GET \/api 200/);
+      expect(logged).toMatch(/\bms\b/);
+
+      // Negative assertion: the combined-format quoted HTTP request line
+      // MUST NOT appear in dev-format output. This is the assertion that
+      // catches an inverted ternary or accidental 'combined' default.
+      expect(logged).not.toMatch(/"GET \/api HTTP\/\d\.\d"/);
+    });
+
+    it('uses Morgan "combined" format when NODE_ENV=production (asserts format shape)', async () => {
       // Switch NODE_ENV before re-loading the modules so config.nodeEnv
       // reads 'production' at module-load time and src/app.js takes the
       // 'combined' branch of the morganFormat ternary.
@@ -407,6 +467,33 @@ describe('src/app.js', () => {
 
       await request(prodApp).get('/api');
       expect(prodLogger.http).toHaveBeenCalled();
+
+      // Inspect the actual string Morgan produced. The combined format
+      // includes the quoted HTTP request line "<METHOD> <URL> HTTP/<ver>"
+      // which is the most distinctive signature of the format. A
+      // regression that left morganFormat at 'dev' would call logger.http
+      // (passing an invocation-only assertion) but emit 'GET /api 200 …
+      // ms - 27' instead, lacking the quoted HTTP-version segment. The
+      // assertions below would then fail loudly.
+      const lastCallArgs = prodLogger.http.mock.calls[prodLogger.http.mock.calls.length - 1];
+      const logged = lastCallArgs[0];
+
+      // Primary combined-format signature: the quoted HTTP request line
+      // is emitted only by the combined format (per Morgan's
+      // documentation and the empirical output captured during test
+      // development).
+      expect(logged).toMatch(/"GET \/api HTTP\/\d\.\d"/);
+
+      // Secondary combined-format signature: the bracketed CLF date stamp
+      // ([dd/Mon/yyyy:HH:MM:SS +ZZZZ]) is unique to the combined format.
+      // Together with the request-line signature, the two assertions make
+      // it effectively impossible for a dev-format log line to pass.
+      expect(logged).toMatch(/\[\d{2}\/\w{3}\/\d{4}:\d{2}:\d{2}:\d{2} [+-]\d{4}\]/);
+
+      // Negative assertion: the dev-format response-time millisecond
+      // segment (' ms ') MUST NOT appear in the combined output. Morgan's
+      // combined format does NOT include response-time at all.
+      expect(logged).not.toMatch(/\d+(\.\d+)? ms\b/);
     });
 
     it('does not crash when NODE_ENV is "test"', async () => {

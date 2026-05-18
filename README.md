@@ -233,6 +233,42 @@ npm run test:coverage
 
 The coverage report is written to the `./coverage/` directory (added to `.gitignore`). Open `./coverage/index.html` in a browser to inspect the per-file line, function, branch, and statement coverage breakdown. The configuration in `jest.config.js` enforces a global floor of 90% lines / 90% functions / 80% branches / 90% statements and will fail the run if coverage drops below those thresholds.
 
+## Security and Dependency Audit
+
+### Runtime dependencies (production)
+
+The runtime dependency graph (`npm audit --omit=dev`) is **clean — 0 vulnerabilities**. The production application surface — Express 5.x, Helmet, CORS, compression, Morgan, Winston, dotenv — has no known CVEs at the pinned versions.
+
+### Development dependencies (operational tooling)
+
+Running the full `npm audit` (which includes the `pm2` developer/operational toolchain in `devDependencies`) currently reports **1 low-severity advisory** that is risk-accepted by this project:
+
+| Package | Severity | Advisory | Status |
+|---------|---------:|---------|--------|
+| `pm2` `<=6.0.14` | Low | [GHSA-x5gf-qvw8-r2rm](https://github.com/advisories/GHSA-x5gf-qvw8-r2rm) — Regular Expression Denial of Service in PM2's log-display path | **Risk-accepted (dev-only)** |
+
+**Risk-acceptance rationale:**
+
+1. **Not exposed at runtime.** PM2 is a process supervisor invoked by operators (`npm run start:pm2`, `pm2 logs`, etc.); it is not loaded by `server.js` and does not appear in the request-handling code path. The advisory's ReDoS vector is triggered only when PM2 itself parses adversarial input through its CLI/log surface, which is not exposed to web clients.
+2. **No safe upgrade path within the pinned major.** The advisory is fixed only in `pm2@7.x`, which is a [semver-major breaking change](https://docs.npmjs.com/about-semantic-versioning). The current pinned range (`^6.0.14`) is preserved to maintain the documented PM2 cluster-mode contract and the `ecosystem.config.js` configuration shape.
+3. **Operators control PM2 invocation.** PM2 is run interactively by operators on trusted hosts, not by untrusted users. The ReDoS impact is limited to the operator's terminal session.
+4. **All transitive vulnerabilities in PM2's dependency tree have been remediated** via `npm audit fix` (basic-ftp, follow-redirects, ip-address, lodash, systeminformation are all upgraded to advisory-clean versions via lockfile resolution).
+
+If operators wish to remove this advisory entirely, the upgrade path is `npm install pm2@7` and re-validation of the `ecosystem.config.js` cluster-mode contract against the PM2 v7 migration guide. This is intentionally not done in the current revision because it would introduce a breaking change outside the scope of the existing dependency contract.
+
+### Verification commands
+
+```bash
+# Runtime audit (must be clean)
+npm audit --omit=dev
+
+# Full audit (currently reports 1 risk-accepted low-severity PM2 advisory)
+npm audit
+
+# Lockfile sync verification (must exit 0)
+npm ci --dry-run
+```
+
 ## License
 
 This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).
